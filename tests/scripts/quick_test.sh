@@ -127,20 +127,31 @@ echo ""
 # Test 5: Validate lfs-dist
 log_test "Validating lfs-dist volume..."
 
-if docker volume inspect easylfs_lfs-dist >/dev/null 2>&1; then
-    if docker run --rm -v easylfs_lfs-dist:/v alpine test -f /v/lfs-12.4-sysv.img.gz; then
-        log_pass "Disk image found (lfs-12.4-sysv.img.gz)"
+# Use the correct image name from docker-compose.yml
+IMAGE_NAME="${IMAGE_NAME:-rookery-os-1.0}"
 
-        size=$(docker run --rm -v easylfs_lfs-dist:/v alpine stat -c%s /v/lfs-12.4-sysv.img.gz)
+if docker volume inspect easylfs_lfs-dist >/dev/null 2>&1; then
+    if docker run --rm -v easylfs_lfs-dist:/v alpine test -f "/v/${IMAGE_NAME}.img.gz"; then
+        log_pass "Disk image found (${IMAGE_NAME}.img.gz)"
+
+        size=$(docker run --rm -v easylfs_lfs-dist:/v alpine stat -c%s "/v/${IMAGE_NAME}.img.gz")
         log_pass "Image size: $(($size / 1024 / 1024))MB"
     else
         log_skip "Disk image not found (run package-image)"
     fi
 
-    if docker run --rm -v easylfs_lfs-dist:/v alpine test -f /v/lfs-12.4-sysv.tar.gz; then
+    if docker run --rm -v easylfs_lfs-dist:/v alpine test -f "/v/${IMAGE_NAME}.tar.gz"; then
         log_pass "System tarball found"
     else
         log_skip "System tarball not found"
+    fi
+
+    if docker run --rm -v easylfs_lfs-dist:/v alpine test -f "/v/${IMAGE_NAME}.iso"; then
+        log_pass "ISO image found (${IMAGE_NAME}.iso)"
+        iso_size=$(docker run --rm -v easylfs_lfs-dist:/v alpine stat -c%s "/v/${IMAGE_NAME}.iso")
+        log_pass "ISO size: $(($iso_size / 1024 / 1024))MB"
+    else
+        log_skip "ISO image not found"
     fi
 else
     log_skip "lfs-dist volume not found"

@@ -18,6 +18,9 @@ RUN apt-get update && apt-get install -y \
     udev \
     cpio \
     gzip \
+    binutils \
+    file \
+    findutils \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy packaging script

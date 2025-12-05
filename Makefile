@@ -229,14 +229,18 @@ else
 	@echo -e "$(GREEN)Complete reset done.$(NC)"
 endif
 
+# Default image name (matches docker-compose.yml)
+IMAGE_NAME ?= rookery-os-1.0
+
 # Export final image to current directory
 export:
-	@echo -e "$(YELLOW)Exporting disk image to current directory...$(NC)"
-	@docker run --rm -v easylfs_lfs-dist:/dist -v $(PWD):/output alpine cp /dist/lfs-12.4-sysv.img /output/ 2>/dev/null || echo -e "$(RED)No image found. Run 'make build' first.$(NC)"
-	@if [ -f lfs-12.4-sysv.img ]; then \
-		echo -e "$(GREEN)Image exported: lfs-12.4-sysv.img$(NC)"; \
-		ls -lh lfs-12.4-sysv.img; \
-	fi
+	@echo -e "$(YELLOW)Exporting images to current directory...$(NC)"
+	@docker run --rm -v easylfs_lfs-dist:/dist -v $(PWD):/output alpine sh -c '\
+		for f in /dist/$(IMAGE_NAME).img /dist/$(IMAGE_NAME).img.gz /dist/$(IMAGE_NAME).iso /dist/$(IMAGE_NAME).tar.gz; do \
+			if [ -f "$$f" ]; then cp "$$f" /output/; fi; \
+		done' 2>/dev/null || echo -e "$(RED)No images found. Run 'make build' first.$(NC)"
+	@echo -e "$(GREEN)Exported images:$(NC)"
+	@ls -lh $(IMAGE_NAME).* 2>/dev/null || echo "  (no images found)"
 
 # Web interface targets
 web-terminal:
