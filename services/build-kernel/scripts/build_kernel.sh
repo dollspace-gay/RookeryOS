@@ -267,14 +267,24 @@ main() {
     scripts/config --module CONFIG_RTL8192CE
     scripts/config --module CONFIG_RTW88
 
-    # --- Filesystems (as modules except root fs) ---
+    # --- Filesystems required for ISO/Live boot (built-in for reliability) ---
+    scripts/config --enable CONFIG_BLK_DEV_LOOP
+    scripts/config --enable CONFIG_ISO9660_FS
+    scripts/config --enable CONFIG_JOLIET
+    scripts/config --enable CONFIG_ZISOFS
+    scripts/config --enable CONFIG_SQUASHFS
+    scripts/config --enable CONFIG_SQUASHFS_XZ
+    scripts/config --enable CONFIG_SQUASHFS_ZSTD
+    scripts/config --enable CONFIG_SQUASHFS_LZO
+    scripts/config --enable CONFIG_OVERLAY_FS
+
+    # --- Other filesystems (as modules) ---
     scripts/config --module CONFIG_BTRFS_FS
     scripts/config --module CONFIG_XFS_FS
     scripts/config --module CONFIG_VFAT_FS
     scripts/config --module CONFIG_FAT_FS
     scripts/config --module CONFIG_MSDOS_FS
     scripts/config --module CONFIG_NTFS3_FS
-    scripts/config --module CONFIG_ISO9660_FS
     scripts/config --module CONFIG_UDF_FS
     scripts/config --module CONFIG_FUSE_FS
     scripts/config --module CONFIG_NFS_FS

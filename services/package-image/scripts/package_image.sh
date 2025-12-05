@@ -330,6 +330,58 @@ create_tarball() {
     log_info "Size: $(du -h $tarball | cut -f1)"
 }
 
+# Helper function to copy a binary and all its library dependencies
+copy_binary_with_libs() {
+    local binary="$1"
+    local initramfs_dir="$2"
+    local lfs_root="$3"
+
+    if [ ! -f "$binary" ]; then
+        log_warn "Binary not found: $binary"
+        return 1
+    fi
+
+    # Determine destination path (preserve usr structure)
+    local rel_path="${binary#$lfs_root}"
+    local dest_dir="$initramfs_dir$(dirname "$rel_path")"
+    mkdir -p "$dest_dir"
+    cp -a "$binary" "$dest_dir/" 2>/dev/null || return 1
+
+    # Find and copy library dependencies using objdump (available in LFS)
+    # We parse the NEEDED entries from the dynamic section
+    local libs
+    libs=$(objdump -p "$binary" 2>/dev/null | grep NEEDED | awk '{print $2}')
+
+    for lib in $libs; do
+        # Search for library in standard paths
+        local lib_path=""
+        for search_dir in "$lfs_root/lib64" "$lfs_root/lib" "$lfs_root/usr/lib64" "$lfs_root/usr/lib"; do
+            if [ -f "$search_dir/$lib" ]; then
+                lib_path="$search_dir/$lib"
+                break
+            fi
+        done
+
+        if [ -n "$lib_path" ] && [ -f "$lib_path" ]; then
+            local lib_rel="${lib_path#$lfs_root}"
+            local lib_dest_dir="$initramfs_dir$(dirname "$lib_rel")"
+            mkdir -p "$lib_dest_dir"
+            if [ ! -f "$initramfs_dir$lib_rel" ]; then
+                cp -a "$lib_path" "$lib_dest_dir/" 2>/dev/null
+                # Handle symlinks - copy the actual file too
+                if [ -L "$lib_path" ]; then
+                    local real_lib=$(readlink -f "$lib_path")
+                    if [ -f "$real_lib" ]; then
+                        cp -a "$real_lib" "$lib_dest_dir/" 2>/dev/null
+                    fi
+                fi
+            fi
+        fi
+    done
+
+    return 0
+}
+
 # Create bootable ISO image
 create_iso() {
     log_info "=========================================="
@@ -342,88 +394,423 @@ create_iso() {
 
     # Check for required tools
     if ! command -v xorriso &>/dev/null; then
-        log_warn "xorriso not found - skipping ISO creation"
-        log_warn "Install xorriso to enable ISO creation"
-        return 0
+        log_error "xorriso not found - cannot create ISO"
+        log_error "Install xorriso package to enable ISO creation"
+        return 1
+    fi
+
+    if ! command -v mksquashfs &>/dev/null; then
+        log_error "mksquashfs not found - cannot create ISO"
+        log_error "Install squashfs-tools package to enable ISO creation"
+        return 1
     fi
 
     # Clean up any previous ISO build
     rm -rf "$iso_root"
     mkdir -p "$iso_boot/grub"
+    mkdir -p "$iso_root/LiveOS"
 
-    # Copy kernel and create initramfs structure
+    # =========================================================================
+    # Step 1: Copy kernel to ISO
+    # =========================================================================
     log_step "Setting up ISO boot files..."
 
-    # Copy kernel
     if [ -f "$LFS/boot/vmlinuz" ]; then
         cp "$LFS/boot/vmlinuz" "$iso_boot/"
         log_info "Copied kernel to ISO"
     else
-        log_warn "No kernel found at $LFS/boot/vmlinuz"
+        log_error "No kernel found at $LFS/boot/vmlinuz"
         return 1
     fi
 
-    # Create a minimal initramfs for ISO boot
-    log_step "Creating initramfs for ISO boot..."
+    # =========================================================================
+    # Step 2: Create squashfs root filesystem for live boot
+    # =========================================================================
+    log_step "Creating squashfs root filesystem..."
+
+    mksquashfs "$LFS" "$iso_root/LiveOS/rootfs.img" \
+        -e "dev/*" \
+        -e "proc/*" \
+        -e "sys/*" \
+        -e "run/*" \
+        -e "tmp/*" \
+        -e "sources/*" \
+        -e "build/*" \
+        -e "tools/*" \
+        -e ".checkpoints" \
+        -e "*.log" \
+        -comp xz \
+        -Xbcj x86 \
+        -b 1M \
+        -no-recovery
+
+    if [ ! -f "$iso_root/LiveOS/rootfs.img" ]; then
+        log_error "Failed to create squashfs filesystem"
+        return 1
+    fi
+
+    local squashfs_size=$(du -h "$iso_root/LiveOS/rootfs.img" | cut -f1)
+    log_info "Created squashfs root filesystem: $squashfs_size"
+
+    # =========================================================================
+    # Step 3: Create initramfs with full coreutils/util-linux (no busybox)
+    # =========================================================================
+    log_step "Creating initramfs with full system utilities..."
     local initramfs_dir="/tmp/initramfs-iso"
     rm -rf "$initramfs_dir"
-    mkdir -p "$initramfs_dir"/{bin,sbin,etc,proc,sys,dev,newroot,lib,lib64,usr/lib,usr/bin,usr/sbin}
 
-    # Copy essential binaries from LFS system
-    cp -a "$LFS/bin/busybox" "$initramfs_dir/bin/" 2>/dev/null || true
-    cp -a "$LFS/bin/bash" "$initramfs_dir/bin/" 2>/dev/null || true
-    cp -a "$LFS/bin/sh" "$initramfs_dir/bin/" 2>/dev/null || true
-    cp -a "$LFS/sbin/switch_root" "$initramfs_dir/sbin/" 2>/dev/null || true
-    cp -a "$LFS/bin/mount" "$initramfs_dir/bin/" 2>/dev/null || true
-    cp -a "$LFS/bin/umount" "$initramfs_dir/bin/" 2>/dev/null || true
+    # Create directory structure
+    mkdir -p "$initramfs_dir"/{bin,sbin,etc,proc,sys,dev,run,tmp,newroot}
+    mkdir -p "$initramfs_dir"/{lib,lib64}
+    mkdir -p "$initramfs_dir"/usr/{bin,sbin,lib,lib64}
+    mkdir -p "$initramfs_dir"/lib/modules
 
-    # Copy required libraries
-    for lib in ld-linux-x86-64.so.2 libc.so.6 libdl.so.2 libpthread.so.0 libm.so.6; do
-        if [ -f "$LFS/lib64/$lib" ]; then
-            cp -a "$LFS/lib64/$lib" "$initramfs_dir/lib64/" 2>/dev/null || true
-        elif [ -f "$LFS/lib/$lib" ]; then
-            cp -a "$LFS/lib/$lib" "$initramfs_dir/lib/" 2>/dev/null || true
+    # Copy the dynamic linker first (required for all dynamically linked binaries)
+    log_info "Copying dynamic linker..."
+    if [ -f "$LFS/lib64/ld-linux-x86-64.so.2" ]; then
+        cp -a "$LFS/lib64/ld-linux-x86-64.so.2" "$initramfs_dir/lib64/"
+        # Also copy the actual file if it's a symlink
+        if [ -L "$LFS/lib64/ld-linux-x86-64.so.2" ]; then
+            local real_ld=$(readlink -f "$LFS/lib64/ld-linux-x86-64.so.2")
+            cp -a "$real_ld" "$initramfs_dir/lib64/"
+        fi
+    elif [ -f "$LFS/lib/ld-linux-x86-64.so.2" ]; then
+        mkdir -p "$initramfs_dir/lib"
+        cp -a "$LFS/lib/ld-linux-x86-64.so.2" "$initramfs_dir/lib/"
+        ln -sf ../lib/ld-linux-x86-64.so.2 "$initramfs_dir/lib64/ld-linux-x86-64.so.2"
+    fi
+
+    # Copy core glibc libraries
+    log_info "Copying glibc libraries..."
+    for lib in libc.so.6 libm.so.6 libresolv.so.2 libnss_files.so.2; do
+        for search_dir in "$LFS/lib64" "$LFS/lib" "$LFS/usr/lib"; do
+            if [ -f "$search_dir/$lib" ]; then
+                cp -a "$search_dir/$lib" "$initramfs_dir/lib64/" 2>/dev/null
+                # Copy actual file if symlink
+                if [ -L "$search_dir/$lib" ]; then
+                    local real_lib=$(readlink -f "$search_dir/$lib")
+                    [ -f "$real_lib" ] && cp -a "$real_lib" "$initramfs_dir/lib64/"
+                fi
+                break
+            fi
+        done
+    done
+
+    # Essential binaries for initramfs (using full coreutils, not busybox)
+    log_info "Copying essential binaries..."
+
+    # Shell - bash (required for init script)
+    for shell_bin in bash sh; do
+        for path in "$LFS/usr/bin/$shell_bin" "$LFS/bin/$shell_bin"; do
+            if [ -f "$path" ] && [ ! -L "$path" ]; then
+                copy_binary_with_libs "$path" "$initramfs_dir" "$LFS"
+                break
+            elif [ -L "$path" ]; then
+                # Copy symlink and target
+                local target=$(readlink -f "$path")
+                if [ -f "$target" ]; then
+                    copy_binary_with_libs "$target" "$initramfs_dir" "$LFS"
+                fi
+                local rel_path="${path#$LFS}"
+                mkdir -p "$initramfs_dir$(dirname "$rel_path")"
+                cp -a "$path" "$initramfs_dir$rel_path" 2>/dev/null
+                break
+            fi
+        done
+    done
+
+    # Create /bin/sh symlink if it doesn't exist
+    if [ ! -e "$initramfs_dir/bin/sh" ]; then
+        if [ -f "$initramfs_dir/usr/bin/bash" ]; then
+            ln -sf ../usr/bin/bash "$initramfs_dir/bin/sh"
+        elif [ -f "$initramfs_dir/bin/bash" ]; then
+            ln -sf bash "$initramfs_dir/bin/sh"
+        fi
+    fi
+
+    # Core utilities from coreutils
+    COREUTILS_BINS="cat ls mkdir mknod mount umount sleep echo ln cp mv rm chmod chown chroot stat head tail"
+    for bin in $COREUTILS_BINS; do
+        for path in "$LFS/usr/bin/$bin" "$LFS/bin/$bin"; do
+            if [ -f "$path" ]; then
+                copy_binary_with_libs "$path" "$initramfs_dir" "$LFS"
+                break
+            fi
+        done
+    done
+
+    # Util-linux binaries
+    UTILLINUX_BINS="switch_root mount umount losetup blkid findmnt dmesg"
+    for bin in $UTILLINUX_BINS; do
+        for path in "$LFS/usr/sbin/$bin" "$LFS/usr/bin/$bin" "$LFS/sbin/$bin" "$LFS/bin/$bin"; do
+            if [ -f "$path" ]; then
+                copy_binary_with_libs "$path" "$initramfs_dir" "$LFS"
+                break
+            fi
+        done
+    done
+
+    # Kmod utilities (for loading kernel modules)
+    KMOD_BINS="modprobe insmod lsmod depmod"
+    for bin in $KMOD_BINS; do
+        for path in "$LFS/usr/sbin/$bin" "$LFS/sbin/$bin" "$LFS/usr/bin/$bin"; do
+            if [ -f "$path" ]; then
+                copy_binary_with_libs "$path" "$initramfs_dir" "$LFS"
+                break
+            elif [ -L "$path" ]; then
+                # kmod uses symlinks - copy the actual kmod binary
+                local target=$(readlink -f "$path")
+                if [ -f "$target" ]; then
+                    copy_binary_with_libs "$target" "$initramfs_dir" "$LFS"
+                fi
+                local rel_path="${path#$LFS}"
+                mkdir -p "$initramfs_dir$(dirname "$rel_path")"
+                cp -a "$path" "$initramfs_dir$rel_path" 2>/dev/null
+                break
+            fi
+        done
+    done
+
+    # Additional libraries that may be needed
+    log_info "Copying additional libraries..."
+    for lib in libblkid.so.1 libmount.so.1 libuuid.so.1 libreadline.so.8 libncursesw.so.6 \
+               libtinfo.so.6 libz.so.1 liblzma.so.5 libzstd.so.1 libkmod.so.2 libcrypto.so.3; do
+        for search_dir in "$LFS/lib64" "$LFS/lib" "$LFS/usr/lib64" "$LFS/usr/lib"; do
+            if [ -f "$search_dir/$lib" ]; then
+                cp -a "$search_dir/$lib" "$initramfs_dir/lib64/" 2>/dev/null
+                if [ -L "$search_dir/$lib" ]; then
+                    local real_lib=$(readlink -f "$search_dir/$lib")
+                    [ -f "$real_lib" ] && cp -a "$real_lib" "$initramfs_dir/lib64/"
+                fi
+                break
+            fi
+        done
+    done
+
+    # Copy all .so files to ensure we don't miss dependencies
+    log_info "Copying shared library symlinks..."
+    for search_dir in "$LFS/lib64" "$LFS/usr/lib"; do
+        if [ -d "$search_dir" ]; then
+            find "$search_dir" -maxdepth 1 -name "*.so*" -exec cp -an {} "$initramfs_dir/lib64/" \; 2>/dev/null || true
         fi
     done
 
-    # Copy additional required libs
-    cp -a "$LFS"/lib/x86_64-linux-gnu/*.so* "$initramfs_dir/lib/" 2>/dev/null || true
-    cp -a "$LFS"/usr/lib/*.so* "$initramfs_dir/usr/lib/" 2>/dev/null || true
+    # =========================================================================
+    # Step 4: Copy kernel modules for ISO boot (iso9660, squashfs, loop)
+    # =========================================================================
+    log_step "Copying kernel modules..."
 
-    # Create init script for initramfs
+    # Find the kernel version
+    local kernel_version=""
+    if [ -d "$LFS/lib/modules" ]; then
+        kernel_version=$(ls -1 "$LFS/lib/modules" | head -1)
+    fi
+
+    if [ -n "$kernel_version" ] && [ -d "$LFS/lib/modules/$kernel_version" ]; then
+        local mod_src="$LFS/lib/modules/$kernel_version"
+        local mod_dst="$initramfs_dir/lib/modules/$kernel_version"
+        mkdir -p "$mod_dst/kernel/fs" "$mod_dst/kernel/drivers/block"
+
+        # Copy required modules for ISO boot
+        # Filesystem modules
+        find "$mod_src" -name "isofs.ko*" -exec cp {} "$mod_dst/kernel/fs/" \; 2>/dev/null
+        find "$mod_src" -name "iso9660.ko*" -exec cp {} "$mod_dst/kernel/fs/" \; 2>/dev/null
+        find "$mod_src" -name "squashfs.ko*" -exec cp {} "$mod_dst/kernel/fs/" \; 2>/dev/null
+        find "$mod_src" -name "overlay.ko*" -exec cp {} "$mod_dst/kernel/fs/" \; 2>/dev/null
+        find "$mod_src" -name "loop.ko*" -exec cp {} "$mod_dst/kernel/drivers/block/" \; 2>/dev/null
+
+        # Copy modules.* files for modprobe
+        cp "$mod_src"/modules.* "$mod_dst/" 2>/dev/null || true
+
+        # Generate modules.dep if depmod is available
+        if command -v depmod &>/dev/null; then
+            depmod -a -b "$initramfs_dir" "$kernel_version" 2>/dev/null || true
+        fi
+
+        log_info "Copied kernel modules for version: $kernel_version"
+    else
+        log_warn "Kernel modules not found - ISO may not boot on all systems"
+    fi
+
+    # =========================================================================
+    # Step 5: Create the init script for live boot
+    # =========================================================================
+    log_step "Creating init script..."
+
     cat > "$initramfs_dir/init" << 'INITEOF'
 #!/bin/sh
-# Minimal init for ISO boot
+# Rookery OS Live Boot Init Script
+# Boots from ISO by mounting squashfs root filesystem
 
+# Mount essential filesystems
 mount -t proc none /proc
 mount -t sysfs none /sys
 mount -t devtmpfs none /dev
+mkdir -p /dev/pts /dev/shm
+mount -t devpts devpts /dev/pts
+mount -t tmpfs tmpfs /dev/shm
+mount -t tmpfs tmpfs /run
+mount -t tmpfs tmpfs /tmp
 
-echo "Rookery OS 1.0 - Friendly Society of Corvids"
-echo "Searching for root filesystem..."
+# Enable kernel messages on console
+echo 1 > /proc/sys/kernel/printk
 
-# Try to find and mount the squashfs or the disk image
-# For now, drop to shell for manual boot
 echo ""
-echo "ISO boot environment ready."
-echo "To continue booting, mount your root filesystem to /newroot"
-echo "and exec switch_root /newroot /sbin/init"
+echo "=========================================="
+echo "  Rookery OS 1.0 - Live Boot"
+echo "  Friendly Society of Corvids"
+echo "=========================================="
 echo ""
 
-exec /bin/sh
+# Parse kernel command line
+INSTALL_MODE=0
+for arg in $(cat /proc/cmdline); do
+    case "$arg" in
+        rookery_install=1) INSTALL_MODE=1 ;;
+    esac
+done
+
+# Load required kernel modules
+echo "Loading kernel modules..."
+KERNEL_VERSION=$(uname -r)
+
+# Try to load modules (they may be built-in)
+for mod in loop squashfs isofs iso9660 overlay; do
+    modprobe $mod 2>/dev/null || true
+done
+
+# Wait for devices to settle
+sleep 2
+
+# Find the ISO/CD-ROM device
+echo "Searching for boot media..."
+ISO_DEV=""
+MOUNT_POINT="/mnt/iso"
+mkdir -p "$MOUNT_POINT"
+
+# Try common CD-ROM devices first
+for dev in /dev/sr0 /dev/sr1 /dev/cdrom /dev/dvd; do
+    if [ -b "$dev" ]; then
+        echo "  Trying $dev..."
+        if mount -t iso9660 -o ro "$dev" "$MOUNT_POINT" 2>/dev/null; then
+            if [ -f "$MOUNT_POINT/LiveOS/rootfs.img" ]; then
+                ISO_DEV="$dev"
+                echo "  Found boot media at $dev"
+                break
+            fi
+            umount "$MOUNT_POINT" 2>/dev/null
+        fi
+    fi
+done
+
+# If not found, scan all block devices
+if [ -z "$ISO_DEV" ]; then
+    echo "  Scanning block devices..."
+    for dev in /dev/sd* /dev/vd* /dev/nvme*; do
+        [ -b "$dev" ] || continue
+        # Skip if it's a partition that's too small (< 100MB)
+        if mount -t iso9660 -o ro "$dev" "$MOUNT_POINT" 2>/dev/null; then
+            if [ -f "$MOUNT_POINT/LiveOS/rootfs.img" ]; then
+                ISO_DEV="$dev"
+                echo "  Found boot media at $dev"
+                break
+            fi
+            umount "$MOUNT_POINT" 2>/dev/null
+        fi
+    done
+fi
+
+if [ -z "$ISO_DEV" ]; then
+    echo ""
+    echo "ERROR: Could not find boot media with LiveOS/rootfs.img"
+    echo ""
+    echo "Available block devices:"
+    ls -la /dev/sd* /dev/sr* /dev/vd* 2>/dev/null || echo "  (none found)"
+    echo ""
+    echo "Dropping to emergency shell..."
+    exec /bin/sh
+fi
+
+# Mount the squashfs root filesystem
+echo "Mounting squashfs root filesystem..."
+mkdir -p /mnt/squash
+if ! mount -t squashfs -o ro,loop "$MOUNT_POINT/LiveOS/rootfs.img" /mnt/squash; then
+    echo "ERROR: Failed to mount squashfs filesystem"
+    echo "Dropping to emergency shell..."
+    exec /bin/sh
+fi
+
+# Create overlay for writable live system
+echo "Setting up overlay filesystem..."
+mkdir -p /mnt/overlay/upper /mnt/overlay/work /mnt/overlay/merged
+
+mount -t tmpfs tmpfs /mnt/overlay
+
+mkdir -p /mnt/overlay/upper /mnt/overlay/work
+
+if mount -t overlay overlay -o lowerdir=/mnt/squash,upperdir=/mnt/overlay/upper,workdir=/mnt/overlay/work /newroot 2>/dev/null; then
+    echo "Overlay filesystem ready (changes will not persist)"
+else
+    # Fallback: mount squashfs directly (read-only)
+    echo "Overlay not available, using read-only root"
+    mount --move /mnt/squash /newroot
+fi
+
+# Prepare for switch_root
+mkdir -p /newroot/mnt/iso /newroot/run
+
+# Move mounts to new root
+mount --move /proc /newroot/proc
+mount --move /sys /newroot/sys
+mount --move /dev /newroot/dev
+mount --move /run /newroot/run
+
+# Keep ISO mounted for access to additional files
+mount --move "$MOUNT_POINT" /newroot/mnt/iso 2>/dev/null || true
+
+echo ""
+echo "Switching to root filesystem..."
+echo ""
+
+# Switch to the real root and exec init
+if [ -x /newroot/usr/lib/systemd/systemd ]; then
+    exec switch_root /newroot /usr/lib/systemd/systemd
+elif [ -x /newroot/sbin/init ]; then
+    exec switch_root /newroot /sbin/init
+else
+    echo "ERROR: No init found in root filesystem"
+    echo "Dropping to shell in new root..."
+    exec switch_root /newroot /bin/sh
+fi
 INITEOF
+
     chmod +x "$initramfs_dir/init"
 
-    # Create initramfs cpio archive
-    (cd "$initramfs_dir" && find . | cpio -o -H newc 2>/dev/null | gzip -9 > "$iso_boot/initrd.img")
-    log_info "Created initramfs for ISO"
+    # Create /bin/sh -> init fallback
+    ln -sf ../init "$initramfs_dir/bin/init" 2>/dev/null || true
 
-    # Include the disk image in the ISO for full system installation
-    log_step "Including disk image in ISO..."
+    # =========================================================================
+    # Step 6: Create initramfs cpio archive
+    # =========================================================================
+    log_step "Creating initramfs archive..."
+
+    (cd "$initramfs_dir" && find . -print0 | cpio --null -o -H newc 2>/dev/null | gzip -9 > "$iso_boot/initrd.img")
+
+    if [ ! -f "$iso_boot/initrd.img" ]; then
+        log_error "Failed to create initramfs"
+        return 1
+    fi
+
+    local initrd_size=$(du -h "$iso_boot/initrd.img" | cut -f1)
+    log_info "Created initramfs: $initrd_size"
+
+    # =========================================================================
+    # Step 7: Include disk image for installation option
+    # =========================================================================
+    log_step "Including disk image for installation..."
     mkdir -p "$iso_root/images"
     local img_file="$DIST_DIR/${IMAGE_NAME}.img"
     if [ -f "$img_file" ]; then
-        # Compress and include the disk image
         gzip -c "$img_file" > "$iso_root/images/${IMAGE_NAME}.img.gz"
         log_info "Included compressed disk image in ISO"
     elif [ -f "${img_file}.gz" ]; then
@@ -431,8 +818,11 @@ INITEOF
         log_info "Included compressed disk image in ISO"
     fi
 
-    # Create GRUB configuration for ISO
-    log_step "Creating GRUB configuration for ISO..."
+    # =========================================================================
+    # Step 8: Create GRUB configuration for ISO
+    # =========================================================================
+    log_step "Creating GRUB configuration..."
+
     cat > "$iso_boot/grub/grub.cfg" << 'EOF'
 # GRUB configuration for Rookery OS 1.0 ISO
 # A custom Linux distribution for the Friendly Society of Corvids
@@ -441,7 +831,7 @@ set default=0
 set timeout=10
 set timeout_style=menu
 
-# Serial console support
+# Serial console support for headless operation
 serial --speed=115200 --unit=0 --word=8 --parity=no --stop=1
 terminal_input serial console
 terminal_output serial console
@@ -449,8 +839,13 @@ terminal_output serial console
 insmod all_video
 insmod gfxterm
 
-menuentry "Rookery OS 1.0 (Live Environment)" {
+menuentry "Rookery OS 1.0 (Live)" {
     linux /boot/vmlinuz console=tty0 console=ttyS0,115200n8
+    initrd /boot/initrd.img
+}
+
+menuentry "Rookery OS 1.0 (Live - Verbose Boot)" {
+    linux /boot/vmlinuz console=tty0 console=ttyS0,115200n8 loglevel=7 systemd.log_level=debug
     initrd /boot/initrd.img
 }
 
@@ -465,46 +860,58 @@ menuentry "Boot from first hard disk" {
 }
 EOF
 
-    # Create the ISO using xorriso (supports both BIOS and UEFI)
+    # =========================================================================
+    # Step 9: Build the ISO image
+    # =========================================================================
     log_step "Building hybrid ISO image..."
 
-    # First, we need to create the El Torito boot image for BIOS
-    # Use grub-mkrescue approach or manual xorriso
+    # Create GRUB directory structure
+    mkdir -p "$iso_root/boot/grub/i386-pc"
 
-    # Check if grub-mkrescue is available (preferred method)
+    # Copy GRUB modules from the Docker container
+    if [ -d "/usr/lib/grub/i386-pc" ]; then
+        cp -a /usr/lib/grub/i386-pc/* "$iso_root/boot/grub/i386-pc/"
+        log_info "Copied GRUB i386-pc modules"
+    else
+        log_error "GRUB i386-pc modules not found at /usr/lib/grub/i386-pc"
+        return 1
+    fi
+
+    # Use grub-mkrescue if available (handles EFI+BIOS hybrid properly)
     if command -v grub-mkrescue &>/dev/null; then
         log_info "Using grub-mkrescue for ISO creation..."
 
-        # Create proper grub directory structure
-        mkdir -p "$iso_root/boot/grub/i386-pc"
-
-        # Copy GRUB modules if available
-        if [ -d "/usr/lib/grub/i386-pc" ]; then
-            cp -a /usr/lib/grub/i386-pc/* "$iso_root/boot/grub/i386-pc/" 2>/dev/null || true
-        elif [ -d "$LFS/usr/lib/grub/i386-pc" ]; then
-            cp -a "$LFS/usr/lib/grub/i386-pc/"* "$iso_root/boot/grub/i386-pc/" 2>/dev/null || true
-        fi
-
-        grub-mkrescue -o "$iso_file" "$iso_root" -- \
-            -volid "ROOKERY_OS_1" \
-            2>/dev/null || {
-            log_warn "grub-mkrescue failed, trying xorriso directly..."
-            # Fallback to xorriso
+        if ! grub-mkrescue -o "$iso_file" "$iso_root" -- -volid "ROOKERY_OS" 2>&1 | tee /tmp/grub-mkrescue.log; then
+            log_error "grub-mkrescue failed. Log:"
+            cat /tmp/grub-mkrescue.log
+            log_info "Falling back to xorriso..."
             create_iso_xorriso "$iso_file" "$iso_root"
-        }
+        fi
     else
-        # Use xorriso directly
+        # Fall back to xorriso directly
         create_iso_xorriso "$iso_file" "$iso_root"
     fi
 
-    # Cleanup
-    rm -rf "$iso_root" "$initramfs_dir"
+    # =========================================================================
+    # Step 10: Verify and cleanup
+    # =========================================================================
+    rm -rf "$initramfs_dir"
 
     if [ -f "$iso_file" ]; then
-        log_info "ISO image created: $iso_file"
-        log_info "ISO size: $(du -h $iso_file | cut -f1)"
+        local iso_size=$(du -h "$iso_file" | cut -f1)
+        log_info ""
+        log_info "=========================================="
+        log_info "ISO IMAGE CREATED SUCCESSFULLY"
+        log_info "=========================================="
+        log_info "File: $iso_file"
+        log_info "Size: $iso_size"
+        log_info ""
+        log_info "To test with QEMU:"
+        log_info "  qemu-system-x86_64 -m 2G -cdrom $iso_file -boot d -nographic -serial mon:stdio"
+        log_info ""
     else
-        log_warn "ISO creation may have failed"
+        log_error "ISO creation failed - no output file"
+        return 1
     fi
 }
 
@@ -515,40 +922,44 @@ create_iso_xorriso() {
 
     log_info "Creating ISO with xorriso..."
 
-    # Create a basic bootable ISO using xorriso
-    # This creates a hybrid ISO bootable from CD/DVD and USB
-
-    # First create the El Torito boot catalog
-    mkdir -p "$iso_root/boot/grub"
-
-    # Create embedded GRUB image for BIOS boot
-    if command -v grub-mkimage &>/dev/null; then
-        grub-mkimage -O i386-pc -o "$iso_root/boot/grub/core.img" \
-            -p /boot/grub \
-            biosdisk iso9660 part_msdos ext2 linux normal search \
-            2>/dev/null || true
+    # Ensure we have the boot image
+    if [ ! -f "/usr/lib/grub/i386-pc/boot_hybrid.img" ]; then
+        log_error "Missing /usr/lib/grub/i386-pc/boot_hybrid.img"
+        log_error "Cannot create hybrid bootable ISO"
+        return 1
     fi
 
-    # Create the ISO
-    xorriso -as mkisofs \
-        -r -J \
-        -V "ROOKERY_OS_1" \
+    # Create embedded GRUB core image for BIOS boot
+    if command -v grub-mkimage &>/dev/null; then
+        log_info "Creating GRUB core image..."
+        grub-mkimage -O i386-pc -o "$iso_root/boot/grub/core.img" \
+            -p /boot/grub \
+            biosdisk iso9660 part_msdos ext2 linux normal search configfile \
+            || { log_error "grub-mkimage failed"; return 1; }
+    else
+        log_error "grub-mkimage not found"
+        return 1
+    fi
+
+    # Create the ISO with full error output
+    log_info "Running xorriso..."
+    if ! xorriso -as mkisofs \
+        -r -J -joliet-long \
+        -V "ROOKERY_OS" \
         -b boot/grub/core.img \
         -no-emul-boot \
         -boot-load-size 4 \
         -boot-info-table \
-        -isohybrid-mbr /usr/lib/grub/i386-pc/boot_hybrid.img 2>/dev/null \
+        -isohybrid-mbr /usr/lib/grub/i386-pc/boot_hybrid.img \
         -o "$iso_file" \
-        "$iso_root" 2>/dev/null || {
+        "$iso_root" 2>&1 | tee /tmp/xorriso.log; then
 
-        # Simplest fallback - just create a data ISO with the image
-        log_warn "Full bootable ISO creation failed, creating data ISO..."
-        xorriso -as mkisofs \
-            -r -J \
-            -V "ROOKERY_OS_1" \
-            -o "$iso_file" \
-            "$iso_root" 2>/dev/null || log_warn "ISO creation failed"
-    }
+        log_error "xorriso failed. Log:"
+        cat /tmp/xorriso.log
+        return 1
+    fi
+
+    log_info "ISO created with xorriso"
 }
 
 # Main
