@@ -1,0 +1,35 @@
+# Image
+*.img
+*.img.gz
+
+# Docker
+.env
+*.log
+
+# LFS Sources
+volumes/sources/
+
+# Build artifacts
+dist/
+*.iso
+*.img
+*.tar.gz
+*.tar.xz
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+*:Zone.Identifier
+
+# Backup files
+*~
+*.bak
+.git-production-worktree/
+/linux-6.6.102/
+/12.4/
