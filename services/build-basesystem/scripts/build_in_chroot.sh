@@ -937,6 +937,51 @@ build_package "libffi-*.tar.gz" "Libffi" bash -c '
 '
 
 # =====================================================================
+# 8.47 Perl-5.42.0 (Final)
+# =====================================================================
+build_package "perl-*.tar.xz" "Perl (final)" bash -c '
+    export BUILD_ZLIB=False
+    export BUILD_BZIP2=0
+    sh Configure -des \
+        -D prefix=/usr \
+        -D vendorprefix=/usr \
+        -D privlib=/usr/lib/perl5/5.42/core_perl \
+        -D archlib=/usr/lib/perl5/5.42/core_perl \
+        -D sitelib=/usr/lib/perl5/5.42/site_perl \
+        -D sitearch=/usr/lib/perl5/5.42/site_perl \
+        -D vendorlib=/usr/lib/perl5/5.42/vendor_perl \
+        -D vendorarch=/usr/lib/perl5/5.42/vendor_perl \
+        -D man1dir=/usr/share/man/man1 \
+        -D man3dir=/usr/share/man/man3 \
+        -D pager="/usr/bin/less -isR" \
+        -D useshrplib \
+        -D usethreads
+    make
+    make install
+    unset BUILD_ZLIB BUILD_BZIP2
+'
+
+# =====================================================================
+# 8.48 XML::Parser-2.47 (Perl module for Intltool)
+# =====================================================================
+should_skip_package "XML-Parser" "/sources" && { log_info "⊙ Skipping XML-Parser (already built, checkpoint valid)"; } || {
+log_step "Building XML::Parser-2.47..."
+if [ -f /sources/XML-Parser-*.tar.gz ]; then
+    tar -xf /sources/XML-Parser-*.tar.gz
+    cd XML-Parser-*
+    perl Makefile.PL
+    make
+    make install
+    cd /build
+    rm -rf XML-Parser-*
+    log_info "XML::Parser complete"
+    create_checkpoint "XML-Parser" "/sources" "chapter8"
+else
+    log_warn "XML-Parser tarball not found - intltool may have limited functionality"
+fi
+}
+
+# =====================================================================
 # 8.61 Gawk-5.3.2
 # =====================================================================
 build_package "gawk-*.tar.xz" "Gawk" bash -c '
@@ -1266,6 +1311,17 @@ rm -rf procps-ng-*
 log_info "Procps-ng complete"
 create_checkpoint "procps-ng" "/sources" "chapter8"
 }
+
+# =====================================================================
+# 8.72 Texinfo-7.2 (Final)
+# =====================================================================
+build_package "texinfo-*.tar.xz" "Texinfo (final)" bash -c '
+    ./configure --prefix=/usr
+    make
+    make install
+    # Install Texinfo's Perl modules in the proper location
+    make TEXMF=/usr/share/texmf install-tex || true
+'
 
 # =====================================================================
 # 8.80 Sysvinit - REMOVED (using systemd instead)
@@ -1640,11 +1696,11 @@ for bin in $ESSENTIAL_BINS; do
 done
 
 # 3. Count installed packages by checkpoints
-# Full LFS 12.4 systemd build with all packages including nano
-EXPECTED_PACKAGES=70  # Full LFS 12.4 package count + nano
+# Full LFS 12.4 systemd build with all packages including nano + Perl final + XML-Parser + Texinfo final
+EXPECTED_PACKAGES=73  # Full LFS 12.4 package count + nano + additions
 CHECKPOINT_COUNT=$(ls -1 /.checkpoints/*.checkpoint 2>/dev/null | grep -v "toolchain\|download\|configure" | wc -l)
 
-log_info "Packages installed: $CHECKPOINT_COUNT / $EXPECTED_PACKAGES (minimal build)"
+log_info "Packages installed: $CHECKPOINT_COUNT / $EXPECTED_PACKAGES (full build)"
 
 if [ "$CHECKPOINT_COUNT" -lt "$EXPECTED_PACKAGES" ]; then
     # Find where the build stopped
@@ -1657,12 +1713,12 @@ if [ "$CHECKPOINT_COUNT" -lt "$EXPECTED_PACKAGES" ]; then
         "file" "libxcrypt" "readline" "m4" "bc" "binutils" "gmp" "mpfr" "mpc"
         "attr" "acl" "gcc" "shadow" "gdbm" "gettext" "pkgconf" "flex" "libtool"
         "bison" "ncurses" "sed" "grep" "bash" "autoconf" "automake" "openssl"
-        "libffi" "gawk" "groff" "less" "libpipeline" "make" "patch" "man-db"
-        "inetutils" "psmisc" "intltool" "nano" "elfutils" "kmod" "iproute2"
-        "coreutils" "diffutils" "findutils" "gzip" "kbd" "tar" "procps-ng"
-        "util-linux" "e2fsprogs" "expat" "Python-final" "ninja" "flit-core"
-        "packaging" "wheel" "setuptools" "meson" "libcap" "MarkupSafe" "jinja2"
-        "gperf" "systemd" "dbus" "grub"
+        "libffi" "perl" "XML-Parser" "gawk" "groff" "less" "libpipeline" "make"
+        "patch" "man-db" "inetutils" "psmisc" "intltool" "nano" "elfutils"
+        "kmod" "iproute2" "coreutils" "diffutils" "findutils" "gzip" "kbd"
+        "tar" "texinfo" "procps-ng" "util-linux" "e2fsprogs" "expat"
+        "Python-final" "ninja" "flit-core" "packaging" "wheel" "setuptools"
+        "meson" "libcap" "MarkupSafe" "jinja2" "gperf" "systemd" "dbus" "grub"
     )
 
     # Find failed package by looking for the next one after last successful
