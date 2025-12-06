@@ -917,6 +917,98 @@ main() {
         log_info "[SKIP] Vulkan-Loader-1.4.321.tar.gz (already exists)"
     fi
 
+    # --- Xorg Libraries (32 packages) ---
+    log_info "Downloading Xorg Libraries..."
+
+    # Define all Xorg Library packages (from BLFS lib-7.md5)
+    # Most packages available on Void Linux mirror
+    # Special packages (xtrans, libFS, libXpresent) use GitLab as .tar.gz
+    local xorg_lib_packages=(
+        "libX11-1.8.12.tar.xz"
+        "libXext-1.3.6.tar.xz"
+        "libICE-1.1.2.tar.xz"
+        "libSM-1.2.6.tar.xz"
+        "libXScrnSaver-1.2.4.tar.xz"
+        "libXt-1.3.1.tar.xz"
+        "libXmu-1.2.1.tar.xz"
+        "libXpm-3.5.17.tar.xz"
+        "libXaw-1.0.16.tar.xz"
+        "libXfixes-6.0.1.tar.xz"
+        "libXcomposite-0.4.6.tar.xz"
+        "libXrender-0.9.12.tar.xz"
+        "libXcursor-1.2.3.tar.xz"
+        "libXdamage-1.1.6.tar.xz"
+        "libfontenc-1.1.8.tar.xz"
+        "libXfont2-2.0.7.tar.xz"
+        "libXft-2.3.9.tar.xz"
+        "libXi-1.8.2.tar.xz"
+        "libXinerama-1.1.5.tar.xz"
+        "libXrandr-1.5.4.tar.xz"
+        "libXres-1.2.2.tar.xz"
+        "libXtst-1.2.5.tar.xz"
+        "libXv-1.0.13.tar.xz"
+        "libXvMC-1.0.14.tar.xz"
+        "libXxf86dga-1.1.6.tar.xz"
+        "libXxf86vm-1.1.6.tar.xz"
+        "libpciaccess-0.18.1.tar.xz"
+        "libxkbfile-1.1.3.tar.xz"
+        "libxshmfence-1.3.3.tar.xz"
+    )
+
+    # Use Void Linux sources mirror (xorg.freedesktop.org is unreliable)
+    # URL pattern: https://sources.voidlinux.org/<package-name>/<filename>
+    for pkg in "${xorg_lib_packages[@]}"; do
+        if [ ! -f "$pkg" ] || [ ! -s "$pkg" ]; then
+            rm -f "$pkg"  # Remove 0-byte files
+            # Extract package name without extension (e.g., "libX11-1.8.12" from "libX11-1.8.12.tar.xz")
+            local pkg_name="${pkg%.tar.*}"
+            local void_url="https://sources.voidlinux.org/${pkg_name}/${pkg}"
+            log_info "Downloading $pkg..."
+            if ! download_with_retry "$void_url" "$pkg"; then
+                additional_failed+=("$void_url ($pkg)")
+            fi
+        else
+            log_info "[SKIP] $pkg (already exists)"
+        fi
+    done
+
+    # Download special packages from GitLab (not available on Void Linux mirror)
+    # These need autoreconf during build as they come from git archives
+    log_info "Downloading special Xorg packages from GitLab..."
+
+    # xtrans - from GitLab freedesktop
+    if [ ! -f "xtrans-1.6.0.tar.gz" ] || [ ! -s "xtrans-1.6.0.tar.gz" ]; then
+        rm -f "xtrans-1.6.0.tar.gz" "xtrans-1.6.0.tar.xz"
+        log_info "Downloading xtrans-1.6.0.tar.gz from GitLab..."
+        if ! download_with_retry "https://gitlab.freedesktop.org/xorg/lib/libxtrans/-/archive/xtrans-1.6.0/libxtrans-xtrans-1.6.0.tar.gz" "xtrans-1.6.0.tar.gz"; then
+            additional_failed+=("xtrans-1.6.0.tar.gz")
+        fi
+    else
+        log_info "[SKIP] xtrans-1.6.0.tar.gz (already exists)"
+    fi
+
+    # libFS - from GitLab freedesktop
+    if [ ! -f "libFS-1.0.10.tar.gz" ] || [ ! -s "libFS-1.0.10.tar.gz" ]; then
+        rm -f "libFS-1.0.10.tar.gz" "libFS-1.0.10.tar.xz"
+        log_info "Downloading libFS-1.0.10.tar.gz from GitLab..."
+        if ! download_with_retry "https://gitlab.freedesktop.org/xorg/lib/libfs/-/archive/libFS-1.0.10/libfs-libFS-1.0.10.tar.gz" "libFS-1.0.10.tar.gz"; then
+            additional_failed+=("libFS-1.0.10.tar.gz")
+        fi
+    else
+        log_info "[SKIP] libFS-1.0.10.tar.gz (already exists)"
+    fi
+
+    # libXpresent - from GitLab freedesktop
+    if [ ! -f "libXpresent-1.0.1.tar.gz" ] || [ ! -s "libXpresent-1.0.1.tar.gz" ]; then
+        rm -f "libXpresent-1.0.1.tar.gz" "libXpresent-1.0.1.tar.xz"
+        log_info "Downloading libXpresent-1.0.1.tar.gz from GitLab..."
+        if ! download_with_retry "https://gitlab.freedesktop.org/xorg/lib/libxpresent/-/archive/libXpresent-1.0.1/libxpresent-libXpresent-1.0.1.tar.gz" "libXpresent-1.0.1.tar.gz"; then
+            additional_failed+=("libXpresent-1.0.1.tar.gz")
+        fi
+    else
+        log_info "[SKIP] libXpresent-1.0.1.tar.gz (already exists)"
+    fi
+
     # Check for additional package failures
     if [ ${#additional_failed[@]} -gt 0 ]; then
         log_error "========================================="

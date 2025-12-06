@@ -2584,6 +2584,164 @@ build_vulkan_loader() {
 }
 
 # =====================================================================
+# Xorg Libraries (32 packages) - BLFS Chapter 24
+# =====================================================================
+build_xorg_libraries() {
+    if should_skip_package "xorg-libraries"; then
+        log_info "xorg-libraries already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building Xorg Libraries (32 packages)"
+    cd "$BUILD_DIR"
+    setup_xorg_env
+
+    # Package list in correct build order (from BLFS lib-7.md5)
+    # Note: xtrans, libFS, libXpresent use .tar.gz from GitLab with different dir names
+    local xorg_lib_packages=(
+        "xtrans-1.6.0.tar.gz"
+        "libX11-1.8.12.tar.xz"
+        "libXext-1.3.6.tar.xz"
+        "libFS-1.0.10.tar.gz"
+        "libICE-1.1.2.tar.xz"
+        "libSM-1.2.6.tar.xz"
+        "libXScrnSaver-1.2.4.tar.xz"
+        "libXt-1.3.1.tar.xz"
+        "libXmu-1.2.1.tar.xz"
+        "libXpm-3.5.17.tar.xz"
+        "libXaw-1.0.16.tar.xz"
+        "libXfixes-6.0.1.tar.xz"
+        "libXcomposite-0.4.6.tar.xz"
+        "libXrender-0.9.12.tar.xz"
+        "libXcursor-1.2.3.tar.xz"
+        "libXdamage-1.1.6.tar.xz"
+        "libfontenc-1.1.8.tar.xz"
+        "libXfont2-2.0.7.tar.xz"
+        "libXft-2.3.9.tar.xz"
+        "libXi-1.8.2.tar.xz"
+        "libXinerama-1.1.5.tar.xz"
+        "libXrandr-1.5.4.tar.xz"
+        "libXres-1.2.2.tar.xz"
+        "libXtst-1.2.5.tar.xz"
+        "libXv-1.0.13.tar.xz"
+        "libXvMC-1.0.14.tar.xz"
+        "libXxf86dga-1.1.6.tar.xz"
+        "libXxf86vm-1.1.6.tar.xz"
+        "libpciaccess-0.18.1.tar.xz"
+        "libxkbfile-1.1.3.tar.xz"
+        "libxshmfence-1.3.3.tar.xz"
+        "libXpresent-1.0.1.tar.gz"
+    )
+
+    local pkg_count=0
+    local pkg_total=${#xorg_lib_packages[@]}
+
+    for package in "${xorg_lib_packages[@]}"; do
+        ((pkg_count++))
+        # Strip extension to get base package name
+        local packagedir="${package%.tar.*}"
+        log_info "Building $packagedir ($pkg_count/$pkg_total)..."
+
+        tar -xf /sources/$package
+
+        # Handle GitLab tarballs which have different directory names
+        # GitLab format: libxtrans-xtrans-1.6.0, libfs-libFS-1.0.10, etc.
+        local actual_dir=""
+        case $packagedir in
+            xtrans-* )
+                actual_dir="libxtrans-$packagedir"
+                ;;
+            libFS-* )
+                actual_dir="libfs-$packagedir"
+                ;;
+            libXpresent-* )
+                actual_dir="libxpresent-$packagedir"
+                ;;
+            * )
+                actual_dir="$packagedir"
+                ;;
+        esac
+
+        if [ ! -d "$actual_dir" ]; then
+            log_error "Directory $actual_dir not found after extraction"
+            ls -la
+            exit 1
+        fi
+
+        pushd "$actual_dir" > /dev/null
+
+        local docdir="--docdir=$XORG_PREFIX/share/doc/$packagedir"
+
+        case $packagedir in
+            xtrans-* )
+                # xtrans from GitLab needs autoreconf
+                if [ ! -f configure ]; then
+                    log_info "Running autoreconf for xtrans..."
+                    autoreconf -fiv
+                fi
+                ./configure $XORG_CONFIG $docdir
+                ;;
+
+            libFS-* )
+                # libFS from GitLab needs autoreconf
+                if [ ! -f configure ]; then
+                    log_info "Running autoreconf for libFS..."
+                    autoreconf -fiv
+                fi
+                ./configure $XORG_CONFIG $docdir
+                ;;
+
+            libXpresent-* )
+                # libXpresent from GitLab needs autoreconf
+                if [ ! -f configure ]; then
+                    log_info "Running autoreconf for libXpresent..."
+                    autoreconf -fiv
+                fi
+                ./configure $XORG_CONFIG $docdir
+                ;;
+
+            libXfont2-[0-9]* )
+                ./configure $XORG_CONFIG $docdir --disable-devel-docs
+                ;;
+
+            libXt-[0-9]* )
+                ./configure $XORG_CONFIG $docdir \
+                            --with-appdefaultdir=/etc/X11/app-defaults
+                ;;
+
+            libXpm-[0-9]* )
+                ./configure $XORG_CONFIG $docdir --disable-open-zfile
+                ;;
+
+            libpciaccess* )
+                mkdir -p build
+                cd build
+                meson setup --prefix=$XORG_PREFIX --buildtype=release ..
+                ninja
+                ninja install
+                popd > /dev/null
+                rm -rf "$actual_dir"
+                ldconfig
+                continue
+                ;;
+
+            * )
+                ./configure $XORG_CONFIG $docdir
+                ;;
+        esac
+
+        make
+        make install
+        popd > /dev/null
+        rm -rf "$actual_dir"
+        ldconfig
+    done
+
+    log_info "Xorg Libraries - All 32 packages installed successfully"
+    create_checkpoint "xorg-libraries"
+}
+
+# =====================================================================
 # Build Tier 3 Foundation packages
 # =====================================================================
 log_info ""
@@ -2614,16 +2772,22 @@ build_pixman
 build_libdrm
 build_libxcvt
 
-# Build Vulkan/SPIR-V stack (partial - Vulkan-Loader needs X11/Xorg Libraries)
+# Build Vulkan/SPIR-V stack (Phase 1 - before Xorg Libraries)
 build_spirv_headers
 build_spirv_tools
 build_vulkan_headers
 build_glslang
-# NOTE: build_vulkan_loader requires Xorg Libraries (libX11) - will be added later
+
+# Build Xorg Libraries (32 packages) - enables Vulkan-Loader
+build_xorg_libraries
+
+# Build Vulkan-Loader (now that libX11 is available)
+build_vulkan_loader
 
 log_info ""
-log_info "Tier 3 Graphics Foundation (Phase 1) completed!"
-log_info "NOTE: Vulkan-Loader deferred until Xorg Libraries are built"
+log_info "Tier 3 Graphics Foundation (Phase 2) completed!"
+log_info "  - Xorg Libraries: 32 packages (libX11, libXext, etc.)"
+log_info "  - Vulkan-Loader: Now functional with X11 support"
 log_info ""
 
 # =====================================================================
@@ -2674,8 +2838,9 @@ log_info "  - xcb-proto, libxcb: XCB protocol"
 log_info "  - Pixman: Pixel manipulation"
 log_info "  - libdrm, libxcvt: DRM and CVT libraries"
 log_info "  - SPIRV-Headers, SPIRV-Tools: SPIR-V support"
-log_info "  - Vulkan-Headers, Vulkan-Loader: Vulkan API"
-log_info "  - glslang: GLSL shader frontend"
+log_info "  - Vulkan-Headers, glslang: Vulkan/GLSL"
+log_info "  - Xorg Libraries (32 packages): libX11, libXext, libXt, etc."
+log_info "  - Vulkan-Loader: Vulkan ICD loader"
 log_info "=========================================="
 
 exit 0
