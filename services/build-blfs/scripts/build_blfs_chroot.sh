@@ -2105,17 +2105,14 @@ setup_xorg_env() {
 # util-macros-1.20.2 (Xorg build macros)
 # =====================================================================
 build_util_macros() {
-    if check_checkpoint "util-macros"; then
-        log_info "util-macros already built, skipping..."
-        return 0
-    fi
+    should_skip_package "util-macros" && { log_info "util-macros already built, skipping..."; return 0; }
 
     log_step "Building util-macros-1.20.2"
     cd "$BUILD_DIR"
 
     setup_xorg_env
 
-    tar -xf util-macros-1.20.2.tar.xz
+    tar -xf /sources/util-macros-1.20.2.tar.xz
     cd util-macros-1.20.2
 
     ./configure $XORG_CONFIG
@@ -2133,17 +2130,14 @@ build_util_macros() {
 # xorgproto-2024.1 (Xorg protocol headers)
 # =====================================================================
 build_xorgproto() {
-    if check_checkpoint "xorgproto"; then
-        log_info "xorgproto already built, skipping..."
-        return 0
-    fi
+    should_skip_package "xorgproto" && { log_info "xorgproto already built, skipping..."; return 0; }
 
     log_step "Building xorgproto-2024.1"
     cd "$BUILD_DIR"
 
     setup_xorg_env
 
-    tar -xf xorgproto-2024.1.tar.xz
+    tar -xf /sources/xorgproto-2024.1.tar.xz
     cd xorgproto-2024.1
 
     mkdir build && cd build
@@ -2163,15 +2157,12 @@ build_xorgproto() {
 # Wayland-1.24.0 (Wayland compositor protocol)
 # =====================================================================
 build_wayland() {
-    if check_checkpoint "wayland"; then
-        log_info "wayland already built, skipping..."
-        return 0
-    fi
+    should_skip_package "wayland" && { log_info "wayland already built, skipping..."; return 0; }
 
     log_step "Building Wayland-1.24.0"
     cd "$BUILD_DIR"
 
-    tar -xf wayland-1.24.0.tar.xz
+    tar -xf /sources/wayland-1.24.0.tar.xz
     cd wayland-1.24.0
 
     mkdir build && cd build
@@ -2195,7 +2186,7 @@ build_wayland() {
 # Wayland-Protocols-1.45
 # =====================================================================
 build_wayland_protocols() {
-    if check_checkpoint "wayland-protocols"; then
+    if should_skip_package "wayland-protocols"; then
         log_info "wayland-protocols already built, skipping..."
         return 0
     fi
@@ -2203,7 +2194,7 @@ build_wayland_protocols() {
     log_step "Building Wayland-Protocols-1.45"
     cd "$BUILD_DIR"
 
-    tar -xf wayland-protocols-1.45.tar.xz
+    tar -xf /sources/wayland-protocols-1.45.tar.xz
     cd wayland-protocols-1.45
 
     mkdir build && cd build
@@ -2224,7 +2215,7 @@ build_wayland_protocols() {
 # libXau-1.0.12 (X11 Authorization Library)
 # =====================================================================
 build_libXau() {
-    if check_checkpoint "libXau"; then
+    if should_skip_package "libXau"; then
         log_info "libXau already built, skipping..."
         return 0
     fi
@@ -2234,7 +2225,7 @@ build_libXau() {
 
     setup_xorg_env
 
-    tar -xf libXau-1.0.12.tar.xz
+    tar -xf /sources/libXau-1.0.12.tar.xz
     cd libXau-1.0.12
 
     ./configure $XORG_CONFIG
@@ -2253,7 +2244,7 @@ build_libXau() {
 # libXdmcp-1.1.5 (X11 Display Manager Control Protocol Library)
 # =====================================================================
 build_libXdmcp() {
-    if check_checkpoint "libXdmcp"; then
+    if should_skip_package "libXdmcp"; then
         log_info "libXdmcp already built, skipping..."
         return 0
     fi
@@ -2263,7 +2254,7 @@ build_libXdmcp() {
 
     setup_xorg_env
 
-    tar -xf libXdmcp-1.1.5.tar.xz
+    tar -xf /sources/libXdmcp-1.1.5.tar.xz
     cd libXdmcp-1.1.5
 
     ./configure $XORG_CONFIG
@@ -2282,7 +2273,7 @@ build_libXdmcp() {
 # xcb-proto-1.17.0 (XCB Protocol Descriptions)
 # =====================================================================
 build_xcb_proto() {
-    if check_checkpoint "xcb-proto"; then
+    if should_skip_package "xcb-proto"; then
         log_info "xcb-proto already built, skipping..."
         return 0
     fi
@@ -2292,14 +2283,15 @@ build_xcb_proto() {
 
     setup_xorg_env
 
-    tar -xf xcb-proto-1.17.0.tar.xz
+    tar -xf /sources/xcb-proto-1.17.0.tar.xz
     cd xcb-proto-1.17.0
 
-    mkdir build && cd build
+    PYTHON=python3 ./configure $XORG_CONFIG
 
-    meson setup --prefix=$XORG_PREFIX ..
+    make install
 
-    ninja install
+    # Remove old pkgconfig file if exists
+    rm -f $XORG_PREFIX/lib/pkgconfig/xcb-proto.pc
 
     cd "$BUILD_DIR"
     rm -rf xcb-proto-1.17.0
@@ -2312,7 +2304,7 @@ build_xcb_proto() {
 # libxcb-1.17.0 (X C Binding Library)
 # =====================================================================
 build_libxcb() {
-    if check_checkpoint "libxcb"; then
+    if should_skip_package "libxcb"; then
         log_info "libxcb already built, skipping..."
         return 0
     fi
@@ -2322,7 +2314,7 @@ build_libxcb() {
 
     setup_xorg_env
 
-    tar -xf libxcb-1.17.0.tar.xz
+    tar -xf /sources/libxcb-1.17.0.tar.xz
     cd libxcb-1.17.0
 
     ./configure $XORG_CONFIG    \
@@ -2342,7 +2334,7 @@ build_libxcb() {
 # Pixman-0.46.4 (Low-level pixel manipulation library)
 # =====================================================================
 build_pixman() {
-    if check_checkpoint "pixman"; then
+    if should_skip_package "pixman"; then
         log_info "pixman already built, skipping..."
         return 0
     fi
@@ -2350,7 +2342,7 @@ build_pixman() {
     log_step "Building Pixman-0.46.4"
     cd "$BUILD_DIR"
 
-    tar -xf pixman-0.46.4.tar.gz
+    tar -xf /sources/pixman-0.46.4.tar.gz
     cd pixman-0.46.4
 
     mkdir build && cd build
@@ -2371,7 +2363,7 @@ build_pixman() {
 # libdrm-2.4.125 (Direct Rendering Manager Library)
 # =====================================================================
 build_libdrm() {
-    if check_checkpoint "libdrm"; then
+    if should_skip_package "libdrm"; then
         log_info "libdrm already built, skipping..."
         return 0
     fi
@@ -2381,7 +2373,7 @@ build_libdrm() {
 
     setup_xorg_env
 
-    tar -xf libdrm-2.4.125.tar.xz
+    tar -xf /sources/libdrm-2.4.125.tar.xz
     cd libdrm-2.4.125
 
     mkdir build && cd build
@@ -2405,7 +2397,7 @@ build_libdrm() {
 # libxcvt-0.1.3 (VESA CVT Standard Timing Modelines Generator)
 # =====================================================================
 build_libxcvt() {
-    if check_checkpoint "libxcvt"; then
+    if should_skip_package "libxcvt"; then
         log_info "libxcvt already built, skipping..."
         return 0
     fi
@@ -2415,7 +2407,7 @@ build_libxcvt() {
 
     setup_xorg_env
 
-    tar -xf libxcvt-0.1.3.tar.xz
+    tar -xf /sources/libxcvt-0.1.3.tar.xz
     cd libxcvt-0.1.3
 
     mkdir build && cd build
@@ -2436,7 +2428,7 @@ build_libxcvt() {
 # SPIRV-Headers-1.4.321.0 (SPIR-V Headers)
 # =====================================================================
 build_spirv_headers() {
-    if check_checkpoint "spirv-headers"; then
+    if should_skip_package "spirv-headers"; then
         log_info "spirv-headers already built, skipping..."
         return 0
     fi
@@ -2444,7 +2436,7 @@ build_spirv_headers() {
     log_step "Building SPIRV-Headers-1.4.321.0"
     cd "$BUILD_DIR"
 
-    tar -xf SPIRV-Headers-vulkan-sdk-1.4.321.0.tar.gz
+    tar -xf /sources/SPIRV-Headers-1.4.321.0.tar.gz
     cd SPIRV-Headers-vulkan-sdk-1.4.321.0
 
     mkdir build && cd build
@@ -2465,7 +2457,7 @@ build_spirv_headers() {
 # SPIRV-Tools-1.4.321.0 (SPIR-V Tools)
 # =====================================================================
 build_spirv_tools() {
-    if check_checkpoint "spirv-tools"; then
+    if should_skip_package "spirv-tools"; then
         log_info "spirv-tools already built, skipping..."
         return 0
     fi
@@ -2473,7 +2465,7 @@ build_spirv_tools() {
     log_step "Building SPIRV-Tools-1.4.321.0"
     cd "$BUILD_DIR"
 
-    tar -xf SPIRV-Tools-vulkan-sdk-1.4.321.0.tar.gz
+    tar -xf /sources/SPIRV-Tools-1.4.321.0.tar.gz
     cd SPIRV-Tools-vulkan-sdk-1.4.321.0
 
     mkdir build && cd build
@@ -2500,7 +2492,7 @@ build_spirv_tools() {
 # Vulkan-Headers-1.4.321 (Vulkan Header Files)
 # =====================================================================
 build_vulkan_headers() {
-    if check_checkpoint "vulkan-headers"; then
+    if should_skip_package "vulkan-headers"; then
         log_info "vulkan-headers already built, skipping..."
         return 0
     fi
@@ -2508,7 +2500,7 @@ build_vulkan_headers() {
     log_step "Building Vulkan-Headers-1.4.321"
     cd "$BUILD_DIR"
 
-    tar -xf Vulkan-Headers-1.4.321.tar.gz
+    tar -xf /sources/Vulkan-Headers-1.4.321.tar.gz
     cd Vulkan-Headers-1.4.321
 
     mkdir build && cd build
@@ -2529,7 +2521,7 @@ build_vulkan_headers() {
 # glslang-15.4.0 (GLSL Shader Frontend)
 # =====================================================================
 build_glslang() {
-    if check_checkpoint "glslang"; then
+    if should_skip_package "glslang"; then
         log_info "glslang already built, skipping..."
         return 0
     fi
@@ -2537,7 +2529,7 @@ build_glslang() {
     log_step "Building glslang-15.4.0"
     cd "$BUILD_DIR"
 
-    tar -xf glslang-15.4.0.tar.gz
+    tar -xf /sources/glslang-15.4.0.tar.gz
     cd glslang-15.4.0
 
     mkdir build && cd build
@@ -2563,7 +2555,7 @@ build_glslang() {
 # Vulkan-Loader-1.4.321 (Vulkan ICD Loader)
 # =====================================================================
 build_vulkan_loader() {
-    if check_checkpoint "vulkan-loader"; then
+    if should_skip_package "vulkan-loader"; then
         log_info "vulkan-loader already built, skipping..."
         return 0
     fi
@@ -2571,7 +2563,7 @@ build_vulkan_loader() {
     log_step "Building Vulkan-Loader-1.4.321"
     cd "$BUILD_DIR"
 
-    tar -xf Vulkan-Loader-1.4.321.tar.gz
+    tar -xf /sources/Vulkan-Loader-1.4.321.tar.gz
     cd Vulkan-Loader-1.4.321
 
     mkdir build && cd build
@@ -2622,15 +2614,16 @@ build_pixman
 build_libdrm
 build_libxcvt
 
-# Build Vulkan/SPIR-V stack
+# Build Vulkan/SPIR-V stack (partial - Vulkan-Loader needs X11/Xorg Libraries)
 build_spirv_headers
 build_spirv_tools
 build_vulkan_headers
 build_glslang
-build_vulkan_loader
+# NOTE: build_vulkan_loader requires Xorg Libraries (libX11) - will be added later
 
 log_info ""
-log_info "Tier 3 Graphics Foundation completed!"
+log_info "Tier 3 Graphics Foundation (Phase 1) completed!"
+log_info "NOTE: Vulkan-Loader deferred until Xorg Libraries are built"
 log_info ""
 
 # =====================================================================
