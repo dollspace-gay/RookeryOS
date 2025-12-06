@@ -2563,10 +2563,11 @@ build_vulkan_loader() {
     log_step "Building Vulkan-Loader-1.4.321"
     cd "$BUILD_DIR"
 
+    rm -rf Vulkan-Loader-1.4.321
     tar -xf /sources/Vulkan-Loader-1.4.321.tar.gz
     cd Vulkan-Loader-1.4.321
 
-    mkdir build && cd build
+    mkdir -p build && cd build
 
     cmake -D CMAKE_INSTALL_PREFIX=/usr       \
           -D CMAKE_BUILD_TYPE=Release        \
@@ -2581,6 +2582,70 @@ build_vulkan_loader() {
 
     log_info "Vulkan-Loader-1.4.321 installed successfully"
     create_checkpoint "vulkan-loader"
+}
+
+# =====================================================================
+# FreeType-2.13.3 - BLFS Chapter 10
+# Required by libXfont2 and many other graphics packages
+# =====================================================================
+build_freetype() {
+    if should_skip_package "freetype"; then
+        log_info "freetype already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building FreeType-2.13.3"
+    cd "$BUILD_DIR"
+
+    tar -xf /sources/freetype-2.13.3.tar.xz
+    cd freetype-2.13.3
+
+    # Enable GX/AAT and OpenType table validation
+    sed -ri "s:.*(AUX_MODULES.*valid):\1:" modules.cfg
+
+    # Enable Subpixel Rendering
+    sed -r "s:.*(#.*SUBPIXEL_RENDERING) .*:\1:" \
+        -i include/freetype/config/ftoption.h
+
+    ./configure --prefix=/usr --enable-freetype-config --disable-static
+
+    make
+    make install
+
+    cd "$BUILD_DIR"
+    rm -rf freetype-2.13.3
+
+    log_info "FreeType-2.13.3 installed successfully"
+    create_checkpoint "freetype"
+}
+
+# Fontconfig-2.17.1 (font configuration library - required by libXft)
+build_fontconfig() {
+    if should_skip_package "fontconfig"; then
+        log_info "fontconfig already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building Fontconfig-2.17.1"
+    cd "$BUILD_DIR"
+
+    tar -xf /sources/fontconfig-2.17.1.tar.xz
+    cd fontconfig-2.17.1
+
+    ./configure --prefix=/usr        \
+                --sysconfdir=/etc    \
+                --localstatedir=/var \
+                --disable-docs       \
+                --docdir=/usr/share/doc/fontconfig-2.17.1
+
+    make
+    make install
+
+    cd "$BUILD_DIR"
+    rm -rf fontconfig-2.17.1
+
+    log_info "Fontconfig-2.17.1 installed successfully"
+    create_checkpoint "fontconfig"
 }
 
 # =====================================================================
@@ -2637,7 +2702,7 @@ build_xorg_libraries() {
     local pkg_total=${#xorg_lib_packages[@]}
 
     for package in "${xorg_lib_packages[@]}"; do
-        ((pkg_count++))
+        pkg_count=$((pkg_count + 1))
         # Strip extension to get base package name
         local packagedir="${package%.tar.*}"
         log_info "Building $packagedir ($pkg_count/$pkg_total)..."
@@ -2777,6 +2842,12 @@ build_spirv_headers
 build_spirv_tools
 build_vulkan_headers
 build_glslang
+
+# Build FreeType (required by libXfont2 and Fontconfig)
+build_freetype
+
+# Build Fontconfig (required by libXft)
+build_fontconfig
 
 # Build Xorg Libraries (32 packages) - enables Vulkan-Loader
 build_xorg_libraries

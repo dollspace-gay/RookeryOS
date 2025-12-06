@@ -827,6 +827,28 @@ main() {
 
     # --- Graphics Libraries ---
 
+    # FreeType-2.13.3 (TrueType font rendering - required by libXfont2)
+    local freetype_url="https://downloads.sourceforge.net/freetype/freetype-2.13.3.tar.xz"
+    if [ ! -f "freetype-2.13.3.tar.xz" ]; then
+        log_info "Downloading FreeType..."
+        if ! download_with_retry "$freetype_url" "freetype-2.13.3.tar.xz"; then
+            additional_failed+=("$freetype_url (freetype-2.13.3.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] freetype-2.13.3.tar.xz (already exists)"
+    fi
+
+    # Fontconfig-2.17.1 (font configuration - required by libXft)
+    local fontconfig_url="https://gitlab.freedesktop.org/api/v4/projects/890/packages/generic/fontconfig/2.17.1/fontconfig-2.17.1.tar.xz"
+    if [ ! -f "fontconfig-2.17.1.tar.xz" ]; then
+        log_info "Downloading Fontconfig..."
+        if ! download_with_retry "$fontconfig_url" "fontconfig-2.17.1.tar.xz"; then
+            additional_failed+=("$fontconfig_url (fontconfig-2.17.1.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] fontconfig-2.17.1.tar.xz (already exists)"
+    fi
+
     # Pixman-0.46.4 (Pixel manipulation library)
     local pixman_url="https://www.cairographics.org/releases/pixman-0.46.4.tar.gz"
     if [ ! -f "pixman-0.46.4.tar.gz" ]; then
