@@ -632,6 +632,17 @@ main() {
         log_info "[SKIP] avahi-0.8.tar.gz (already exists)"
     fi
 
+    # avahi IPv6 race condition fix patch
+    local avahi_patch_url="https://www.linuxfromscratch.org/patches/blfs/12.4/avahi-0.8-ipv6_race_condition_fix-1.patch"
+    if [ ! -f "avahi-0.8-ipv6_race_condition_fix-1.patch" ]; then
+        log_info "Downloading avahi patch..."
+        if ! download_with_retry "$avahi_patch_url" "avahi-0.8-ipv6_race_condition_fix-1.patch"; then
+            additional_failed+=("$avahi_patch_url (avahi-0.8-ipv6_race_condition_fix-1.patch)")
+        fi
+    else
+        log_info "[SKIP] avahi-0.8-ipv6_race_condition_fix-1.patch (already exists)"
+    fi
+
     # wpa_supplicant-2.11 (WiFi client)
     local wpasupplicant_url="https://w1.fi/releases/wpa_supplicant-2.11.tar.gz"
     if [ ! -f "wpa_supplicant-2.11.tar.gz" ]; then

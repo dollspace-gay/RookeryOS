@@ -122,9 +122,7 @@ services:
       context: ./services
       dockerfile: build-blfs/Dockerfile
     container_name: easylfs-build-blfs
-    cap_add:
-      - SYS_CHROOT
-      - SYS_ADMIN  # Required for mount operations
+    privileged: true  # Required for /proc mount in chroot (needed for bash process substitution)
     security_opt:
       - apparmor:unconfined
     volumes:

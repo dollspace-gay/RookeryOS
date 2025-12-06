@@ -74,6 +74,12 @@ prepare_chroot() {
     mount -t sysfs sysfs $LFS/sys || log_warn "Failed to mount /sys"
     mount -t tmpfs tmpfs $LFS/run || log_warn "Failed to mount /run"
 
+    # Create /dev/fd symlink for bash process substitution (requires /proc)
+    # This is needed for NetworkManager's build scripts that use <(...) syntax
+    if [ ! -e "$LFS/dev/fd" ]; then
+        ln -sv /proc/self/fd $LFS/dev/fd || log_warn "Failed to create /dev/fd symlink"
+    fi
+
     # Bind mount sources
     mkdir -p $LFS/sources
     if [ -d "$SOURCES_DIR" ]; then

@@ -1149,6 +1149,77 @@ create_checkpoint "libdaemon"
 }
 
 # =====================================================================
+# Avahi-0.8 (mDNS/DNS-SD service discovery)
+# https://www.linuxfromscratch.org/blfs/view/12.4/basicnet/avahi.html
+# Depends on: glib2, libdaemon (we have both)
+# =====================================================================
+should_skip_package "avahi" && { log_info "Skipping Avahi (already built)"; } || {
+log_step "Building Avahi-0.8..."
+
+if [ ! -f /sources/avahi-0.8.tar.gz ]; then
+    log_error "avahi-0.8.tar.gz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf avahi-*
+tar -xf /sources/avahi-0.8.tar.gz
+cd avahi-*
+
+# Create avahi user and group
+groupadd -fg 84 avahi 2>/dev/null || true
+useradd -c "Avahi Daemon Owner" -d /run/avahi-daemon -u 84 \
+        -g avahi -s /bin/false avahi 2>/dev/null || true
+
+# Create netdev group for privileged access (may already exist from NetworkManager)
+groupadd -fg 86 netdev 2>/dev/null || true
+
+# Apply IPv6 race condition fix patch
+if [ -f /sources/avahi-0.8-ipv6_race_condition_fix-1.patch ]; then
+    log_info "Applying IPv6 race condition fix patch..."
+    patch -Np1 -i /sources/avahi-0.8-ipv6_race_condition_fix-1.patch
+fi
+
+# Fix security vulnerability in avahi-daemon
+sed -i '426a if (events & AVAHI_WATCH_HUP) { \
+client_free(c); \
+return; \
+}' avahi-daemon/simple-protocol.c
+
+# Configure - disable GTK (we don't have it yet), enable libevent (we have it)
+./configure \
+    --prefix=/usr        \
+    --sysconfdir=/etc    \
+    --localstatedir=/var \
+    --disable-static     \
+    --disable-mono       \
+    --disable-monodoc    \
+    --disable-python     \
+    --disable-qt3        \
+    --disable-qt4        \
+    --disable-qt5        \
+    --disable-gtk        \
+    --disable-gtk3       \
+    --enable-core-docs   \
+    --with-distro=none   \
+    --with-dbus-system-address='unix:path=/run/dbus/system_bus_socket'
+
+make
+
+log_info "Installing Avahi..."
+make install
+
+# Enable systemd services
+systemctl enable avahi-daemon 2>/dev/null || true
+
+cd "$BUILD_DIR"
+rm -rf avahi-*
+
+log_info "Avahi-0.8 installed successfully"
+create_checkpoint "avahi"
+}
+
+# =====================================================================
 # libpcap-1.10.5 (Packet capture library)
 # https://www.linuxfromscratch.org/blfs/view/12.4/basicnet/libpcap.html
 # =====================================================================
@@ -1970,23 +2041,23 @@ groupadd -fg 86 netdev 2>/dev/null || true
 rm -rf build && mkdir build
 cd build
 
+# Following BLFS configuration exactly
 meson setup ..                        \
       --prefix=/usr                   \
       --buildtype=release             \
       -D libaudit=no                  \
-      -D libpsl=true                  \
       -D nmtui=false                  \
       -D ovs=false                    \
       -D ppp=false                    \
+      -D nbft=false                   \
       -D selinux=false                \
-      -D session_tracking=systemd     \
-      -D modem_manager=false          \
-      -D systemdsystemunitdir=/usr/lib/systemd/system \
-      -D introspection=false          \
-      -D docs=false                   \
-      -D tests=no                     \
       -D qt=false                     \
-      -D crypto=gnutls
+      -D session_tracking=systemd     \
+      -D nm_cloud_setup=false         \
+      -D modem_manager=false          \
+      -D crypto=gnutls                \
+      -D introspection=false          \
+      -D docs=false
 
 ninja
 
