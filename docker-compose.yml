@@ -113,7 +113,36 @@ services:
         condition: service_completed_successfully
 
   # ============================================================================
-  # Service 5: Build Kernel (Chapter 10)
+  # Service 5: Build BLFS Packages
+  # Builds Beyond LFS packages (security, desktop, etc.)
+  # Duration: varies by package selection
+  # ============================================================================
+  build-blfs:
+    build:
+      context: ./services
+      dockerfile: build-blfs/Dockerfile
+    container_name: easylfs-build-blfs
+    cap_add:
+      - SYS_CHROOT
+      - SYS_ADMIN  # Required for mount operations
+    security_opt:
+      - apparmor:unconfined
+    volumes:
+      - lfs-sources:/sources:ro
+      - lfs-rootfs:/lfs
+      - lfs-logs:/logs
+    environment:
+      - LFS=/lfs
+      - MAKEFLAGS=-j4
+      - LC_ALL=POSIX
+      - SERVICE_NAME=build-blfs
+    restart: "no"
+    depends_on:
+      configure-system:
+        condition: service_completed_successfully
+
+  # ============================================================================
+  # Service 6: Build Kernel (Chapter 10)
   # Compiles the Linux kernel with grsecurity patches
   # Duration: 30-90 minutes (grsec adds overhead)
   # ============================================================================

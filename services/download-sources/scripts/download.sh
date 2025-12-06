@@ -245,6 +245,114 @@ main() {
         log_info "[SKIP] nano-8.3.tar.xz (already exists)"
     fi
 
+    # =========================================================================
+    # Download BLFS packages (Tier 1: Security & Core Utilities)
+    # =========================================================================
+    log_info "Downloading BLFS packages..."
+
+    # Linux-PAM-1.7.1 (Pluggable Authentication Modules)
+    local pam_url="https://github.com/linux-pam/linux-pam/releases/download/v1.7.1/Linux-PAM-1.7.1.tar.xz"
+    if [ ! -f "Linux-PAM-1.7.1.tar.xz" ]; then
+        log_info "Downloading Linux-PAM..."
+        if ! download_with_retry "$pam_url" "Linux-PAM-1.7.1.tar.xz"; then
+            additional_failed+=("$pam_url (Linux-PAM-1.7.1.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] Linux-PAM-1.7.1.tar.xz (already exists)"
+    fi
+
+    # libgpg-error-1.55 (GnuPG error library - required by libgcrypt)
+    local gpgerror_url="https://www.gnupg.org/ftp/gcrypt/libgpg-error/libgpg-error-1.55.tar.bz2"
+    if [ ! -f "libgpg-error-1.55.tar.bz2" ]; then
+        log_info "Downloading libgpg-error..."
+        if ! download_with_retry "$gpgerror_url" "libgpg-error-1.55.tar.bz2"; then
+            additional_failed+=("$gpgerror_url (libgpg-error-1.55.tar.bz2)")
+        fi
+    else
+        log_info "[SKIP] libgpg-error-1.55.tar.bz2 (already exists)"
+    fi
+
+    # libgcrypt-1.11.2 (Cryptography library - required by KDE Frameworks)
+    local gcrypt_url="https://www.gnupg.org/ftp/gcrypt/libgcrypt/libgcrypt-1.11.2.tar.bz2"
+    if [ ! -f "libgcrypt-1.11.2.tar.bz2" ]; then
+        log_info "Downloading libgcrypt..."
+        if ! download_with_retry "$gcrypt_url" "libgcrypt-1.11.2.tar.bz2"; then
+            additional_failed+=("$gcrypt_url (libgcrypt-1.11.2.tar.bz2)")
+        fi
+    else
+        log_info "[SKIP] libgcrypt-1.11.2.tar.bz2 (already exists)"
+    fi
+
+    # sudo-1.9.17p2 (Privilege escalation for authorized users)
+    local sudo_url="https://www.sudo.ws/dist/sudo-1.9.17p2.tar.gz"
+    if [ ! -f "sudo-1.9.17p2.tar.gz" ]; then
+        log_info "Downloading sudo..."
+        if ! download_with_retry "$sudo_url" "sudo-1.9.17p2.tar.gz"; then
+            additional_failed+=("$sudo_url (sudo-1.9.17p2.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] sudo-1.9.17p2.tar.gz (already exists)"
+    fi
+
+    # =========================================================================
+    # Polkit dependency chain: pcre2 -> glib2 -> polkit (+ duktape)
+    # =========================================================================
+
+    # pcre2-10.45 (required by glib2)
+    local pcre2_url="https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.45/pcre2-10.45.tar.bz2"
+    if [ ! -f "pcre2-10.45.tar.bz2" ]; then
+        log_info "Downloading pcre2..."
+        if ! download_with_retry "$pcre2_url" "pcre2-10.45.tar.bz2"; then
+            additional_failed+=("$pcre2_url (pcre2-10.45.tar.bz2)")
+        fi
+    else
+        log_info "[SKIP] pcre2-10.45.tar.bz2 (already exists)"
+    fi
+
+    # duktape-2.7.0 (required by polkit)
+    local duktape_url="https://duktape.org/duktape-2.7.0.tar.xz"
+    if [ ! -f "duktape-2.7.0.tar.xz" ]; then
+        log_info "Downloading duktape..."
+        if ! download_with_retry "$duktape_url" "duktape-2.7.0.tar.xz"; then
+            additional_failed+=("$duktape_url (duktape-2.7.0.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] duktape-2.7.0.tar.xz (already exists)"
+    fi
+
+    # glib-2.84.4 (required by polkit)
+    local glib_url="https://download.gnome.org/sources/glib/2.84/glib-2.84.4.tar.xz"
+    if [ ! -f "glib-2.84.4.tar.xz" ]; then
+        log_info "Downloading glib..."
+        if ! download_with_retry "$glib_url" "glib-2.84.4.tar.xz"; then
+            additional_failed+=("$glib_url (glib-2.84.4.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] glib-2.84.4.tar.xz (already exists)"
+    fi
+
+    # gobject-introspection-1.84.0 (recommended for glib2/polkit)
+    local gi_url="https://download.gnome.org/sources/gobject-introspection/1.84/gobject-introspection-1.84.0.tar.xz"
+    if [ ! -f "gobject-introspection-1.84.0.tar.xz" ]; then
+        log_info "Downloading gobject-introspection..."
+        if ! download_with_retry "$gi_url" "gobject-introspection-1.84.0.tar.xz"; then
+            additional_failed+=("$gi_url (gobject-introspection-1.84.0.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] gobject-introspection-1.84.0.tar.xz (already exists)"
+    fi
+
+    # polkit-126 (privilege authorization)
+    local polkit_url="https://github.com/polkit-org/polkit/archive/126/polkit-126.tar.gz"
+    if [ ! -f "polkit-126.tar.gz" ]; then
+        log_info "Downloading polkit..."
+        if ! download_with_retry "$polkit_url" "polkit-126.tar.gz"; then
+            additional_failed+=("$polkit_url (polkit-126.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] polkit-126.tar.gz (already exists)"
+    fi
+
     # Check for additional package failures
     if [ ${#additional_failed[@]} -gt 0 ]; then
         log_error "========================================="

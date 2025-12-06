@@ -46,13 +46,14 @@ Rookery OS is a custom Linux distribution for the **Friendly Society of Corvids*
 
 ```
 EasyLFS/
-├── docker-compose.yml          # Main orchestration - defines 6 build stages
+├── docker-compose.yml          # Main orchestration - defines 7 build stages
 ├── build.sh                    # Entry point - runs stages sequentially
 ├── setup.sh                    # Creates Docker volumes
 ├── Makefile                    # User-friendly targets (make build, make clean)
 ├── easylfs                     # CLI wrapper script
 ├── linux-6.6.102/              # LOCAL grsec kernel source (bind-mounted, not downloaded)
 ├── 12.4/                       # LFS book (HTML) - reference only
+├── blfs-12.4/                  # BLFS book (HTML) - BLFS package instructions
 └── services/                   # Per-stage Docker services
     ├── common/                 # Shared utilities
     │   ├── logging.sh          # log_info, log_step, log_error functions
@@ -67,24 +68,29 @@ EasyLFS/
     │       └── build_in_chroot.sh  # THE MAIN BUILD SCRIPT
     ├── configure-system/       # Stage 4: System config (Ch 9)
     │   └── scripts/configure_system.sh
-    ├── build-kernel/           # Stage 5: Kernel compilation (Ch 10)
+    ├── build-blfs/             # Stage 5: Beyond LFS packages
+    │   └── scripts/
+    │       ├── build_blfs.sh         # Wrapper (mounts, chroot setup)
+    │       └── build_blfs_chroot.sh  # BLFS package builds
+    ├── build-kernel/           # Stage 6: Kernel compilation (Ch 10)
     │   └── scripts/build_kernel.sh
-    └── package-image/          # Stage 6: Bootable disk image + ISO (Ch 11)
+    └── package-image/          # Stage 7: Bootable disk image + ISO (Ch 11)
         └── scripts/package_image.sh
 ```
 
 ## Build Pipeline
 
-The 6 stages run sequentially via Docker Compose:
+The 7 stages run sequentially via Docker Compose:
 
 | Stage | Service | Duration | What it does |
 |-------|---------|----------|--------------|
-| 1 | `download-sources` | 5-15 min | Downloads LFS packages + dbus + linux-firmware |
+| 1 | `download-sources` | 5-15 min | Downloads LFS + BLFS packages, dbus, linux-firmware |
 | 2 | `build-toolchain` | 2-4 hours | Builds cross-compiler in /tools |
 | 3 | `build-basesystem` | 3-6 hours | Builds 42 packages in chroot (systemd, dbus, NOT sysvinit) |
 | 4 | `configure-system` | 10-20 min | Creates systemd configs, network, /etc files |
-| 5 | `build-kernel` | 30-90 min | Builds grsec kernel with modules + firmware |
-| 6 | `package-image` | 15-30 min | Creates bootable .img and .iso with GRUB |
+| 5 | `build-blfs` | 30-60 min | Builds BLFS packages (PAM, security, etc.) |
+| 6 | `build-kernel` | 30-90 min | Builds grsec kernel with modules + firmware |
+| 7 | `package-image` | 15-30 min | Creates bootable .img and .iso with GRUB |
 
 ## Key Files to Know
 
@@ -92,7 +98,8 @@ The 6 stages run sequentially via Docker Compose:
 
 | File | Purpose |
 |------|---------|
-| `services/build-basesystem/scripts/build_in_chroot.sh` | **Main package build script** - builds all 42 packages |
+| `services/build-basesystem/scripts/build_in_chroot.sh` | **Main LFS package build script** - builds all 42 packages |
+| `services/build-blfs/scripts/build_blfs_chroot.sh` | **BLFS package build script** - PAM, security packages |
 | `services/build-kernel/scripts/build_kernel.sh` | Kernel config and compilation |
 | `services/configure-system/scripts/configure_system.sh` | systemd service enablement, network config |
 | `services/package-image/scripts/package_image.sh` | Disk image + ISO creation, GRUB installation |
@@ -102,8 +109,14 @@ The 6 stages run sequentially via Docker Compose:
 | File | Purpose |
 |------|---------|
 | `docker-compose.yml` | Volume mounts, environment variables, stage dependencies |
-| `services/download-sources/wget-list` | LFS package URLs |
-| `services/download-sources/md5sums` | Package checksums |
+| `services/download-sources/scripts/download.sh` | LFS + BLFS package downloads |
+
+### Reference Documentation
+
+| Directory | Purpose |
+|-----------|---------|
+| `12.4/` | LFS 12.4 book (HTML) - Core system instructions |
+| `blfs-12.4/` | BLFS 12.4 book (HTML) - Beyond LFS package instructions |
 
 ## Kernel Handling
 
@@ -190,6 +203,154 @@ should_skip_package "systemd" "/sources" && { log_info "Skipping..."; } || {
 ```
 
 To force rebuild: delete checkpoints from the Docker volume.
+
+## BLFS (Beyond Linux From Scratch) Building
+
+### Overview
+
+BLFS packages extend the base LFS system with additional functionality. The build happens in Stage 5 (`build-blfs`) after system configuration but before kernel compilation.
+
+### Reference Documentation
+
+The BLFS 12.4 book is available locally at `blfs-12.4/`. Key sections:
+- `blfs-12.4/postlfs/` - Security packages (PAM, Shadow rebuild, sudo, polkit)
+- `blfs-12.4/general/` - General libraries and utilities (systemd rebuild)
+- `blfs-12.4/x/` - X Window System
+- `blfs-12.4/kde/` - KDE Plasma desktop
+
+### Adding a New BLFS Package
+
+1. **Find the package documentation** in `blfs-12.4/`
+2. **Add download to `download.sh`**:
+   ```bash
+   # In services/download-sources/scripts/download.sh
+   # Add to the BLFS packages section:
+   local pkg_url="https://example.com/package-1.0.tar.xz"
+   if [ ! -f "package-1.0.tar.xz" ]; then
+       log_info "Downloading package..."
+       if ! download_with_retry "$pkg_url" "package-1.0.tar.xz"; then
+           additional_failed+=("$pkg_url (package-1.0.tar.xz)")
+       fi
+   else
+       log_info "[SKIP] package-1.0.tar.xz (already exists)"
+   fi
+   ```
+
+3. **Add build to `build_blfs_chroot.sh`**:
+   ```bash
+   # In services/build-blfs/scripts/build_blfs_chroot.sh
+   # Follow the existing pattern:
+
+   # =====================================================================
+   # BLFS X.X Package-Name-Version
+   # https://www.linuxfromscratch.org/blfs/view/12.4/section/package.html
+   # =====================================================================
+   should_skip_package "package-name" && { log_info "Skipping Package (already built)"; } || {
+   log_step "Building Package-1.0..."
+
+   if [ ! -f /sources/package-1.0.tar.xz ]; then
+       log_error "package-1.0.tar.xz not found in /sources"
+       exit 1
+   fi
+
+   cd "$BUILD_DIR"
+   rm -rf package-*
+   tar -xf /sources/package-1.0.tar.xz
+   cd package-*
+
+   # Follow BLFS instructions exactly
+   ./configure --prefix=/usr
+   make
+   make install
+
+   cd "$BUILD_DIR"
+   rm -rf package-*
+
+   log_info "Package-1.0 installed successfully"
+   create_checkpoint "package-name"
+   }
+   ```
+
+4. **Rebuild the Docker image and run**:
+   ```bash
+   docker-compose build --no-cache build-blfs
+   docker-compose run --rm build-blfs
+   ```
+
+### BLFS Checkpoints
+
+BLFS uses simplified checkpointing with `blfs-` prefix:
+- Checkpoints stored at `/.checkpoints/blfs-<package>.checkpoint` (inside chroot)
+- Maps to `/lfs/.checkpoints/blfs-<package>.checkpoint` on host volume
+
+```bash
+# List BLFS checkpoints
+docker run --rm -v easylfs_lfs-rootfs:/lfs alpine ls /lfs/.checkpoints/ | grep blfs
+```
+
+### Forcing a BLFS Package Rebuild
+
+To force rebuild of a specific BLFS package:
+
+```bash
+# Remove checkpoint for specific package
+docker run --rm -v easylfs_lfs-rootfs:/lfs alpine \
+    rm -f /lfs/.checkpoints/blfs-<package-name>.checkpoint
+
+# Then rebuild
+docker-compose run --rm build-blfs
+```
+
+To force rebuild of ALL BLFS packages:
+
+```bash
+# Remove all BLFS checkpoints
+docker run --rm -v easylfs_lfs-rootfs:/lfs alpine \
+    sh -c "rm -f /lfs/.checkpoints/blfs-*.checkpoint"
+
+# Then rebuild
+docker-compose build --no-cache build-blfs
+docker-compose run --rm build-blfs
+```
+
+### PAM Integration (Special Case)
+
+When Linux-PAM is installed, Shadow and systemd must be rebuilt with PAM support. This is handled automatically in `build_blfs_chroot.sh`:
+
+1. **Linux-PAM** - Installs PAM libraries and modules
+2. **Shadow (rebuild)** - Rebuilds with `--with-libpam`, creates `/etc/pam.d/` configs for login, su, passwd, etc.
+3. **systemd (rebuild)** - Rebuilds with `-D pam=enabled`, installs `pam_systemd.so` for systemd-logind
+
+The rebuild checkpoints are separate: `blfs-linux-pam`, `blfs-shadow-pam`, `blfs-systemd-pam`
+
+### Current BLFS Packages
+
+| Package | Checkpoint | Purpose |
+|---------|------------|---------|
+| Linux-PAM-1.7.1 | `blfs-linux-pam` | Pluggable Authentication Modules |
+| Shadow-4.18.0 | `blfs-shadow-pam` | Rebuilt with PAM support |
+| systemd-257.8 | `blfs-systemd-pam` | Rebuilt with PAM support |
+
+### Chroot Environment Notes
+
+The BLFS build runs inside a chroot. Key differences from host:
+- No `/proc`, `/sys` mounted (some tests may fail)
+- Use DESTDIR for packages that run post-install scripts requiring a running system
+- Simple stdout logging (no file logging inside chroot)
+
+Example for packages with problematic post-install:
+```bash
+# Install to temp dir to avoid post-install scripts
+DESTDIR=/tmp/pkg-install ninja install
+
+# Copy to root filesystem
+cp -a /tmp/pkg-install/* /
+
+# Run post-install manually (may fail in chroot - OK)
+/usr/bin/some-command 2>/dev/null || log_warn "Skipped (will run on first boot)"
+
+rm -rf /tmp/pkg-install
+```
 
 ## Docker Volumes
 
@@ -278,6 +439,10 @@ Set in `docker-compose.yml`:
 
 - LFS Book: `12.4/` directory (HTML files)
 - LFS systemd version: `12.4/chapter09/systemd-custom.html`
+- BLFS Book: `blfs-12.4/` directory (HTML files)
+- BLFS PAM: `blfs-12.4/postlfs/linux-pam.html`
+- BLFS Shadow rebuild: `blfs-12.4/postlfs/shadow.html`
+- BLFS systemd rebuild: `blfs-12.4/general/systemd.html`
 - Grsec config: `linux-6.6.102/grsecurity/Kconfig`
 
 ## About the Friendly Society of Corvids
