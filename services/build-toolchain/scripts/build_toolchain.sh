@@ -255,11 +255,32 @@ build_linux_headers() {
 
     log_step "===== Linux API Headers ====="
 
-    cd "$BUILD_DIR"
-    # Clean up any existing directory from previous failed builds
-    rm -rf linux-*/
-    tar -xf $SOURCES_DIR/linux-*.tar.xz
-    cd linux-*/
+    # Use grsec kernel source if available (mounted at /kernel-src)
+    local KERNEL_SRC_DIR="${KERNEL_SRC:-/kernel-src}"
+    
+    if [ -d "$KERNEL_SRC_DIR" ] && [ -f "$KERNEL_SRC_DIR/Makefile" ]; then
+        log_info "Using grsecurity kernel source from $KERNEL_SRC_DIR"
+        
+        cd "$BUILD_DIR"
+        rm -rf linux-headers-build
+        mkdir -p linux-headers-build
+        
+        # Copy kernel source (it's read-only mounted)
+        cp -a "$KERNEL_SRC_DIR"/* linux-headers-build/
+        cd linux-headers-build
+        
+        # Get kernel version for logging
+        local KERNEL_VERSION=$(make -s kernelversion 2>/dev/null || echo "unknown")
+        log_info "Kernel version: $KERNEL_VERSION"
+    else
+        # Fallback to downloaded kernel tarball
+        log_warn "Grsec kernel source not found at $KERNEL_SRC_DIR, falling back to downloaded kernel"
+        
+        cd "$BUILD_DIR"
+        rm -rf linux-*/
+        tar -xf $SOURCES_DIR/linux-*.tar.xz
+        cd linux-*/
+    fi
 
     make mrproper
     make headers
@@ -267,7 +288,7 @@ build_linux_headers() {
     command cp -rfv usr/include $LFS/usr
 
     cd "$BUILD_DIR"
-    rm -rf linux-*/
+    rm -rf linux-*/ linux-headers-build/
 
     log_info "Linux API Headers complete"
 
