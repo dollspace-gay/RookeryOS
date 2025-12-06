@@ -173,28 +173,56 @@ main() {
     scripts/config --enable CONFIG_EXT4_FS_SECURITY
 
     # =========================================================================
-    # Build drivers as modules (distro-style approach)
+    # Core storage drivers (BUILT-IN for initramfs/ISO boot)
+    # Without udev, we need these compiled in to detect boot devices
     # =========================================================================
-    log_info "Configuring hardware drivers as modules..."
+    log_info "Enabling core storage drivers (built-in for boot)..."
 
-    # --- Storage controllers ---
-    scripts/config --module CONFIG_ATA
-    scripts/config --module CONFIG_SATA_AHCI
-    scripts/config --module CONFIG_ATA_PIIX
+    # --- SCSI subsystem (required for CD-ROM and disk) ---
+    scripts/config --enable CONFIG_SCSI
+    scripts/config --enable CONFIG_SCSI_MOD
+    scripts/config --enable CONFIG_BLK_DEV_SD
+    scripts/config --enable CONFIG_BLK_DEV_SR
+    scripts/config --enable CONFIG_CHR_DEV_SG
+    scripts/config --enable CONFIG_SCSI_CONSTANTS
+    scripts/config --enable CONFIG_SCSI_SPI_ATTRS
+
+    # --- ATA/SATA (required for CD-ROM drives) ---
+    scripts/config --enable CONFIG_ATA
+    scripts/config --enable CONFIG_SATA_AHCI
+    scripts/config --enable CONFIG_ATA_PIIX
+    scripts/config --enable CONFIG_ATA_GENERIC
     scripts/config --module CONFIG_PATA_AMD
     scripts/config --module CONFIG_PATA_OLDPIIX
-    scripts/config --module CONFIG_BLK_DEV_SD
-    scripts/config --module CONFIG_BLK_DEV_SR
-    scripts/config --module CONFIG_CHR_DEV_SG
-    scripts/config --module CONFIG_SCSI
-    scripts/config --module CONFIG_SCSI_MOD
-    scripts/config --module CONFIG_BLK_DEV_NVME
-    scripts/config --enable CONFIG_NVME_CORE
 
-    # --- VirtIO drivers (for QEMU/KVM) ---
-    scripts/config --module CONFIG_VIRTIO
-    scripts/config --module CONFIG_VIRTIO_PCI
-    scripts/config --module CONFIG_VIRTIO_BLK
+    # --- CD-ROM support ---
+    scripts/config --enable CONFIG_CDROM
+
+    # --- ISO9660 filesystem (for ISO boot) ---
+    scripts/config --enable CONFIG_ISO9660_FS
+    scripts/config --enable CONFIG_JOLIET
+    scripts/config --enable CONFIG_ZISOFS
+
+    # --- Squashfs (for live boot) ---
+    scripts/config --enable CONFIG_SQUASHFS
+    scripts/config --enable CONFIG_SQUASHFS_ZLIB
+    scripts/config --enable CONFIG_SQUASHFS_LZ4
+    scripts/config --enable CONFIG_SQUASHFS_LZO
+    scripts/config --enable CONFIG_SQUASHFS_XZ
+    scripts/config --enable CONFIG_SQUASHFS_ZSTD
+
+    # --- Loop device (for mounting squashfs) ---
+    scripts/config --enable CONFIG_BLK_DEV_LOOP
+
+    # --- NVMe storage ---
+    scripts/config --enable CONFIG_NVME_CORE
+    scripts/config --module CONFIG_BLK_DEV_NVME
+
+    # --- VirtIO drivers (built-in for QEMU/KVM boot) ---
+    scripts/config --enable CONFIG_VIRTIO
+    scripts/config --enable CONFIG_VIRTIO_PCI
+    scripts/config --enable CONFIG_VIRTIO_BLK
+    scripts/config --enable CONFIG_VIRTIO_SCSI
     scripts/config --module CONFIG_VIRTIO_NET
     scripts/config --module CONFIG_VIRTIO_CONSOLE
     scripts/config --module CONFIG_VIRTIO_BALLOON

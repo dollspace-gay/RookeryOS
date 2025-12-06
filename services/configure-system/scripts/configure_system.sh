@@ -300,7 +300,8 @@ EOF
 
     # Default password: "rookery" (SHA-512 hash)
     # Users should change this after first login with: passwd root
-    ROOT_PASSWORD_HASH='$6$rookery1.0$YqKtQN8KqGz8FgJLU6rGh.vIo0bZ3qJ7oOHxw9VkP5gKmQF0mC8nL4vR2wX1yT6uA3jB9iE5kD7sH0fW2pM4xN.'
+    # Generated with: python3 -c "import crypt; print(crypt.crypt('rookery', crypt.mksalt(crypt.METHOD_SHA512)))"
+    ROOT_PASSWORD_HASH='$6$e3iLE3L1SObSEiK8$5D9KEsmRSBeZUZkwHuEBTc07F4lWZCXf6pFe0FNo58KOHxdfQrFOTsY/qmrY3h1N14eswR/iyAzVSnogHE4SP0'
 
     if [ -f "$LFS/etc/shadow" ]; then
         # Replace root's password hash in existing shadow file

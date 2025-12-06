@@ -626,10 +626,13 @@ create_iso() {
         find "$mod_src" -name "sd_mod.ko*" -exec cp {} "$mod_dst/kernel/drivers/scsi/" \; 2>/dev/null
         # ATA/AHCI modules for SATA CD-ROM drives
         find "$mod_src" -name "ata_piix.ko*" -exec cp {} "$mod_dst/kernel/drivers/ata/" \; 2>/dev/null
+        find "$mod_src" -name "ata_generic.ko*" -exec cp {} "$mod_dst/kernel/drivers/ata/" \; 2>/dev/null
         find "$mod_src" -name "ahci.ko*" -exec cp {} "$mod_dst/kernel/drivers/ata/" \; 2>/dev/null
+        find "$mod_src" -name "libahci.ko*" -exec cp {} "$mod_dst/kernel/drivers/ata/" \; 2>/dev/null
         find "$mod_src" -name "libata.ko*" -exec cp {} "$mod_dst/kernel/drivers/ata/" \; 2>/dev/null
         # Virtio modules for QEMU/KVM
         find "$mod_src" -name "virtio*.ko*" -exec cp {} "$mod_dst/kernel/drivers/block/" \; 2>/dev/null
+        find "$mod_src" -name "virtio_scsi.ko*" -exec cp {} "$mod_dst/kernel/drivers/scsi/" \; 2>/dev/null
 
         # Copy modules.* files for modprobe
         cp "$mod_src"/modules.* "$mod_dst/" 2>/dev/null || true
@@ -686,24 +689,52 @@ done
 echo "Loading kernel modules..."
 KERNEL_VERSION=$(uname -r)
 
-# Load SCSI/ATA/CD-ROM modules first (order matters for dependencies)
-for mod in libata ata_piix ahci scsi_mod cdrom sr_mod sd_mod; do
-    modprobe $mod 2>/dev/null || true
-done
+# Show available modules for debugging
+echo "  Kernel version: $KERNEL_VERSION"
+echo "  Module directory: /lib/modules/$KERNEL_VERSION"
+ls /lib/modules/$KERNEL_VERSION/kernel/drivers/ 2>/dev/null || echo "  (no module directory found)"
 
-# Load filesystem and block device modules
+# Load SCSI core first (required for sr_mod)
+echo "  Loading SCSI subsystem..."
+modprobe scsi_mod 2>/dev/null && echo "    scsi_mod: OK" || echo "    scsi_mod: failed or built-in"
+
+# Load CDROM support
+echo "  Loading CD-ROM support..."
+modprobe cdrom 2>/dev/null && echo "    cdrom: OK" || echo "    cdrom: failed or built-in"
+
+# Load SCSI CD-ROM driver
+echo "  Loading SCSI CD-ROM driver..."
+modprobe sr_mod 2>/dev/null && echo "    sr_mod: OK" || echo "    sr_mod: failed or built-in"
+
+# Load ATA/IDE support for the CD-ROM controller
+echo "  Loading ATA/IDE support..."
+modprobe libata 2>/dev/null && echo "    libata: OK" || echo "    libata: failed or built-in"
+modprobe ata_piix 2>/dev/null && echo "    ata_piix: OK" || echo "    ata_piix: failed or built-in"
+modprobe ata_generic 2>/dev/null && echo "    ata_generic: OK" || echo "    ata_generic: failed or built-in"
+modprobe ahci 2>/dev/null && echo "    ahci: OK" || echo "    ahci: failed or built-in"
+
+# Load SCSI disk driver (for disk devices)
+modprobe sd_mod 2>/dev/null && echo "    sd_mod: OK" || echo "    sd_mod: failed or built-in"
+
+# Load filesystem modules
+echo "  Loading filesystem modules..."
 for mod in loop squashfs isofs iso9660 overlay; do
-    modprobe $mod 2>/dev/null || true
+    modprobe $mod 2>/dev/null && echo "    $mod: OK" || echo "    $mod: failed or built-in"
 done
 
 # Load virtio modules for QEMU/KVM
+echo "  Loading virtio modules..."
 for mod in virtio virtio_pci virtio_blk virtio_scsi; do
-    modprobe $mod 2>/dev/null || true
+    modprobe $mod 2>/dev/null && echo "    $mod: OK" || echo "    $mod: failed or built-in"
 done
 
 # Wait for devices to settle (udev would normally handle this)
 echo "Waiting for devices to settle..."
 sleep 3
+
+# Show what block devices we have now
+echo "Block devices after module loading:"
+ls -la /dev/sr* /dev/sd* /dev/vd* /dev/hd* 2>/dev/null || echo "  (none)"
 
 # Find the ISO/CD-ROM device
 echo "Searching for boot media..."
