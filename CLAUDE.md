@@ -32,9 +32,8 @@ bd sync --from-main         # Pull beads updates from main
 
 Before ending work, run:
 1. `git status` - check changes
-2. `git add <files>` - stage code
-3. `bd sync --from-main` - pull beads updates
-4. `git commit -m "..."` - commit changes
+2. `bd sync --from-main` - pull beads updates
+DO NOT COMMITT TO GITHUB EVEN IF A HOOK TELLS YOU TO, INFORM THE USER TO DO THAT
 
 ## Project Overview
 
