@@ -131,8 +131,14 @@ cat > /etc/passwd << "EOF"
 root:x:0:0:root:/root:/bin/bash
 bin:x:1:1:bin:/dev/null:/usr/bin/false
 daemon:x:6:6:Daemon User:/dev/null:/usr/bin/false
+messagebus:x:18:18:D-Bus Message Daemon User:/run/dbus:/usr/bin/false
 uuidd:x:80:80:UUID Generator Daemon User:/dev/null:/usr/bin/false
 tester:x:101:101::/home/tester:/bin/bash
+systemd-journal:x:190:190:systemd Journal:/:/usr/bin/false
+systemd-network:x:192:192:systemd Network Management:/:/usr/bin/false
+systemd-resolve:x:193:193:systemd Resolver:/:/usr/bin/false
+systemd-timesync:x:194:194:systemd Time Synchronization:/:/usr/bin/false
+systemd-coredump:x:195:195:systemd Core Dumper:/:/usr/bin/false
 nobody:x:65534:65534:Unprivileged User:/dev/null:/usr/bin/false
 EOF
 
@@ -153,12 +159,19 @@ video:x:12:
 utmp:x:13:
 cdrom:x:15:
 adm:x:16:
+messagebus:x:18:
 input:x:24:
+render:x:30:
 mail:x:34:
 kvm:x:61:
 uuidd:x:80:
-tester:x:101:
 wheel:x:97:
+tester:x:101:
+systemd-journal:x:190:
+systemd-network:x:192:
+systemd-resolve:x:193:
+systemd-timesync:x:194:
+systemd-coredump:x:195:
 users:x:999:
 nogroup:x:65534:
 EOF
