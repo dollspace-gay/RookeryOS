@@ -353,27 +353,22 @@ copy_binary_with_libs() {
     libs=$(objdump -p "$binary" 2>/dev/null | grep NEEDED | awk '{print $2}')
 
     for lib in $libs; do
-        # Search for library in standard paths
+        # Search for library in standard paths (use -e to match symlinks too)
         local lib_path=""
         for search_dir in "$lfs_root/lib64" "$lfs_root/lib" "$lfs_root/usr/lib64" "$lfs_root/usr/lib"; do
-            if [ -f "$search_dir/$lib" ]; then
+            if [ -e "$search_dir/$lib" ]; then
                 lib_path="$search_dir/$lib"
                 break
             fi
         done
 
-        if [ -n "$lib_path" ] && [ -f "$lib_path" ]; then
-            local lib_rel="${lib_path#$lfs_root}"
-            local lib_dest_dir="$initramfs_dir$(dirname "$lib_rel")"
-            mkdir -p "$lib_dest_dir"
-            if [ ! -f "$initramfs_dir$lib_rel" ]; then
-                cp -a "$lib_path" "$lib_dest_dir/" 2>/dev/null
-                # Handle symlinks - copy the actual file too
-                if [ -L "$lib_path" ]; then
-                    local real_lib=$(readlink -f "$lib_path")
-                    if [ -f "$real_lib" ]; then
-                        cp -a "$real_lib" "$lib_dest_dir/" 2>/dev/null
-                    fi
+        if [ -n "$lib_path" ] && [ -e "$lib_path" ]; then
+            # Always resolve to the real file to avoid dangling symlinks
+            local real_lib=$(readlink -f "$lib_path")
+            if [ -f "$real_lib" ]; then
+                # Copy to lib64 in initramfs with the expected name
+                if [ ! -f "$initramfs_dir/lib64/$lib" ]; then
+                    cp "$real_lib" "$initramfs_dir/lib64/$lib" 2>/dev/null
                 fi
             fi
         fi
@@ -461,35 +456,39 @@ create_iso() {
 
     # Create directory structure
     mkdir -p "$initramfs_dir"/{bin,sbin,etc,proc,sys,dev,run,tmp,newroot}
-    mkdir -p "$initramfs_dir"/{lib,lib64}
+    mkdir -p "$initramfs_dir"/lib64/modules
     mkdir -p "$initramfs_dir"/usr/{bin,sbin,lib,lib64}
-    mkdir -p "$initramfs_dir"/lib/modules
+    # Create /lib symlink to /lib64 for library path compatibility
+    # This ensures the dynamic linker finds libraries regardless of which path is searched
+    ln -sf lib64 "$initramfs_dir/lib"
+    # Also link /usr/lib to /lib64 for additional compatibility
+    rm -rf "$initramfs_dir/usr/lib"
+    ln -sf ../lib64 "$initramfs_dir/usr/lib"
 
     # Copy the dynamic linker first (required for all dynamically linked binaries)
+    # Note: In LFS, lib64/ld-linux-x86-64.so.2 is a symlink to ../lib/ld-linux-x86-64.so.2
+    # We need to copy the actual file, not the symlink
     log_info "Copying dynamic linker..."
-    if [ -f "$LFS/lib64/ld-linux-x86-64.so.2" ]; then
-        cp -a "$LFS/lib64/ld-linux-x86-64.so.2" "$initramfs_dir/lib64/"
-        # Also copy the actual file if it's a symlink
-        if [ -L "$LFS/lib64/ld-linux-x86-64.so.2" ]; then
-            local real_ld=$(readlink -f "$LFS/lib64/ld-linux-x86-64.so.2")
-            cp -a "$real_ld" "$initramfs_dir/lib64/"
-        fi
-    elif [ -f "$LFS/lib/ld-linux-x86-64.so.2" ]; then
-        mkdir -p "$initramfs_dir/lib"
-        cp -a "$LFS/lib/ld-linux-x86-64.so.2" "$initramfs_dir/lib/"
-        ln -sf ../lib/ld-linux-x86-64.so.2 "$initramfs_dir/lib64/ld-linux-x86-64.so.2"
+    local real_ld=""
+    if [ -e "$LFS/lib64/ld-linux-x86-64.so.2" ]; then
+        real_ld=$(readlink -f "$LFS/lib64/ld-linux-x86-64.so.2")
+    elif [ -e "$LFS/lib/ld-linux-x86-64.so.2" ]; then
+        real_ld=$(readlink -f "$LFS/lib/ld-linux-x86-64.so.2")
+    fi
+    if [ -n "$real_ld" ] && [ -f "$real_ld" ]; then
+        cp "$real_ld" "$initramfs_dir/lib64/ld-linux-x86-64.so.2"
+    else
+        log_error "Dynamic linker not found!"
     fi
 
-    # Copy core glibc libraries
+    # Copy core glibc libraries (resolve symlinks to get actual files)
     log_info "Copying glibc libraries..."
     for lib in libc.so.6 libm.so.6 libresolv.so.2 libnss_files.so.2; do
         for search_dir in "$LFS/lib64" "$LFS/lib" "$LFS/usr/lib"; do
-            if [ -f "$search_dir/$lib" ]; then
-                cp -a "$search_dir/$lib" "$initramfs_dir/lib64/" 2>/dev/null
-                # Copy actual file if symlink
-                if [ -L "$search_dir/$lib" ]; then
-                    local real_lib=$(readlink -f "$search_dir/$lib")
-                    [ -f "$real_lib" ] && cp -a "$real_lib" "$initramfs_dir/lib64/"
+            if [ -e "$search_dir/$lib" ]; then
+                local real_lib=$(readlink -f "$search_dir/$lib")
+                if [ -f "$real_lib" ]; then
+                    cp "$real_lib" "$initramfs_dir/lib64/$lib" 2>/dev/null || true
                 fi
                 break
             fi
@@ -529,7 +528,7 @@ create_iso() {
     fi
 
     # Core utilities from coreutils
-    COREUTILS_BINS="cat ls mkdir mknod mount umount sleep echo ln cp mv rm chmod chown chroot stat head tail"
+    COREUTILS_BINS="cat ls mkdir mknod mount umount sleep echo ln cp mv rm chmod chown chroot stat head tail uname"
     for bin in $COREUTILS_BINS; do
         for path in "$LFS/usr/bin/$bin" "$LFS/bin/$bin"; do
             if [ -f "$path" ]; then
@@ -571,27 +570,28 @@ create_iso() {
         done
     done
 
-    # Additional libraries that may be needed
+    # Additional libraries that may be needed (resolve symlinks)
     log_info "Copying additional libraries..."
     for lib in libblkid.so.1 libmount.so.1 libuuid.so.1 libreadline.so.8 libncursesw.so.6 \
                libtinfo.so.6 libz.so.1 liblzma.so.5 libzstd.so.1 libkmod.so.2 libcrypto.so.3; do
         for search_dir in "$LFS/lib64" "$LFS/lib" "$LFS/usr/lib64" "$LFS/usr/lib"; do
-            if [ -f "$search_dir/$lib" ]; then
-                cp -a "$search_dir/$lib" "$initramfs_dir/lib64/" 2>/dev/null
-                if [ -L "$search_dir/$lib" ]; then
-                    local real_lib=$(readlink -f "$search_dir/$lib")
-                    [ -f "$real_lib" ] && cp -a "$real_lib" "$initramfs_dir/lib64/"
+            if [ -e "$search_dir/$lib" ]; then
+                local real_lib=$(readlink -f "$search_dir/$lib")
+                if [ -f "$real_lib" ]; then
+                    cp "$real_lib" "$initramfs_dir/lib64/$lib" 2>/dev/null || true
                 fi
                 break
             fi
         done
     done
 
-    # Copy all .so files to ensure we don't miss dependencies
-    log_info "Copying shared library symlinks..."
-    for search_dir in "$LFS/lib64" "$LFS/usr/lib"; do
+    # Copy all .so files to ensure we don't miss dependencies (resolve symlinks)
+    log_info "Copying shared library files..."
+    for search_dir in "$LFS/lib64" "$LFS/lib" "$LFS/usr/lib"; do
         if [ -d "$search_dir" ]; then
-            find "$search_dir" -maxdepth 1 -name "*.so*" -exec cp -an {} "$initramfs_dir/lib64/" \; 2>/dev/null || true
+            find "$search_dir" -maxdepth 1 -name "*.so*" -type f -exec cp -n {} "$initramfs_dir/lib64/" \; 2>/dev/null || true
+            # Also copy targets of symlinks
+            find "$search_dir" -maxdepth 1 -name "*.so*" -type l -exec sh -c 'real=$(readlink -f "$1"); [ -f "$real" ] && cp -n "$real" "$2/lib64/"' _ {} "$initramfs_dir" \; 2>/dev/null || true
         fi
     done
 
@@ -609,7 +609,7 @@ create_iso() {
     if [ -n "$kernel_version" ] && [ -d "$LFS/lib/modules/$kernel_version" ]; then
         local mod_src="$LFS/lib/modules/$kernel_version"
         local mod_dst="$initramfs_dir/lib/modules/$kernel_version"
-        mkdir -p "$mod_dst/kernel/fs" "$mod_dst/kernel/drivers/block"
+        mkdir -p "$mod_dst/kernel/fs" "$mod_dst/kernel/drivers/block" "$mod_dst/kernel/drivers/scsi" "$mod_dst/kernel/drivers/cdrom" "$mod_dst/kernel/drivers/ata"
 
         # Copy required modules for ISO boot
         # Filesystem modules
@@ -618,6 +618,18 @@ create_iso() {
         find "$mod_src" -name "squashfs.ko*" -exec cp {} "$mod_dst/kernel/fs/" \; 2>/dev/null
         find "$mod_src" -name "overlay.ko*" -exec cp {} "$mod_dst/kernel/fs/" \; 2>/dev/null
         find "$mod_src" -name "loop.ko*" -exec cp {} "$mod_dst/kernel/drivers/block/" \; 2>/dev/null
+
+        # SCSI and CD-ROM modules (required for ISO boot in VMs and bare metal)
+        find "$mod_src" -name "sr_mod.ko*" -exec cp {} "$mod_dst/kernel/drivers/scsi/" \; 2>/dev/null
+        find "$mod_src" -name "cdrom.ko*" -exec cp {} "$mod_dst/kernel/drivers/cdrom/" \; 2>/dev/null
+        find "$mod_src" -name "scsi_mod.ko*" -exec cp {} "$mod_dst/kernel/drivers/scsi/" \; 2>/dev/null
+        find "$mod_src" -name "sd_mod.ko*" -exec cp {} "$mod_dst/kernel/drivers/scsi/" \; 2>/dev/null
+        # ATA/AHCI modules for SATA CD-ROM drives
+        find "$mod_src" -name "ata_piix.ko*" -exec cp {} "$mod_dst/kernel/drivers/ata/" \; 2>/dev/null
+        find "$mod_src" -name "ahci.ko*" -exec cp {} "$mod_dst/kernel/drivers/ata/" \; 2>/dev/null
+        find "$mod_src" -name "libata.ko*" -exec cp {} "$mod_dst/kernel/drivers/ata/" \; 2>/dev/null
+        # Virtio modules for QEMU/KVM
+        find "$mod_src" -name "virtio*.ko*" -exec cp {} "$mod_dst/kernel/drivers/block/" \; 2>/dev/null
 
         # Copy modules.* files for modprobe
         cp "$mod_src"/modules.* "$mod_dst/" 2>/dev/null || true
@@ -674,13 +686,24 @@ done
 echo "Loading kernel modules..."
 KERNEL_VERSION=$(uname -r)
 
-# Try to load modules (they may be built-in)
+# Load SCSI/ATA/CD-ROM modules first (order matters for dependencies)
+for mod in libata ata_piix ahci scsi_mod cdrom sr_mod sd_mod; do
+    modprobe $mod 2>/dev/null || true
+done
+
+# Load filesystem and block device modules
 for mod in loop squashfs isofs iso9660 overlay; do
     modprobe $mod 2>/dev/null || true
 done
 
-# Wait for devices to settle
-sleep 2
+# Load virtio modules for QEMU/KVM
+for mod in virtio virtio_pci virtio_blk virtio_scsi; do
+    modprobe $mod 2>/dev/null || true
+done
+
+# Wait for devices to settle (udev would normally handle this)
+echo "Waiting for devices to settle..."
+sleep 3
 
 # Find the ISO/CD-ROM device
 echo "Searching for boot media..."

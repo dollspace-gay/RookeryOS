@@ -31,8 +31,12 @@ MIN_SPEED=50000     # Minimum speed: 50KB/s (will retry if slower)
 # Note: LFS for download-sources points to /sources since we don't have /lfs yet
 export LFS="${LFS:-/lfs}"
 
+# Track failed downloads
+FAILED_DOWNLOADS_FILE="/tmp/failed_downloads.$$"
+: > "$FAILED_DOWNLOADS_FILE"  # Create/truncate file
+
 # Setup logging trap to ensure finalize_logging is called
-trap 'finalize_logging $?' EXIT
+trap 'finalize_logging $?; rm -f "$FAILED_DOWNLOADS_FILE"' EXIT
 
 # Download with retry and speed monitoring
 download_with_retry() {
@@ -100,6 +104,8 @@ download_package() {
         return 0
     else
         echo "[FAIL] $filename"
+        # Record failure for later reporting
+        echo "$url" >> /tmp/failed_downloads.$$
         return 1
     fi
 }
@@ -166,33 +172,53 @@ main() {
     log_info "Starting parallel downloads..."
 
     # Filter out comments and empty lines, then download in parallel
+    # Note: We don't fail immediately here - we collect failures and report at end
     if command -v parallel >/dev/null 2>&1; then
         # Use GNU parallel if available (better progress tracking)
         log_info "Using GNU parallel for downloads"
         grep -v '^[[:space:]]*#' wget-list | grep -v '^[[:space:]]*$' | \
             parallel -j "$PARALLEL_DOWNLOADS" --line-buffer --tag \
-                download_package {} "$SOURCES_DIR"
+                download_package {} "$SOURCES_DIR" || true
     else
         # Fallback to xargs -P
         log_info "Using xargs for parallel downloads"
         grep -v '^[[:space:]]*#' wget-list | grep -v '^[[:space:]]*$' | \
-            xargs -P "$PARALLEL_DOWNLOADS" -I {} bash -c 'download_package "$@"' _ {} "$SOURCES_DIR"
+            xargs -P "$PARALLEL_DOWNLOADS" -I {} bash -c 'download_package "$@"' _ {} "$SOURCES_DIR" || true
     fi
 
     echo ""
     log_info "Download phase completed"
     log_info "Total packages: $total_packages"
 
+    # Check for any failures from parallel downloads
+    if [ -s "$FAILED_DOWNLOADS_FILE" ]; then
+        log_error "========================================="
+        log_error "DOWNLOAD FAILED - The following packages could not be downloaded:"
+        log_error "========================================="
+        while IFS= read -r failed_url; do
+            log_error "  - $failed_url"
+        done < "$FAILED_DOWNLOADS_FILE"
+        log_error "========================================="
+        log_error "Please check your network connection and try again."
+        log_error "You may need to find alternative mirrors for these packages."
+        exit 1
+    fi
+
     # =========================================================================
     # Download additional packages for systemd build
     # =========================================================================
     log_info "Downloading additional packages for systemd..."
 
+    # Track additional package failures
+    local additional_failed=()
+
     # D-Bus (required for systemd)
-    # Note: Using Fossies mirror as dbus.freedesktop.org can be unreliable
-    local dbus_url="https://fossies.org/linux/misc/dbus-1.16.2.tar.xz"
+    # Note: Using Debian mirror as dbus.freedesktop.org is unreliable
+    local dbus_url="http://deb.debian.org/debian/pool/main/d/dbus/dbus_1.16.2.orig.tar.xz"
     if [ ! -f "dbus-1.16.2.tar.xz" ]; then
-        download_with_retry "$dbus_url" "dbus-1.16.2.tar.xz" || log_warn "D-Bus download failed"
+        if ! download_with_retry "$dbus_url" "dbus-1.16.2.tar.xz"; then
+            additional_failed+=("$dbus_url (dbus-1.16.2.tar.xz)")
+        fi
     else
         log_info "[SKIP] dbus-1.16.2.tar.xz (already exists)"
     fi
@@ -201,7 +227,9 @@ main() {
     local firmware_url="https://cdn.kernel.org/pub/linux/kernel/firmware/linux-firmware-20251125.tar.xz"
     if [ ! -f "linux-firmware-20251125.tar.xz" ]; then
         log_info "Downloading linux-firmware (this may take a while, ~600MB)..."
-        download_with_retry "$firmware_url" "linux-firmware-20251125.tar.xz" || log_warn "linux-firmware download failed"
+        if ! download_with_retry "$firmware_url" "linux-firmware-20251125.tar.xz"; then
+            additional_failed+=("$firmware_url (linux-firmware-20251125.tar.xz)")
+        fi
     else
         log_info "[SKIP] linux-firmware-20251125.tar.xz (already exists)"
     fi
@@ -210,9 +238,25 @@ main() {
     local nano_url="https://www.nano-editor.org/dist/v8/nano-8.3.tar.xz"
     if [ ! -f "nano-8.3.tar.xz" ]; then
         log_info "Downloading nano text editor..."
-        download_with_retry "$nano_url" "nano-8.3.tar.xz" || log_warn "nano download failed"
+        if ! download_with_retry "$nano_url" "nano-8.3.tar.xz"; then
+            additional_failed+=("$nano_url (nano-8.3.tar.xz)")
+        fi
     else
         log_info "[SKIP] nano-8.3.tar.xz (already exists)"
+    fi
+
+    # Check for additional package failures
+    if [ ${#additional_failed[@]} -gt 0 ]; then
+        log_error "========================================="
+        log_error "DOWNLOAD FAILED - The following additional packages could not be downloaded:"
+        log_error "========================================="
+        for failed in "${additional_failed[@]}"; do
+            log_error "  - $failed"
+        done
+        log_error "========================================="
+        log_error "These packages are required for the systemd build."
+        log_error "Please check your network connection and try again."
+        exit 1
     fi
 
     # Verify checksums (only for LFS packages, not additional ones)

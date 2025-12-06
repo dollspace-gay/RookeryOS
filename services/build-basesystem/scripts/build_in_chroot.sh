@@ -962,6 +962,18 @@ build_package "perl-*.tar.xz" "Perl (final)" bash -c '
 '
 
 # =====================================================================
+# 8.15 Expat-2.7.1 (Required by XML::Parser)
+# =====================================================================
+build_package "expat-*.tar.xz" "Expat" bash -c '
+    ./configure --prefix=/usr \
+                --disable-static \
+                --docdir=/usr/share/doc/expat-2.7.1
+    make
+    make install
+    install -v -m644 doc/*.{html,css} /usr/share/doc/expat-2.7.1 2>/dev/null || true
+'
+
+# =====================================================================
 # 8.48 XML::Parser-2.47 (Perl module for Intltool)
 # =====================================================================
 should_skip_package "XML-Parser" "/sources" && { log_info "⊙ Skipping XML-Parser (already built, checkpoint valid)"; } || {
@@ -1319,7 +1331,7 @@ build_package "texinfo-*.tar.xz" "Texinfo (final)" bash -c '
     ./configure --prefix=/usr
     make
     make install
-    # Install Texinfo's Perl modules in the proper location
+    # Install Texinfo Perl modules in the proper location
     make TEXMF=/usr/share/texmf install-tex || true
 '
 
@@ -1351,8 +1363,9 @@ mkdir -pv /var/lib/hwclock
             ADJTIME_PATH=/var/lib/hwclock/adjtime \
             --docdir=/usr/share/doc/util-linux-2.41.1
 make
-chown -R tester .
-su tester -c "PATH=$PATH make -k check" || true
+# Skip tests - they require kernel features not available in Docker/chroot
+# chown -R tester .
+# su tester -c "PATH=$PATH make -k check" || true
 make install
 cd /build
 rm -rf util-linux-*
@@ -1390,18 +1403,6 @@ rm -rf e2fsprogs-*
 log_info "E2fsprogs complete"
 create_checkpoint "e2fsprogs" "/sources" "chapter8"
 }
-
-# =====================================================================
-# 8.15 Expat-2.7.1 (Required by Python)
-# =====================================================================
-build_package "expat-*.tar.xz" "Expat" bash -c '
-    ./configure --prefix=/usr \
-                --disable-static \
-                --docdir=/usr/share/doc/expat-2.7.1
-    make
-    make install
-    install -v -m644 doc/*.{html,css} /usr/share/doc/expat-2.7.1 2>/dev/null || true
-'
 
 # =====================================================================
 # 8.49 Python-3.13.7 (Final - with pip)
@@ -1599,8 +1600,7 @@ cd build
 meson setup --prefix=/usr \
             --buildtype=release \
             --wrap-mode=nofallback \
-            -D runstatedir=/run \
-            -D system_socket=/run/dbus/system_bus_socket \
+            -D runtime_dir=/run \
             ..
 ninja
 ninja install
@@ -1713,10 +1713,10 @@ if [ "$CHECKPOINT_COUNT" -lt "$EXPECTED_PACKAGES" ]; then
         "file" "libxcrypt" "readline" "m4" "bc" "binutils" "gmp" "mpfr" "mpc"
         "attr" "acl" "gcc" "shadow" "gdbm" "gettext" "pkgconf" "flex" "libtool"
         "bison" "ncurses" "sed" "grep" "bash" "autoconf" "automake" "openssl"
-        "libffi" "perl" "XML-Parser" "gawk" "groff" "less" "libpipeline" "make"
+        "libffi" "perl" "expat" "XML-Parser" "gawk" "groff" "less" "libpipeline" "make"
         "patch" "man-db" "inetutils" "psmisc" "intltool" "nano" "elfutils"
         "kmod" "iproute2" "coreutils" "diffutils" "findutils" "gzip" "kbd"
-        "tar" "texinfo" "procps-ng" "util-linux" "e2fsprogs" "expat"
+        "tar" "texinfo" "procps-ng" "util-linux" "e2fsprogs"
         "Python-final" "ninja" "flit-core" "packaging" "wheel" "setuptools"
         "meson" "libcap" "MarkupSafe" "jinja2" "gperf" "systemd" "dbus" "grub"
     )

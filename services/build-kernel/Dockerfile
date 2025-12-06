@@ -3,6 +3,7 @@ FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install kernel build dependencies
+# Note: g++ and gcc-*-plugin-dev are required for grsecurity GCC plugins
 RUN apt-get update && apt-get install -y \
     bc \
     bison \
@@ -10,6 +11,8 @@ RUN apt-get update && apt-get install -y \
     libelf-dev \
     libssl-dev \
     gcc \
+    g++ \
+    gcc-11-plugin-dev \
     make \
     cpio \
     kmod \
