@@ -229,7 +229,7 @@ Set in `docker-compose.yml`:
 - Check serial console output with verbose boot option
 
 ### Missing firmware/modules
-- Verify `linux-firmware-*.tar.gz` was downloaded
+- Verify `linux-firmware-*.tar.xz` was downloaded
 - Check `build_kernel.sh` for module configuration
 - Modules install to `/lib/modules/<version>/`
 
