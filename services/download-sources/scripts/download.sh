@@ -127,11 +127,33 @@ main() {
     init_checkpointing
 
     # Check if download was already completed successfully
+    # But still check for missing BLFS packages that may have been added later
     if should_skip_global_checkpoint "download-complete"; then
-        log_info "========================================="
-        log_info "All sources already downloaded and verified"
-        log_info "========================================="
-        exit 0
+        log_info "Base sources already downloaded, checking for missing BLFS packages..."
+
+        # List of required BLFS packages that might be missing
+        local missing_blfs=()
+        local blfs_packages=(
+            "icu4c-77_1-src.tgz"
+            "gobject-introspection-1.84.0.tar.xz"
+            "vala-0.56.18.tar.xz"
+        )
+
+        for pkg in "${blfs_packages[@]}"; do
+            if [ ! -f "$pkg" ]; then
+                missing_blfs+=("$pkg")
+            fi
+        done
+
+        if [ ${#missing_blfs[@]} -eq 0 ]; then
+            log_info "========================================="
+            log_info "All sources already downloaded and verified"
+            log_info "========================================="
+            exit 0
+        else
+            log_info "Missing BLFS packages: ${missing_blfs[*]}"
+            log_info "Continuing to download missing packages..."
+        fi
     fi
 
     # Download wget-list
@@ -320,6 +342,17 @@ main() {
         log_info "[SKIP] duktape-2.7.0.tar.xz (already exists)"
     fi
 
+    # ICU-77.1 (recommended for libxml2, required for proper Unicode support)
+    local icu_url="https://github.com/unicode-org/icu/releases/download/release-77-1/icu4c-77_1-src.tgz"
+    if [ ! -f "icu4c-77_1-src.tgz" ]; then
+        log_info "Downloading ICU..."
+        if ! download_with_retry "$icu_url" "icu4c-77_1-src.tgz"; then
+            additional_failed+=("$icu_url (icu4c-77_1-src.tgz)")
+        fi
+    else
+        log_info "[SKIP] icu4c-77_1-src.tgz (already exists)"
+    fi
+
     # glib-2.84.4 (required by polkit)
     local glib_url="https://download.gnome.org/sources/glib/2.84/glib-2.84.4.tar.xz"
     if [ ! -f "glib-2.84.4.tar.xz" ]; then
@@ -351,6 +384,335 @@ main() {
         fi
     else
         log_info "[SKIP] polkit-126.tar.gz (already exists)"
+    fi
+
+    # CMake-4.1.0 (build tool - needed by c-ares, libproxy, etc.)
+    local cmake_url="https://cmake.org/files/v4.1/cmake-4.1.0.tar.gz"
+    if [ ! -f "cmake-4.1.0.tar.gz" ]; then
+        log_info "Downloading cmake..."
+        if ! download_with_retry "$cmake_url" "cmake-4.1.0.tar.gz"; then
+            additional_failed+=("$cmake_url (cmake-4.1.0.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] cmake-4.1.0.tar.gz (already exists)"
+    fi
+
+    # =========================================================================
+    # BLFS Tier 2: Networking & Protocols
+    # =========================================================================
+    log_info "Downloading BLFS Tier 2 packages (Networking)..."
+
+    # --- Foundation packages (no dependencies) ---
+
+    # libmnl-1.0.5 (Netfilter minimalistic library)
+    local libmnl_url="https://netfilter.org/projects/libmnl/files/libmnl-1.0.5.tar.bz2"
+    if [ ! -f "libmnl-1.0.5.tar.bz2" ]; then
+        log_info "Downloading libmnl..."
+        if ! download_with_retry "$libmnl_url" "libmnl-1.0.5.tar.bz2"; then
+            additional_failed+=("$libmnl_url (libmnl-1.0.5.tar.bz2)")
+        fi
+    else
+        log_info "[SKIP] libmnl-1.0.5.tar.bz2 (already exists)"
+    fi
+
+    # libndp-1.9 (Neighbor Discovery Protocol library)
+    # Note: libndp is from github releases
+    local libndp_url="https://github.com/jpirko/libndp/archive/v1.9/libndp-1.9.tar.gz"
+    if [ ! -f "libndp-1.9.tar.gz" ]; then
+        log_info "Downloading libndp..."
+        if ! download_with_retry "$libndp_url" "libndp-1.9.tar.gz"; then
+            additional_failed+=("$libndp_url (libndp-1.9.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] libndp-1.9.tar.gz (already exists)"
+    fi
+
+    # libevent-2.1.12 (Event notification library)
+    local libevent_url="https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz"
+    if [ ! -f "libevent-2.1.12-stable.tar.gz" ]; then
+        log_info "Downloading libevent..."
+        if ! download_with_retry "$libevent_url" "libevent-2.1.12-stable.tar.gz"; then
+            additional_failed+=("$libevent_url (libevent-2.1.12-stable.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] libevent-2.1.12-stable.tar.gz (already exists)"
+    fi
+
+    # c-ares-1.34.5 (Async DNS resolver)
+    local cares_url="https://github.com/c-ares/c-ares/releases/download/v1.34.5/c-ares-1.34.5.tar.gz"
+    if [ ! -f "c-ares-1.34.5.tar.gz" ]; then
+        log_info "Downloading c-ares..."
+        if ! download_with_retry "$cares_url" "c-ares-1.34.5.tar.gz"; then
+            additional_failed+=("$cares_url (c-ares-1.34.5.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] c-ares-1.34.5.tar.gz (already exists)"
+    fi
+
+    # libdaemon-0.14 (Unix daemon library)
+    local libdaemon_url="https://0pointer.de/lennart/projects/libdaemon/libdaemon-0.14.tar.gz"
+    if [ ! -f "libdaemon-0.14.tar.gz" ]; then
+        log_info "Downloading libdaemon..."
+        if ! download_with_retry "$libdaemon_url" "libdaemon-0.14.tar.gz"; then
+            additional_failed+=("$libdaemon_url (libdaemon-0.14.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] libdaemon-0.14.tar.gz (already exists)"
+    fi
+
+    # libpcap-1.10.5 (Packet capture library)
+    local libpcap_url="https://www.tcpdump.org/release/libpcap-1.10.5.tar.gz"
+    if [ ! -f "libpcap-1.10.5.tar.gz" ]; then
+        log_info "Downloading libpcap..."
+        if ! download_with_retry "$libpcap_url" "libpcap-1.10.5.tar.gz"; then
+            additional_failed+=("$libpcap_url (libpcap-1.10.5.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] libpcap-1.10.5.tar.gz (already exists)"
+    fi
+
+    # libunistring-1.3 (Unicode string library - needed by libidn2)
+    # Use ftpmirror for geographic mirror selection (ftp.gnu.org often times out)
+    local libunistring_url="https://ftpmirror.gnu.org/gnu/libunistring/libunistring-1.3.tar.xz"
+    if [ ! -f "libunistring-1.3.tar.xz" ]; then
+        log_info "Downloading libunistring..."
+        if ! download_with_retry "$libunistring_url" "libunistring-1.3.tar.xz"; then
+            additional_failed+=("$libunistring_url (libunistring-1.3.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] libunistring-1.3.tar.xz (already exists)"
+    fi
+
+    # libnl-3.11.0 (Netlink library - needed by wpa_supplicant, NetworkManager)
+    local libnl_url="https://github.com/thom311/libnl/releases/download/libnl3_11_0/libnl-3.11.0.tar.gz"
+    if [ ! -f "libnl-3.11.0.tar.gz" ]; then
+        log_info "Downloading libnl..."
+        if ! download_with_retry "$libnl_url" "libnl-3.11.0.tar.gz"; then
+            additional_failed+=("$libnl_url (libnl-3.11.0.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] libnl-3.11.0.tar.gz (already exists)"
+    fi
+
+    # libxml2-2.14.5 (XML parser library - required by libxslt)
+    local libxml2_url="https://download.gnome.org/sources/libxml2/2.14/libxml2-2.14.5.tar.xz"
+    if [ ! -f "libxml2-2.14.5.tar.xz" ]; then
+        log_info "Downloading libxml2..."
+        if ! download_with_retry "$libxml2_url" "libxml2-2.14.5.tar.xz"; then
+            additional_failed+=("$libxml2_url (libxml2-2.14.5.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] libxml2-2.14.5.tar.xz (already exists)"
+    fi
+
+    # libxslt-1.1.43 (XSLT processor)
+    local libxslt_url="https://download.gnome.org/sources/libxslt/1.1/libxslt-1.1.43.tar.xz"
+    if [ ! -f "libxslt-1.1.43.tar.xz" ]; then
+        log_info "Downloading libxslt..."
+        if ! download_with_retry "$libxslt_url" "libxslt-1.1.43.tar.xz"; then
+            additional_failed+=("$libxslt_url (libxslt-1.1.43.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] libxslt-1.1.43.tar.xz (already exists)"
+    fi
+
+    # dhcpcd-10.2.4 (DHCP client)
+    local dhcpcd_url="https://github.com/NetworkConfiguration/dhcpcd/releases/download/v10.2.4/dhcpcd-10.2.4.tar.xz"
+    if [ ! -f "dhcpcd-10.2.4.tar.xz" ]; then
+        log_info "Downloading dhcpcd..."
+        if ! download_with_retry "$dhcpcd_url" "dhcpcd-10.2.4.tar.xz"; then
+            additional_failed+=("$dhcpcd_url (dhcpcd-10.2.4.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] dhcpcd-10.2.4.tar.xz (already exists)"
+    fi
+
+    # --- SSL/TLS stack ---
+
+    # libtasn1-4.20.0 (ASN.1 library - needed by GnuTLS)
+    local libtasn1_url="https://ftpmirror.gnu.org/gnu/libtasn1/libtasn1-4.20.0.tar.gz"
+    if [ ! -f "libtasn1-4.20.0.tar.gz" ]; then
+        log_info "Downloading libtasn1..."
+        if ! download_with_retry "$libtasn1_url" "libtasn1-4.20.0.tar.gz"; then
+            additional_failed+=("$libtasn1_url (libtasn1-4.20.0.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] libtasn1-4.20.0.tar.gz (already exists)"
+    fi
+
+    # nettle-3.10.2 (Crypto library - needed by GnuTLS)
+    local nettle_url="https://ftpmirror.gnu.org/gnu/nettle/nettle-3.10.2.tar.gz"
+    if [ ! -f "nettle-3.10.2.tar.gz" ]; then
+        log_info "Downloading nettle..."
+        if ! download_with_retry "$nettle_url" "nettle-3.10.2.tar.gz"; then
+            additional_failed+=("$nettle_url (nettle-3.10.2.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] nettle-3.10.2.tar.gz (already exists)"
+    fi
+
+    # make-ca-1.16.1 (CA certificates management)
+    local makeca_url="https://github.com/lfs-book/make-ca/archive/v1.16.1/make-ca-1.16.1.tar.gz"
+    if [ ! -f "make-ca-1.16.1.tar.gz" ]; then
+        log_info "Downloading make-ca..."
+        if ! download_with_retry "$makeca_url" "make-ca-1.16.1.tar.gz"; then
+            additional_failed+=("$makeca_url (make-ca-1.16.1.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] make-ca-1.16.1.tar.gz (already exists)"
+    fi
+
+    # p11-kit-0.25.5 (PKCS#11 library - needed by GnuTLS)
+    local p11kit_url="https://github.com/p11-glue/p11-kit/releases/download/0.25.5/p11-kit-0.25.5.tar.xz"
+    if [ ! -f "p11-kit-0.25.5.tar.xz" ]; then
+        log_info "Downloading p11-kit..."
+        if ! download_with_retry "$p11kit_url" "p11-kit-0.25.5.tar.xz"; then
+            additional_failed+=("$p11kit_url (p11-kit-0.25.5.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] p11-kit-0.25.5.tar.xz (already exists)"
+    fi
+
+    # GnuTLS-3.8.10 (TLS library)
+    local gnutls_url="https://www.gnupg.org/ftp/gcrypt/gnutls/v3.8/gnutls-3.8.10.tar.xz"
+    if [ ! -f "gnutls-3.8.10.tar.xz" ]; then
+        log_info "Downloading GnuTLS..."
+        if ! download_with_retry "$gnutls_url" "gnutls-3.8.10.tar.xz"; then
+            additional_failed+=("$gnutls_url (gnutls-3.8.10.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] gnutls-3.8.10.tar.xz (already exists)"
+    fi
+
+    # --- Internationalization ---
+
+    # libidn2-2.3.8 (IDN library - needed by libpsl, wget)
+    local libidn2_url="https://ftpmirror.gnu.org/gnu/libidn/libidn2-2.3.8.tar.gz"
+    if [ ! -f "libidn2-2.3.8.tar.gz" ]; then
+        log_info "Downloading libidn2..."
+        if ! download_with_retry "$libidn2_url" "libidn2-2.3.8.tar.gz"; then
+            additional_failed+=("$libidn2_url (libidn2-2.3.8.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] libidn2-2.3.8.tar.gz (already exists)"
+    fi
+
+    # libpsl-0.21.5 (Public Suffix List library - needed by curl, wget)
+    local libpsl_url="https://github.com/rockdaboot/libpsl/releases/download/0.21.5/libpsl-0.21.5.tar.gz"
+    if [ ! -f "libpsl-0.21.5.tar.gz" ]; then
+        log_info "Downloading libpsl..."
+        if ! download_with_retry "$libpsl_url" "libpsl-0.21.5.tar.gz"; then
+            additional_failed+=("$libpsl_url (libpsl-0.21.5.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] libpsl-0.21.5.tar.gz (already exists)"
+    fi
+
+    # --- Network services ---
+
+    # iptables-1.8.11 (Firewall)
+    local iptables_url="https://www.netfilter.org/projects/iptables/files/iptables-1.8.11.tar.xz"
+    if [ ! -f "iptables-1.8.11.tar.xz" ]; then
+        log_info "Downloading iptables..."
+        if ! download_with_retry "$iptables_url" "iptables-1.8.11.tar.xz"; then
+            additional_failed+=("$iptables_url (iptables-1.8.11.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] iptables-1.8.11.tar.xz (already exists)"
+    fi
+
+    # avahi-0.8 (mDNS/DNS-SD)
+    local avahi_url="https://github.com/lathiat/avahi/releases/download/v0.8/avahi-0.8.tar.gz"
+    if [ ! -f "avahi-0.8.tar.gz" ]; then
+        log_info "Downloading avahi..."
+        if ! download_with_retry "$avahi_url" "avahi-0.8.tar.gz"; then
+            additional_failed+=("$avahi_url (avahi-0.8.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] avahi-0.8.tar.gz (already exists)"
+    fi
+
+    # wpa_supplicant-2.11 (WiFi client)
+    local wpasupplicant_url="https://w1.fi/releases/wpa_supplicant-2.11.tar.gz"
+    if [ ! -f "wpa_supplicant-2.11.tar.gz" ]; then
+        log_info "Downloading wpa_supplicant..."
+        if ! download_with_retry "$wpasupplicant_url" "wpa_supplicant-2.11.tar.gz"; then
+            additional_failed+=("$wpasupplicant_url (wpa_supplicant-2.11.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] wpa_supplicant-2.11.tar.gz (already exists)"
+    fi
+
+    # --- HTTP clients ---
+
+    # curl-8.15.0 (HTTP client library)
+    local curl_url="https://curl.se/download/curl-8.15.0.tar.xz"
+    if [ ! -f "curl-8.15.0.tar.xz" ]; then
+        log_info "Downloading curl..."
+        if ! download_with_retry "$curl_url" "curl-8.15.0.tar.xz"; then
+            additional_failed+=("$curl_url (curl-8.15.0.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] curl-8.15.0.tar.xz (already exists)"
+    fi
+
+    # --- libproxy and dependencies ---
+
+    # Vala-0.56.18 (Vala compiler - optional for libproxy)
+    local vala_url="https://download.gnome.org/sources/vala/0.56/vala-0.56.18.tar.xz"
+    if [ ! -f "vala-0.56.18.tar.xz" ]; then
+        log_info "Downloading Vala..."
+        if ! download_with_retry "$vala_url" "vala-0.56.18.tar.xz"; then
+            additional_failed+=("$vala_url (vala-0.56.18.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] vala-0.56.18.tar.xz (already exists)"
+    fi
+
+    # gsettings-desktop-schemas-48.0 (GNOME settings schemas)
+    local gsettings_url="https://download.gnome.org/sources/gsettings-desktop-schemas/48/gsettings-desktop-schemas-48.0.tar.xz"
+    if [ ! -f "gsettings-desktop-schemas-48.0.tar.xz" ]; then
+        log_info "Downloading gsettings-desktop-schemas..."
+        if ! download_with_retry "$gsettings_url" "gsettings-desktop-schemas-48.0.tar.xz"; then
+            additional_failed+=("$gsettings_url (gsettings-desktop-schemas-48.0.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] gsettings-desktop-schemas-48.0.tar.xz (already exists)"
+    fi
+
+    # libproxy-0.5.10 (Proxy configuration library)
+    local libproxy_url="https://github.com/libproxy/libproxy/archive/0.5.10/libproxy-0.5.10.tar.gz"
+    if [ ! -f "libproxy-0.5.10.tar.gz" ]; then
+        log_info "Downloading libproxy..."
+        if ! download_with_retry "$libproxy_url" "libproxy-0.5.10.tar.gz"; then
+            additional_failed+=("$libproxy_url (libproxy-0.5.10.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] libproxy-0.5.10.tar.gz (already exists)"
+    fi
+
+    # --- High-level network tools ---
+
+    # wget-1.25.0 (HTTP/FTP downloader)
+    local wget_url="https://ftpmirror.gnu.org/gnu/wget/wget-1.25.0.tar.gz"
+    if [ ! -f "wget-1.25.0.tar.gz" ]; then
+        log_info "Downloading wget..."
+        if ! download_with_retry "$wget_url" "wget-1.25.0.tar.gz"; then
+            additional_failed+=("$wget_url (wget-1.25.0.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] wget-1.25.0.tar.gz (already exists)"
+    fi
+
+    # NetworkManager-1.54.0 (Network management)
+    local nm_url="https://gitlab.freedesktop.org/NetworkManager/NetworkManager/-/releases/1.54.0/downloads/NetworkManager-1.54.0.tar.xz"
+    if [ ! -f "NetworkManager-1.54.0.tar.xz" ]; then
+        log_info "Downloading NetworkManager..."
+        if ! download_with_retry "$nm_url" "NetworkManager-1.54.0.tar.xz"; then
+            additional_failed+=("$nm_url (NetworkManager-1.54.0.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] NetworkManager-1.54.0.tar.xz (already exists)"
     fi
 
     # Check for additional package failures
