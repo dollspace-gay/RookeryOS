@@ -354,10 +354,18 @@ main() {
     # Install linux-firmware
     # =========================================================================
     log_step "Installing linux-firmware..."
-    if ls $SOURCES_DIR/linux-firmware-*.tar.gz 1>/dev/null 2>&1; then
+    # Support both .tar.gz and .tar.xz formats
+    local firmware_tarball=""
+    if ls $SOURCES_DIR/linux-firmware-*.tar.xz 1>/dev/null 2>&1; then
+        firmware_tarball=$(ls $SOURCES_DIR/linux-firmware-*.tar.xz | head -1)
+    elif ls $SOURCES_DIR/linux-firmware-*.tar.gz 1>/dev/null 2>&1; then
+        firmware_tarball=$(ls $SOURCES_DIR/linux-firmware-*.tar.gz | head -1)
+    fi
+
+    if [ -n "$firmware_tarball" ]; then
         cd /tmp
         rm -rf linux-firmware-*
-        tar -xf $SOURCES_DIR/linux-firmware-*.tar.gz
+        tar -xf "$firmware_tarball"
         cd linux-firmware-*
 
         mkdir -p $LFS/lib/firmware

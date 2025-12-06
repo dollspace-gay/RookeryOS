@@ -189,7 +189,8 @@ main() {
     log_info "Downloading additional packages for systemd..."
 
     # D-Bus (required for systemd)
-    local dbus_url="https://dbus.freedesktop.org/releases/dbus/dbus-1.16.2.tar.xz"
+    # Note: Using Fossies mirror as dbus.freedesktop.org can be unreliable
+    local dbus_url="https://fossies.org/linux/misc/dbus-1.16.2.tar.xz"
     if [ ! -f "dbus-1.16.2.tar.xz" ]; then
         download_with_retry "$dbus_url" "dbus-1.16.2.tar.xz" || log_warn "D-Bus download failed"
     else
@@ -197,12 +198,12 @@ main() {
     fi
 
     # Linux-firmware (for hardware driver support)
-    local firmware_url="https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/snapshot/linux-firmware-20241210.tar.gz"
-    if [ ! -f "linux-firmware-20241210.tar.gz" ]; then
+    local firmware_url="https://cdn.kernel.org/pub/linux/kernel/firmware/linux-firmware-20251125.tar.xz"
+    if [ ! -f "linux-firmware-20251125.tar.xz" ]; then
         log_info "Downloading linux-firmware (this may take a while, ~600MB)..."
-        download_with_retry "$firmware_url" "linux-firmware-20241210.tar.gz" || log_warn "linux-firmware download failed"
+        download_with_retry "$firmware_url" "linux-firmware-20251125.tar.xz" || log_warn "linux-firmware download failed"
     else
-        log_info "[SKIP] linux-firmware-20241210.tar.gz (already exists)"
+        log_info "[SKIP] linux-firmware-20251125.tar.xz (already exists)"
     fi
 
     # Nano text editor (user preference over vim)
