@@ -320,6 +320,26 @@ EOF
     ln -sfv /usr/lib/systemd/systemd $LFS/sbin/init
 
     # =========================================================================
+    # Fix ownership (UID 1000 from build container -> root)
+    # =========================================================================
+    log_step "Fixing file ownership..."
+
+    # Fix root directory
+    chown root:root $LFS 2>/dev/null || true
+
+    # Fix root-level directories and symlinks
+    chown -h root:root $LFS/bin $LFS/lib $LFS/sbin 2>/dev/null || true
+    chown root:root $LFS/lib64 $LFS/home 2>/dev/null || true
+
+    # Fix major trees recursively
+    chown -R root:root $LFS/usr $LFS/etc $LFS/var 2>/dev/null || true
+
+    # Fix any remaining UID 1000 files
+    find $LFS -uid 1000 -exec chown root:root {} \; 2>/dev/null || true
+
+    log_info "Ownership fixed for system directories"
+
+    # =========================================================================
     # Summary
     # =========================================================================
     log_info ""
