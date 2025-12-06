@@ -112,10 +112,18 @@ The 6 stages run sequentially via Docker Compose:
 
 ```yaml
 # In docker-compose.yml
+build-toolchain:
+  volumes:
+    - ./linux-6.6.102:/kernel-src:ro  # For Linux API headers
+
 build-kernel:
   volumes:
-    - ./linux-6.6.102:/kernel-src:ro  # Local grsec source
+    - ./linux-6.6.102:/kernel-src:ro  # For kernel compilation
 ```
+
+The grsec kernel source is used in two stages:
+1. **build-toolchain**: Extracts Linux API headers (ensures glibc uses grsec-compatible headers)
+2. **build-kernel**: Compiles the actual kernel
 
 The kernel build script (`build_kernel.sh`) configures:
 - `GRKERNSEC_CONFIG_DESKTOP` - Desktop security profile
