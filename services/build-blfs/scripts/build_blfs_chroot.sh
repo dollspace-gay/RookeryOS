@@ -2080,6 +2080,559 @@ log_info "NetworkManager-1.54.0 installed successfully"
 create_checkpoint "networkmanager"
 }
 
+# #####################################################################
+# TIER 3: Graphics Foundation (X11/Wayland)
+# #####################################################################
+
+# =====================================================================
+# Xorg Build Environment Setup
+# =====================================================================
+setup_xorg_env() {
+    log_step "Setting up Xorg build environment"
+
+    # Set XORG_PREFIX - using /usr for system integration
+    export XORG_PREFIX="/usr"
+    export XORG_CONFIG="--prefix=$XORG_PREFIX --sysconfdir=/etc \
+        --localstatedir=/var --disable-static"
+
+    # Create font directories
+    mkdir -pv /usr/share/fonts/{X11-OTF,X11-TTF}
+
+    log_info "Xorg environment configured with XORG_PREFIX=$XORG_PREFIX"
+}
+
+# =====================================================================
+# util-macros-1.20.2 (Xorg build macros)
+# =====================================================================
+build_util_macros() {
+    if check_checkpoint "util-macros"; then
+        log_info "util-macros already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building util-macros-1.20.2"
+    cd "$BUILD_DIR"
+
+    setup_xorg_env
+
+    tar -xf util-macros-1.20.2.tar.xz
+    cd util-macros-1.20.2
+
+    ./configure $XORG_CONFIG
+
+    make install
+
+    cd "$BUILD_DIR"
+    rm -rf util-macros-1.20.2
+
+    log_info "util-macros-1.20.2 installed successfully"
+    create_checkpoint "util-macros"
+}
+
+# =====================================================================
+# xorgproto-2024.1 (Xorg protocol headers)
+# =====================================================================
+build_xorgproto() {
+    if check_checkpoint "xorgproto"; then
+        log_info "xorgproto already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building xorgproto-2024.1"
+    cd "$BUILD_DIR"
+
+    setup_xorg_env
+
+    tar -xf xorgproto-2024.1.tar.xz
+    cd xorgproto-2024.1
+
+    mkdir build && cd build
+
+    meson setup --prefix=$XORG_PREFIX ..
+
+    ninja install
+
+    cd "$BUILD_DIR"
+    rm -rf xorgproto-2024.1
+
+    log_info "xorgproto-2024.1 installed successfully"
+    create_checkpoint "xorgproto"
+}
+
+# =====================================================================
+# Wayland-1.24.0 (Wayland compositor protocol)
+# =====================================================================
+build_wayland() {
+    if check_checkpoint "wayland"; then
+        log_info "wayland already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building Wayland-1.24.0"
+    cd "$BUILD_DIR"
+
+    tar -xf wayland-1.24.0.tar.xz
+    cd wayland-1.24.0
+
+    mkdir build && cd build
+
+    meson setup ..            \
+          --prefix=/usr       \
+          --buildtype=release \
+          -D documentation=false
+
+    ninja
+    ninja install
+
+    cd "$BUILD_DIR"
+    rm -rf wayland-1.24.0
+
+    log_info "Wayland-1.24.0 installed successfully"
+    create_checkpoint "wayland"
+}
+
+# =====================================================================
+# Wayland-Protocols-1.45
+# =====================================================================
+build_wayland_protocols() {
+    if check_checkpoint "wayland-protocols"; then
+        log_info "wayland-protocols already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building Wayland-Protocols-1.45"
+    cd "$BUILD_DIR"
+
+    tar -xf wayland-protocols-1.45.tar.xz
+    cd wayland-protocols-1.45
+
+    mkdir build && cd build
+
+    meson setup --prefix=/usr --buildtype=release ..
+
+    ninja
+    ninja install
+
+    cd "$BUILD_DIR"
+    rm -rf wayland-protocols-1.45
+
+    log_info "Wayland-Protocols-1.45 installed successfully"
+    create_checkpoint "wayland-protocols"
+}
+
+# =====================================================================
+# libXau-1.0.12 (X11 Authorization Library)
+# =====================================================================
+build_libXau() {
+    if check_checkpoint "libXau"; then
+        log_info "libXau already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building libXau-1.0.12"
+    cd "$BUILD_DIR"
+
+    setup_xorg_env
+
+    tar -xf libXau-1.0.12.tar.xz
+    cd libXau-1.0.12
+
+    ./configure $XORG_CONFIG
+
+    make
+    make install
+
+    cd "$BUILD_DIR"
+    rm -rf libXau-1.0.12
+
+    log_info "libXau-1.0.12 installed successfully"
+    create_checkpoint "libXau"
+}
+
+# =====================================================================
+# libXdmcp-1.1.5 (X11 Display Manager Control Protocol Library)
+# =====================================================================
+build_libXdmcp() {
+    if check_checkpoint "libXdmcp"; then
+        log_info "libXdmcp already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building libXdmcp-1.1.5"
+    cd "$BUILD_DIR"
+
+    setup_xorg_env
+
+    tar -xf libXdmcp-1.1.5.tar.xz
+    cd libXdmcp-1.1.5
+
+    ./configure $XORG_CONFIG
+
+    make
+    make install
+
+    cd "$BUILD_DIR"
+    rm -rf libXdmcp-1.1.5
+
+    log_info "libXdmcp-1.1.5 installed successfully"
+    create_checkpoint "libXdmcp"
+}
+
+# =====================================================================
+# xcb-proto-1.17.0 (XCB Protocol Descriptions)
+# =====================================================================
+build_xcb_proto() {
+    if check_checkpoint "xcb-proto"; then
+        log_info "xcb-proto already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building xcb-proto-1.17.0"
+    cd "$BUILD_DIR"
+
+    setup_xorg_env
+
+    tar -xf xcb-proto-1.17.0.tar.xz
+    cd xcb-proto-1.17.0
+
+    mkdir build && cd build
+
+    meson setup --prefix=$XORG_PREFIX ..
+
+    ninja install
+
+    cd "$BUILD_DIR"
+    rm -rf xcb-proto-1.17.0
+
+    log_info "xcb-proto-1.17.0 installed successfully"
+    create_checkpoint "xcb-proto"
+}
+
+# =====================================================================
+# libxcb-1.17.0 (X C Binding Library)
+# =====================================================================
+build_libxcb() {
+    if check_checkpoint "libxcb"; then
+        log_info "libxcb already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building libxcb-1.17.0"
+    cd "$BUILD_DIR"
+
+    setup_xorg_env
+
+    tar -xf libxcb-1.17.0.tar.xz
+    cd libxcb-1.17.0
+
+    ./configure $XORG_CONFIG    \
+        --without-doxygen
+
+    make
+    make install
+
+    cd "$BUILD_DIR"
+    rm -rf libxcb-1.17.0
+
+    log_info "libxcb-1.17.0 installed successfully"
+    create_checkpoint "libxcb"
+}
+
+# =====================================================================
+# Pixman-0.46.4 (Low-level pixel manipulation library)
+# =====================================================================
+build_pixman() {
+    if check_checkpoint "pixman"; then
+        log_info "pixman already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building Pixman-0.46.4"
+    cd "$BUILD_DIR"
+
+    tar -xf pixman-0.46.4.tar.gz
+    cd pixman-0.46.4
+
+    mkdir build && cd build
+
+    meson setup --prefix=/usr --buildtype=release ..
+
+    ninja
+    ninja install
+
+    cd "$BUILD_DIR"
+    rm -rf pixman-0.46.4
+
+    log_info "Pixman-0.46.4 installed successfully"
+    create_checkpoint "pixman"
+}
+
+# =====================================================================
+# libdrm-2.4.125 (Direct Rendering Manager Library)
+# =====================================================================
+build_libdrm() {
+    if check_checkpoint "libdrm"; then
+        log_info "libdrm already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building libdrm-2.4.125"
+    cd "$BUILD_DIR"
+
+    setup_xorg_env
+
+    tar -xf libdrm-2.4.125.tar.xz
+    cd libdrm-2.4.125
+
+    mkdir build && cd build
+
+    meson setup --prefix=$XORG_PREFIX \
+                --buildtype=release   \
+                -D udev=true          \
+                -D valgrind=disabled  ..
+
+    ninja
+    ninja install
+
+    cd "$BUILD_DIR"
+    rm -rf libdrm-2.4.125
+
+    log_info "libdrm-2.4.125 installed successfully"
+    create_checkpoint "libdrm"
+}
+
+# =====================================================================
+# libxcvt-0.1.3 (VESA CVT Standard Timing Modelines Generator)
+# =====================================================================
+build_libxcvt() {
+    if check_checkpoint "libxcvt"; then
+        log_info "libxcvt already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building libxcvt-0.1.3"
+    cd "$BUILD_DIR"
+
+    setup_xorg_env
+
+    tar -xf libxcvt-0.1.3.tar.xz
+    cd libxcvt-0.1.3
+
+    mkdir build && cd build
+
+    meson setup --prefix=$XORG_PREFIX --buildtype=release ..
+
+    ninja
+    ninja install
+
+    cd "$BUILD_DIR"
+    rm -rf libxcvt-0.1.3
+
+    log_info "libxcvt-0.1.3 installed successfully"
+    create_checkpoint "libxcvt"
+}
+
+# =====================================================================
+# SPIRV-Headers-1.4.321.0 (SPIR-V Headers)
+# =====================================================================
+build_spirv_headers() {
+    if check_checkpoint "spirv-headers"; then
+        log_info "spirv-headers already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building SPIRV-Headers-1.4.321.0"
+    cd "$BUILD_DIR"
+
+    tar -xf SPIRV-Headers-vulkan-sdk-1.4.321.0.tar.gz
+    cd SPIRV-Headers-vulkan-sdk-1.4.321.0
+
+    mkdir build && cd build
+
+    cmake -D CMAKE_INSTALL_PREFIX=/usr -G Ninja ..
+
+    ninja
+    ninja install
+
+    cd "$BUILD_DIR"
+    rm -rf SPIRV-Headers-vulkan-sdk-1.4.321.0
+
+    log_info "SPIRV-Headers-1.4.321.0 installed successfully"
+    create_checkpoint "spirv-headers"
+}
+
+# =====================================================================
+# SPIRV-Tools-1.4.321.0 (SPIR-V Tools)
+# =====================================================================
+build_spirv_tools() {
+    if check_checkpoint "spirv-tools"; then
+        log_info "spirv-tools already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building SPIRV-Tools-1.4.321.0"
+    cd "$BUILD_DIR"
+
+    tar -xf SPIRV-Tools-vulkan-sdk-1.4.321.0.tar.gz
+    cd SPIRV-Tools-vulkan-sdk-1.4.321.0
+
+    mkdir build && cd build
+
+    cmake -D CMAKE_INSTALL_PREFIX=/usr     \
+          -D CMAKE_BUILD_TYPE=Release      \
+          -D SPIRV_WERROR=OFF              \
+          -D BUILD_SHARED_LIBS=ON          \
+          -D SPIRV_TOOLS_BUILD_STATIC=OFF  \
+          -D SPIRV-Headers_SOURCE_DIR=/usr \
+          -G Ninja ..
+
+    ninja
+    ninja install
+
+    cd "$BUILD_DIR"
+    rm -rf SPIRV-Tools-vulkan-sdk-1.4.321.0
+
+    log_info "SPIRV-Tools-1.4.321.0 installed successfully"
+    create_checkpoint "spirv-tools"
+}
+
+# =====================================================================
+# Vulkan-Headers-1.4.321 (Vulkan Header Files)
+# =====================================================================
+build_vulkan_headers() {
+    if check_checkpoint "vulkan-headers"; then
+        log_info "vulkan-headers already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building Vulkan-Headers-1.4.321"
+    cd "$BUILD_DIR"
+
+    tar -xf Vulkan-Headers-1.4.321.tar.gz
+    cd Vulkan-Headers-1.4.321
+
+    mkdir build && cd build
+
+    cmake -D CMAKE_INSTALL_PREFIX=/usr -G Ninja ..
+
+    ninja
+    ninja install
+
+    cd "$BUILD_DIR"
+    rm -rf Vulkan-Headers-1.4.321
+
+    log_info "Vulkan-Headers-1.4.321 installed successfully"
+    create_checkpoint "vulkan-headers"
+}
+
+# =====================================================================
+# glslang-15.4.0 (GLSL Shader Frontend)
+# =====================================================================
+build_glslang() {
+    if check_checkpoint "glslang"; then
+        log_info "glslang already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building glslang-15.4.0"
+    cd "$BUILD_DIR"
+
+    tar -xf glslang-15.4.0.tar.gz
+    cd glslang-15.4.0
+
+    mkdir build && cd build
+
+    cmake -D CMAKE_INSTALL_PREFIX=/usr     \
+          -D CMAKE_BUILD_TYPE=Release      \
+          -D ALLOW_EXTERNAL_SPIRV_TOOLS=ON \
+          -D BUILD_SHARED_LIBS=ON          \
+          -D GLSLANG_TESTS=OFF             \
+          -G Ninja ..
+
+    ninja
+    ninja install
+
+    cd "$BUILD_DIR"
+    rm -rf glslang-15.4.0
+
+    log_info "glslang-15.4.0 installed successfully"
+    create_checkpoint "glslang"
+}
+
+# =====================================================================
+# Vulkan-Loader-1.4.321 (Vulkan ICD Loader)
+# =====================================================================
+build_vulkan_loader() {
+    if check_checkpoint "vulkan-loader"; then
+        log_info "vulkan-loader already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building Vulkan-Loader-1.4.321"
+    cd "$BUILD_DIR"
+
+    tar -xf Vulkan-Loader-1.4.321.tar.gz
+    cd Vulkan-Loader-1.4.321
+
+    mkdir build && cd build
+
+    cmake -D CMAKE_INSTALL_PREFIX=/usr       \
+          -D CMAKE_BUILD_TYPE=Release        \
+          -D CMAKE_SKIP_RPATH=ON             \
+          -G Ninja ..
+
+    ninja
+    ninja install
+
+    cd "$BUILD_DIR"
+    rm -rf Vulkan-Loader-1.4.321
+
+    log_info "Vulkan-Loader-1.4.321 installed successfully"
+    create_checkpoint "vulkan-loader"
+}
+
+# =====================================================================
+# Build Tier 3 Foundation packages
+# =====================================================================
+log_info ""
+log_info "#####################################################################"
+log_info "# TIER 3: Graphics Foundation (X11/Wayland)"
+log_info "#####################################################################"
+log_info ""
+
+# Setup Xorg environment
+setup_xorg_env
+
+# Build Xorg base packages (no dependencies)
+build_util_macros
+build_xorgproto
+
+# Build Wayland (no Xorg dependencies)
+build_wayland
+build_wayland_protocols
+
+# Build X11 protocol libraries
+build_libXau
+build_libXdmcp
+build_xcb_proto
+build_libxcb
+
+# Build graphics libraries
+build_pixman
+build_libdrm
+build_libxcvt
+
+# Build Vulkan/SPIR-V stack
+build_spirv_headers
+build_spirv_tools
+build_vulkan_headers
+build_glslang
+build_vulkan_loader
+
+log_info ""
+log_info "Tier 3 Graphics Foundation completed!"
+log_info ""
+
 # =====================================================================
 # Summary
 # =====================================================================
@@ -2119,6 +2672,17 @@ log_info "  - wpa_supplicant: WiFi client"
 log_info "  - curl, wget: HTTP clients"
 log_info "  - libproxy: Proxy configuration"
 log_info "  - NetworkManager: Network management"
+log_info ""
+log_info "Tier 3 - Graphics Foundation (X11/Wayland):"
+log_info "  - util-macros, xorgproto: Xorg build infrastructure"
+log_info "  - Wayland, Wayland-Protocols: Wayland compositor"
+log_info "  - libXau, libXdmcp: X11 auth libraries"
+log_info "  - xcb-proto, libxcb: XCB protocol"
+log_info "  - Pixman: Pixel manipulation"
+log_info "  - libdrm, libxcvt: DRM and CVT libraries"
+log_info "  - SPIRV-Headers, SPIRV-Tools: SPIR-V support"
+log_info "  - Vulkan-Headers, Vulkan-Loader: Vulkan API"
+log_info "  - glslang: GLSL shader frontend"
 log_info "=========================================="
 
 exit 0

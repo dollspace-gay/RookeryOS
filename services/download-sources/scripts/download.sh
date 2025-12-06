@@ -726,6 +726,197 @@ main() {
         log_info "[SKIP] NetworkManager-1.54.0.tar.xz (already exists)"
     fi
 
+    # #####################################################################
+    # BLFS Tier 3: Graphics Foundation (X11/Wayland)
+    # #####################################################################
+    log_info "Downloading BLFS Tier 3 packages (Graphics Foundation)..."
+
+    # --- Xorg Build Environment ---
+
+    # util-macros-1.20.2 (Xorg build macros)
+    local utilmacros_url="https://www.x.org/pub/individual/util/util-macros-1.20.2.tar.xz"
+    if [ ! -f "util-macros-1.20.2.tar.xz" ]; then
+        log_info "Downloading util-macros..."
+        if ! download_with_retry "$utilmacros_url" "util-macros-1.20.2.tar.xz"; then
+            additional_failed+=("$utilmacros_url (util-macros-1.20.2.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] util-macros-1.20.2.tar.xz (already exists)"
+    fi
+
+    # xorgproto-2024.1 (Xorg protocol headers)
+    local xorgproto_url="https://xorg.freedesktop.org/archive/individual/proto/xorgproto-2024.1.tar.xz"
+    if [ ! -f "xorgproto-2024.1.tar.xz" ]; then
+        log_info "Downloading xorgproto..."
+        if ! download_with_retry "$xorgproto_url" "xorgproto-2024.1.tar.xz"; then
+            additional_failed+=("$xorgproto_url (xorgproto-2024.1.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] xorgproto-2024.1.tar.xz (already exists)"
+    fi
+
+    # --- Wayland ---
+
+    # Wayland-1.24.0
+    local wayland_url="https://gitlab.freedesktop.org/wayland/wayland/-/releases/1.24.0/downloads/wayland-1.24.0.tar.xz"
+    if [ ! -f "wayland-1.24.0.tar.xz" ]; then
+        log_info "Downloading Wayland..."
+        if ! download_with_retry "$wayland_url" "wayland-1.24.0.tar.xz"; then
+            additional_failed+=("$wayland_url (wayland-1.24.0.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] wayland-1.24.0.tar.xz (already exists)"
+    fi
+
+    # Wayland-Protocols-1.45
+    local wayland_protocols_url="https://gitlab.freedesktop.org/wayland/wayland-protocols/-/releases/1.45/downloads/wayland-protocols-1.45.tar.xz"
+    if [ ! -f "wayland-protocols-1.45.tar.xz" ]; then
+        log_info "Downloading Wayland-Protocols..."
+        if ! download_with_retry "$wayland_protocols_url" "wayland-protocols-1.45.tar.xz"; then
+            additional_failed+=("$wayland_protocols_url (wayland-protocols-1.45.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] wayland-protocols-1.45.tar.xz (already exists)"
+    fi
+
+    # --- XCB Libraries ---
+
+    # libXau-1.0.12 (X Authorization)
+    local libxau_url="https://www.x.org/pub/individual/lib/libXau-1.0.12.tar.xz"
+    if [ ! -f "libXau-1.0.12.tar.xz" ]; then
+        log_info "Downloading libXau..."
+        if ! download_with_retry "$libxau_url" "libXau-1.0.12.tar.xz"; then
+            additional_failed+=("$libxau_url (libXau-1.0.12.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] libXau-1.0.12.tar.xz (already exists)"
+    fi
+
+    # libXdmcp-1.1.5 (X Display Manager Control Protocol)
+    local libxdmcp_url="https://www.x.org/pub/individual/lib/libXdmcp-1.1.5.tar.xz"
+    if [ ! -f "libXdmcp-1.1.5.tar.xz" ]; then
+        log_info "Downloading libXdmcp..."
+        if ! download_with_retry "$libxdmcp_url" "libXdmcp-1.1.5.tar.xz"; then
+            additional_failed+=("$libxdmcp_url (libXdmcp-1.1.5.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] libXdmcp-1.1.5.tar.xz (already exists)"
+    fi
+
+    # xcb-proto-1.17.0 (XCB protocol descriptions)
+    local xcbproto_url="https://xorg.freedesktop.org/archive/individual/proto/xcb-proto-1.17.0.tar.xz"
+    if [ ! -f "xcb-proto-1.17.0.tar.xz" ]; then
+        log_info "Downloading xcb-proto..."
+        if ! download_with_retry "$xcbproto_url" "xcb-proto-1.17.0.tar.xz"; then
+            additional_failed+=("$xcbproto_url (xcb-proto-1.17.0.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] xcb-proto-1.17.0.tar.xz (already exists)"
+    fi
+
+    # libxcb-1.17.0 (X C Binding)
+    local libxcb_url="https://xorg.freedesktop.org/archive/individual/lib/libxcb-1.17.0.tar.xz"
+    if [ ! -f "libxcb-1.17.0.tar.xz" ]; then
+        log_info "Downloading libxcb..."
+        if ! download_with_retry "$libxcb_url" "libxcb-1.17.0.tar.xz"; then
+            additional_failed+=("$libxcb_url (libxcb-1.17.0.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] libxcb-1.17.0.tar.xz (already exists)"
+    fi
+
+    # --- Graphics Libraries ---
+
+    # Pixman-0.46.4 (Pixel manipulation library)
+    local pixman_url="https://www.cairographics.org/releases/pixman-0.46.4.tar.gz"
+    if [ ! -f "pixman-0.46.4.tar.gz" ]; then
+        log_info "Downloading Pixman..."
+        if ! download_with_retry "$pixman_url" "pixman-0.46.4.tar.gz"; then
+            additional_failed+=("$pixman_url (pixman-0.46.4.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] pixman-0.46.4.tar.gz (already exists)"
+    fi
+
+    # libdrm-2.4.125 (Direct Rendering Manager)
+    local libdrm_url="https://dri.freedesktop.org/libdrm/libdrm-2.4.125.tar.xz"
+    if [ ! -f "libdrm-2.4.125.tar.xz" ]; then
+        log_info "Downloading libdrm..."
+        if ! download_with_retry "$libdrm_url" "libdrm-2.4.125.tar.xz"; then
+            additional_failed+=("$libdrm_url (libdrm-2.4.125.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] libdrm-2.4.125.tar.xz (already exists)"
+    fi
+
+    # libxcvt-0.1.3 (VESA CVT standard timing modelines)
+    local libxcvt_url="https://www.x.org/pub/individual/lib/libxcvt-0.1.3.tar.xz"
+    if [ ! -f "libxcvt-0.1.3.tar.xz" ]; then
+        log_info "Downloading libxcvt..."
+        if ! download_with_retry "$libxcvt_url" "libxcvt-0.1.3.tar.xz"; then
+            additional_failed+=("$libxcvt_url (libxcvt-0.1.3.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] libxcvt-0.1.3.tar.xz (already exists)"
+    fi
+
+    # --- Vulkan ---
+
+    # Vulkan-Headers-1.4.321
+    local vulkan_headers_url="https://github.com/KhronosGroup/Vulkan-Headers/archive/v1.4.321/Vulkan-Headers-1.4.321.tar.gz"
+    if [ ! -f "Vulkan-Headers-1.4.321.tar.gz" ]; then
+        log_info "Downloading Vulkan-Headers..."
+        if ! download_with_retry "$vulkan_headers_url" "Vulkan-Headers-1.4.321.tar.gz"; then
+            additional_failed+=("$vulkan_headers_url (Vulkan-Headers-1.4.321.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] Vulkan-Headers-1.4.321.tar.gz (already exists)"
+    fi
+
+    # SPIRV-Headers (required by SPIRV-Tools)
+    local spirv_headers_url="https://github.com/KhronosGroup/SPIRV-Headers/archive/vulkan-sdk-1.4.321.0/SPIRV-Headers-1.4.321.0.tar.gz"
+    if [ ! -f "SPIRV-Headers-1.4.321.0.tar.gz" ]; then
+        log_info "Downloading SPIRV-Headers..."
+        if ! download_with_retry "$spirv_headers_url" "SPIRV-Headers-1.4.321.0.tar.gz"; then
+            additional_failed+=("$spirv_headers_url (SPIRV-Headers-1.4.321.0.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] SPIRV-Headers-1.4.321.0.tar.gz (already exists)"
+    fi
+
+    # SPIRV-Tools-1.4.321.0
+    local spirv_tools_url="https://github.com/KhronosGroup/SPIRV-Tools/archive/vulkan-sdk-1.4.321.0/SPIRV-Tools-1.4.321.0.tar.gz"
+    if [ ! -f "SPIRV-Tools-1.4.321.0.tar.gz" ]; then
+        log_info "Downloading SPIRV-Tools..."
+        if ! download_with_retry "$spirv_tools_url" "SPIRV-Tools-1.4.321.0.tar.gz"; then
+            additional_failed+=("$spirv_tools_url (SPIRV-Tools-1.4.321.0.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] SPIRV-Tools-1.4.321.0.tar.gz (already exists)"
+    fi
+
+    # glslang-15.4.0 (GLSL compiler)
+    local glslang_url="https://github.com/KhronosGroup/glslang/archive/15.4.0/glslang-15.4.0.tar.gz"
+    if [ ! -f "glslang-15.4.0.tar.gz" ]; then
+        log_info "Downloading glslang..."
+        if ! download_with_retry "$glslang_url" "glslang-15.4.0.tar.gz"; then
+            additional_failed+=("$glslang_url (glslang-15.4.0.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] glslang-15.4.0.tar.gz (already exists)"
+    fi
+
+    # Vulkan-Loader-1.4.321
+    local vulkan_loader_url="https://github.com/KhronosGroup/Vulkan-Loader/archive/v1.4.321/Vulkan-Loader-1.4.321.tar.gz"
+    if [ ! -f "Vulkan-Loader-1.4.321.tar.gz" ]; then
+        log_info "Downloading Vulkan-Loader..."
+        if ! download_with_retry "$vulkan_loader_url" "Vulkan-Loader-1.4.321.tar.gz"; then
+            additional_failed+=("$vulkan_loader_url (Vulkan-Loader-1.4.321.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] Vulkan-Loader-1.4.321.tar.gz (already exists)"
+    fi
+
     # Check for additional package failures
     if [ ${#additional_failed[@]} -gt 0 ]; then
         log_error "========================================="
