@@ -268,8 +268,14 @@ if ! grep -q "^root:" /etc/passwd 2>/dev/null; then
 root:x:0:0:root:/root:/bin/bash
 bin:x:1:1:bin:/dev/null:/usr/bin/false
 daemon:x:6:6:Daemon User:/dev/null:/usr/bin/false
+messagebus:x:18:18:D-Bus Message Daemon User:/run/dbus:/usr/bin/false
 uuidd:x:80:80:UUID Generator Daemon User:/dev/null:/usr/bin/false
 tester:x:101:101::/home/tester:/bin/bash
+systemd-journal:x:190:190:systemd Journal:/:/usr/bin/false
+systemd-network:x:192:192:systemd Network Management:/:/usr/bin/false
+systemd-resolve:x:193:193:systemd Resolver:/:/usr/bin/false
+systemd-timesync:x:194:194:systemd Time Synchronization:/:/usr/bin/false
+systemd-coredump:x:195:195:systemd Core Dumper:/:/usr/bin/false
 nobody:x:65534:65534:Unprivileged User:/dev/null:/usr/bin/false
 EOF
 fi
@@ -293,12 +299,19 @@ video:x:12:
 utmp:x:13:
 cdrom:x:15:
 adm:x:16:
+messagebus:x:18:
 input:x:24:
+render:x:30:
 mail:x:34:
 kvm:x:61:
 uuidd:x:80:
-tester:x:101:
 wheel:x:97:
+tester:x:101:
+systemd-journal:x:190:
+systemd-network:x:192:
+systemd-resolve:x:193:
+systemd-timesync:x:194:
+systemd-coredump:x:195:
 users:x:999:
 nogroup:x:65534:
 EOF
@@ -1464,7 +1477,7 @@ meson setup .. \
       -D firstboot=false \
       -D install-tests=false \
       -D ldconfig=false \
-      -D sysusers=false \
+      -D sysusers=true \
       -D rpmmacrosdir=no \
       -D homed=disabled \
       -D userdb=false \
@@ -1484,6 +1497,11 @@ ninja install
 tar -xf /sources/systemd-man-pages-*.tar.xz \
     --no-same-owner --strip-components=1 \
     -C /usr/share/man
+
+# Create systemd service users via sysusers
+# This reads /usr/lib/sysusers.d/*.conf and creates users/groups
+log_info "Creating systemd service users..."
+systemd-sysusers || log_warn "systemd-sysusers failed (users may already exist)"
 
 # Generate machine-id
 systemd-machine-id-setup
@@ -1505,6 +1523,18 @@ create_checkpoint "systemd" "/sources" "chapter8"
 # =====================================================================
 should_skip_package "dbus" "/sources" && { log_info "⊙ Skipping dbus (already built, checkpoint valid)"; } || {
 log_step "Building D-Bus-1.16.2..."
+
+# Ensure messagebus user exists (for grsec compatibility)
+if ! grep -q "^messagebus:" /etc/passwd; then
+    log_info "Creating messagebus user for D-Bus..."
+    echo "messagebus:x:18:18:D-Bus Message Daemon User:/run/dbus:/usr/bin/false" >> /etc/passwd
+    echo "messagebus:x:18:" >> /etc/group
+fi
+
+# Create D-Bus runtime directory
+mkdir -p /run/dbus
+chown messagebus:messagebus /run/dbus
+
 tar -xf /sources/dbus-*.tar.xz
 cd dbus-*
 
@@ -1519,7 +1549,15 @@ meson setup --prefix=/usr \
 ninja
 ninja install
 
+# Create sysusers.d config for messagebus (for future boots)
+mkdir -p /usr/lib/sysusers.d
+cat > /usr/lib/sysusers.d/dbus.conf << "SYSUSERS"
+# D-Bus message bus user
+u messagebus 18 "D-Bus Message Daemon User" /run/dbus
+SYSUSERS
+
 # Create symlink for machine-id
+mkdir -p /var/lib/dbus
 ln -sfv /etc/machine-id /var/lib/dbus/machine-id 2>/dev/null || true
 
 cd /build

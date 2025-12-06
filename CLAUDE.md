@@ -136,6 +136,40 @@ This build uses **systemd**, not SysVinit. Key differences from standard LFS:
 | /etc/inittab | /etc/systemd/system/default.target |
 | /etc/sysconfig/ifconfig.* | /etc/systemd/network/*.network |
 
+## Service Users (Grsec Compatible)
+
+The build creates service users required by systemd and D-Bus. These are created in two ways:
+1. **Base users** in `/etc/passwd` and `/etc/group` during Chapter 7
+2. **Automatic creation** via `systemd-sysusers` after systemd is installed
+
+### Service Users
+
+| User | UID | Purpose |
+|------|-----|---------|
+| `messagebus` | 18 | D-Bus message daemon |
+| `uuidd` | 80 | UUID generator daemon |
+| `systemd-journal` | 190 | systemd-journald |
+| `systemd-network` | 192 | systemd-networkd |
+| `systemd-resolve` | 193 | systemd-resolved |
+| `systemd-timesync` | 194 | systemd-timesyncd |
+| `systemd-coredump` | 195 | systemd-coredump |
+
+### Important Groups
+
+| Group | GID | Purpose |
+|-------|-----|---------|
+| `messagebus` | 18 | D-Bus access |
+| `render` | 30 | GPU rendering access |
+| `kvm` | 61 | KVM virtualization |
+| `wheel` | 97 | Sudo/admin access |
+
+### Grsec Compatibility Notes
+
+- **User creation timing**: All service users exist in `/etc/passwd` BEFORE daemons start
+- **sysusers.d**: Systemd's sysusers is enabled (`-D sysusers=true`) for automatic user management
+- **UID ranges**: Service users use UIDs 18-200, leaving 201-999 for additional packages
+- **RBAC**: Grsec provides its own RBAC (SELinux disabled), users need proper group membership
+
 ## Checkpointing System
 
 Builds are idempotent via checkpoints in `/.checkpoints/`:
