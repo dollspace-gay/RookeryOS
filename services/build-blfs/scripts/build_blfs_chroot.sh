@@ -2645,6 +2645,78 @@ build_xcb_util() {
 }
 
 # =====================================================================
+# XCB Utilities - BLFS Chapter 24
+# Additional xcb utility libraries (image, keysyms, renderutil, wm, cursor)
+# =====================================================================
+build_xcb_util_extras() {
+    if should_skip_package "xcb-util-extras"; then
+        log_info "xcb-util-extras already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building XCB Utilities (5 packages)"
+    cd "$BUILD_DIR"
+    setup_xorg_env
+
+    # Build order matters: image and keysyms have no deps on each other
+    # renderutil depends on nothing extra, wm depends on nothing extra
+    # cursor depends on xcb-util-image and xcb-util-renderutil
+
+    # xcb-util-image
+    log_info "Building xcb-util-image-0.4.1..."
+    rm -rf xcb-util-image-*
+    tar -xf /sources/xcb-util-image-0.4.1.tar.xz
+    cd xcb-util-image-0.4.1
+    ./configure $XORG_CONFIG
+    make && make install
+    cd "$BUILD_DIR"
+    rm -rf xcb-util-image-0.4.1
+
+    # xcb-util-keysyms
+    log_info "Building xcb-util-keysyms-0.4.1..."
+    rm -rf xcb-util-keysyms-*
+    tar -xf /sources/xcb-util-keysyms-0.4.1.tar.xz
+    cd xcb-util-keysyms-0.4.1
+    ./configure $XORG_CONFIG
+    make && make install
+    cd "$BUILD_DIR"
+    rm -rf xcb-util-keysyms-0.4.1
+
+    # xcb-util-renderutil
+    log_info "Building xcb-util-renderutil-0.3.10..."
+    rm -rf xcb-util-renderutil-*
+    tar -xf /sources/xcb-util-renderutil-0.3.10.tar.xz
+    cd xcb-util-renderutil-0.3.10
+    ./configure $XORG_CONFIG
+    make && make install
+    cd "$BUILD_DIR"
+    rm -rf xcb-util-renderutil-0.3.10
+
+    # xcb-util-wm
+    log_info "Building xcb-util-wm-0.4.2..."
+    rm -rf xcb-util-wm-*
+    tar -xf /sources/xcb-util-wm-0.4.2.tar.xz
+    cd xcb-util-wm-0.4.2
+    ./configure $XORG_CONFIG
+    make && make install
+    cd "$BUILD_DIR"
+    rm -rf xcb-util-wm-0.4.2
+
+    # xcb-util-cursor (depends on image and renderutil)
+    log_info "Building xcb-util-cursor-0.1.5..."
+    rm -rf xcb-util-cursor-*
+    tar -xf /sources/xcb-util-cursor-0.1.5.tar.xz
+    cd xcb-util-cursor-0.1.5
+    ./configure $XORG_CONFIG
+    make && make install
+    cd "$BUILD_DIR"
+    rm -rf xcb-util-cursor-0.1.5
+
+    log_info "XCB Utilities (5 packages) installed successfully"
+    create_checkpoint "xcb-util-extras"
+}
+
+# =====================================================================
 # Mesa-25.1.8 - BLFS Chapter 24
 # OpenGL compatible 3D graphics library
 # =====================================================================
@@ -2994,6 +3066,104 @@ build_xf86_input_libinput() {
 
     log_info "xf86-input-libinput-1.5.0 installed successfully"
     create_checkpoint "xf86-input-libinput"
+}
+
+# =====================================================================
+# Xwayland-24.1.8 - BLFS Chapter 24
+# X server running on Wayland for legacy X11 app compatibility
+# =====================================================================
+build_xwayland() {
+    if should_skip_package "xwayland"; then
+        log_info "xwayland already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building Xwayland-24.1.8"
+    cd "$BUILD_DIR"
+    setup_xorg_env
+
+    rm -rf xwayland-*
+    tar -xf /sources/xwayland-24.1.8.tar.xz
+    cd xwayland-24.1.8
+
+    # Per BLFS: Remove sed that prevents man page install since we have Xorg-Server
+    # (man page conflict) - we keep the sed to avoid conflict
+    sed -i '/install_man/,$d' meson.build
+
+    mkdir -p build && cd build
+
+    # Per BLFS: Build with glamor (OpenGL accel) and xkb_output_dir
+    # Disable secure-rpc since we don't have libtirpc
+    meson setup ..                      \
+          --prefix=$XORG_PREFIX         \
+          --buildtype=release           \
+          -D xkb_output_dir=/var/lib/xkb \
+          -D secure-rpc=false
+
+    ninja
+    ninja install
+
+    cd "$BUILD_DIR"
+    rm -rf xwayland-24.1.8
+
+    log_info "Xwayland-24.1.8 installed successfully"
+    create_checkpoint "xwayland"
+}
+
+# =====================================================================
+# xinit-1.4.4 - BLFS Chapter 24
+# startx script for launching X sessions
+# =====================================================================
+build_xinit() {
+    if should_skip_package "xinit"; then
+        log_info "xinit already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building xinit-1.4.4"
+    cd "$BUILD_DIR"
+    setup_xorg_env
+
+    rm -rf xinit-*
+    tar -xf /sources/xinit-1.4.4.tar.xz
+    cd xinit-1.4.4
+
+    # Per BLFS: Configure with xinitdir for X11 app-defaults
+    ./configure $XORG_CONFIG --with-xinitdir=/etc/X11/app-defaults
+
+    make
+    make install
+
+    # Create default xinitrc if it doesn't exist
+    if [ ! -f /etc/X11/app-defaults/xinitrc ]; then
+        cat > /etc/X11/app-defaults/xinitrc << 'EOF'
+#!/bin/sh
+# Default xinitrc - starts a basic X session
+# Users should copy this to ~/.xinitrc and customize
+
+# Merge user X resources
+if [ -f "$HOME/.Xresources" ]; then
+    xrdb -merge "$HOME/.Xresources"
+fi
+
+# Start a window manager or desktop environment
+# Uncomment one of the following or add your own:
+# exec startkde
+# exec gnome-session
+# exec startxfce4
+# exec i3
+
+# Fallback: just run xterm
+exec xterm
+EOF
+        chmod 755 /etc/X11/app-defaults/xinitrc
+    fi
+
+    cd "$BUILD_DIR"
+    rm -rf xinit-1.4.4
+
+    log_info "xinit-1.4.4 installed successfully"
+    create_checkpoint "xinit"
 }
 
 # =====================================================================
@@ -3448,6 +3618,9 @@ build_xkeyboard_config
 # Build xcb-util (XCB utility library)
 build_xcb_util
 
+# Build XCB Utilities (5 additional packages)
+build_xcb_util_extras
+
 # Build Mesa (OpenGL 3D graphics library)
 build_mesa
 
@@ -3477,12 +3650,18 @@ build_xf86_input_evdev
 build_libinput
 build_xf86_input_libinput
 
+# Build Xwayland (X11 compatibility for Wayland compositors)
+build_xwayland
+
+# Build xinit (startx script)
+build_xinit
+
 log_info ""
 log_info "Tier 3 Graphics Foundation (Phase 2) completed!"
 log_info "  - Xorg Libraries: 32 packages (libX11, libXext, etc.)"
 log_info "  - Vulkan-Loader: Now functional with X11 support"
 log_info "  - XKeyboardConfig: Keyboard database"
-log_info "  - xcb-util: XCB utility library"
+log_info "  - xcb-util + extras: XCB utility libraries (6 packages)"
 log_info "  - Mesa: OpenGL 3D graphics (softpipe, svga, nouveau)"
 log_info "  - libepoxy: OpenGL function pointer management"
 log_info "  - xbitmaps: X11 bitmap images"
@@ -3491,6 +3670,8 @@ log_info "  - Xorg Fonts: 9 font packages"
 log_info "  - xcursor-themes: Cursor themes"
 log_info "  - Xorg-Server: X11 display server with glamor"
 log_info "  - Input Drivers: libevdev, mtdev, evdev, libinput"
+log_info "  - Xwayland: X11 compatibility for Wayland"
+log_info "  - xinit: startx script for X sessions"
 log_info ""
 
 # =====================================================================

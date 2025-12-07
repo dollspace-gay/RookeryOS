@@ -1275,6 +1275,49 @@ main() {
         log_info "[SKIP] xf86-input-libinput-1.5.0.tar.xz (already exists)"
     fi
 
+    # --- Xwayland-24.1.8 (X server for Wayland) ---
+    local xwayland_url="https://www.x.org/pub/individual/xserver/xwayland-24.1.8.tar.xz"
+    if [ ! -f "xwayland-24.1.8.tar.xz" ]; then
+        log_info "Downloading xwayland-24.1.8..."
+        if ! download_with_retry "$xwayland_url" "xwayland-24.1.8.tar.xz"; then
+            additional_failed+=("$xwayland_url (xwayland-24.1.8.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] xwayland-24.1.8.tar.xz (already exists)"
+    fi
+
+    # --- xinit-1.4.4 (startx script) ---
+    local xinit_url="https://www.x.org/pub/individual/app/xinit-1.4.4.tar.xz"
+    if [ ! -f "xinit-1.4.4.tar.xz" ]; then
+        log_info "Downloading xinit-1.4.4..."
+        if ! download_with_retry "$xinit_url" "xinit-1.4.4.tar.xz"; then
+            additional_failed+=("$xinit_url (xinit-1.4.4.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] xinit-1.4.4.tar.xz (already exists)"
+    fi
+
+    # --- XCB Utilities (5 packages) ---
+    local xcb_util_packages=(
+        "xcb-util-image-0.4.1"
+        "xcb-util-keysyms-0.4.1"
+        "xcb-util-renderutil-0.3.10"
+        "xcb-util-wm-0.4.2"
+        "xcb-util-cursor-0.1.5"
+    )
+    for pkg in "${xcb_util_packages[@]}"; do
+        local pkg_file="${pkg}.tar.xz"
+        local pkg_url="https://xcb.freedesktop.org/dist/${pkg_file}"
+        if [ ! -f "$pkg_file" ]; then
+            log_info "Downloading ${pkg}..."
+            if ! download_with_retry "$pkg_url" "$pkg_file"; then
+                additional_failed+=("$pkg_url ($pkg_file)")
+            fi
+        else
+            log_info "[SKIP] $pkg_file (already exists)"
+        fi
+    done
+
     # Check for additional package failures
     if [ ${#additional_failed[@]} -gt 0 ]; then
         log_error "========================================="
