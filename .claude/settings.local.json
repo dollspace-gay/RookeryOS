@@ -5,7 +5,16 @@
       "Bash(wsl docker:*)",
       "Bash(test:*)",
       "Bash(wsl -d Ubuntu docker:*)",
-      "Bash(wsl -d FedoraLinux-42 bash -c:*)"
+      "Bash(wsl -d FedoraLinux-42 bash -c:*)",
+      "Bash(bd ready:*)",
+      "Bash(bd list:*)",
+      "Bash(bd stats:*)",
+      "Bash(bd show:*)",
+      "Bash(cat:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(bd sync:*)",
+      "Bash(git reset:*)"
     ],
     "deny": [],
     "ask": []
