@@ -1,3 +1,20 @@
 
 # Use bd merge for beads JSONL files
 .beads/issues.jsonl merge=beads
+
+# Ensure shell scripts always use LF (Unix line endings)
+*.sh text eol=lf
+easylfs text eol=lf
+
+# Windows batch files use CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files
+*.tar.* binary
+*.tgz binary
+*.gz binary
+*.xz binary
+*.bz2 binary
+*.img binary
+*.iso binary

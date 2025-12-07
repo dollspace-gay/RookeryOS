@@ -83,6 +83,12 @@ download_package() {
     # ftpmirror.gnu.org redirects to closest mirror automatically
     url="${url//ftp.gnu.org/ftpmirror.gnu.org}"
 
+    # Fix zlib.net URL (server returns 415 errors)
+    # Use GitHub releases mirror instead
+    if [[ "$url" == *"zlib.net"* ]]; then
+        url="https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz"
+    fi
+
     # Check if file already exists and is valid
     if [ -f "$filename" ]; then
         # Extract expected checksum for THIS file only (not all files)
