@@ -2697,6 +2697,36 @@ build_mesa() {
 }
 
 # =====================================================================
+# libpng-1.6.50 - BLFS Chapter 10
+# PNG library required by xcursorgen and many graphics applications
+# =====================================================================
+build_libpng() {
+    if should_skip_package "libpng"; then
+        log_info "libpng already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building libpng-1.6.50"
+    cd "$BUILD_DIR"
+
+    rm -rf libpng-*
+    tar -xf /sources/libpng-1.6.50.tar.xz
+    cd libpng-1.6.50
+
+    # Per BLFS: Build with static libraries disabled
+    ./configure --prefix=/usr --disable-static
+
+    make
+    make install
+
+    cd "$BUILD_DIR"
+    rm -rf libpng-1.6.50
+
+    log_info "libpng-1.6.50 installed successfully"
+    create_checkpoint "libpng"
+}
+
+# =====================================================================
 # xcursor-themes-1.0.7 - BLFS Chapter 24
 # Animated cursor themes (redglass, whiteglass)
 # =====================================================================
@@ -2724,6 +2754,115 @@ build_xcursor_themes() {
 
     log_info "xcursor-themes-1.0.7 installed successfully"
     create_checkpoint "xcursor-themes"
+}
+
+# =====================================================================
+# xbitmaps - BLFS Chapter 24
+# Bitmap images used by X applications (required by Xorg Applications)
+# =====================================================================
+build_xbitmaps() {
+    if should_skip_package "xbitmaps"; then
+        log_info "xbitmaps already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building xbitmaps-1.1.3"
+    cd "$BUILD_DIR"
+    setup_xorg_env
+
+    rm -rf xbitmaps-*
+    tar -xf /sources/xbitmaps-1.1.3.tar.xz
+    cd xbitmaps-1.1.3
+
+    ./configure $XORG_CONFIG
+
+    # No make needed - just install
+    make install
+
+    cd "$BUILD_DIR"
+    rm -rf xbitmaps-1.1.3
+
+    log_info "xbitmaps-1.1.3 installed successfully"
+    create_checkpoint "xbitmaps"
+}
+
+# =====================================================================
+# Xorg Applications - BLFS Chapter 24
+# 33 packages including mkfontscale, xcursorgen, xrandr, etc.
+# =====================================================================
+build_xorg_apps() {
+    if should_skip_package "xorg-apps"; then
+        log_info "xorg-apps already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building Xorg Applications (33 packages)"
+    cd "$BUILD_DIR"
+    setup_xorg_env
+
+    # Package list in correct build order (from BLFS app-7.md5)
+    # Note: xcursorgen requires libpng which must be built first
+    local xorg_app_packages=(
+        "iceauth-1.0.10.tar.xz"
+        "mkfontscale-1.2.3.tar.xz"
+        "sessreg-1.1.4.tar.xz"
+        "setxkbmap-1.3.4.tar.xz"
+        "smproxy-1.0.8.tar.xz"
+        "xauth-1.1.4.tar.xz"
+        "xcmsdb-1.0.7.tar.xz"
+        "xcursorgen-1.0.9.tar.xz"
+        "xdpyinfo-1.4.0.tar.xz"
+        "xdriinfo-1.0.8.tar.xz"
+        "xev-1.2.6.tar.xz"
+        "xgamma-1.0.8.tar.xz"
+        "xhost-1.0.10.tar.xz"
+        "xinput-1.6.4.tar.xz"
+        "xkbcomp-1.4.7.tar.xz"
+        "xkbevd-1.1.6.tar.xz"
+        "xkbutils-1.0.6.tar.xz"
+        "xkill-1.0.6.tar.xz"
+        "xlsatoms-1.1.4.tar.xz"
+        "xlsclients-1.1.5.tar.xz"
+        "xmessage-1.0.7.tar.xz"
+        "xmodmap-1.0.11.tar.xz"
+        "xpr-1.2.0.tar.xz"
+        "xprop-1.2.8.tar.xz"
+        "xrandr-1.5.3.tar.xz"
+        "xrdb-1.2.2.tar.xz"
+        "xrefresh-1.1.0.tar.xz"
+        "xset-1.2.5.tar.xz"
+        "xsetroot-1.1.3.tar.xz"
+        "xvinfo-1.1.5.tar.xz"
+        "xwd-1.0.9.tar.xz"
+        "xwininfo-1.1.6.tar.xz"
+        "xwud-1.0.7.tar.xz"
+    )
+
+    local total_packages=${#xorg_app_packages[@]}
+    local count=0
+
+    for package in "${xorg_app_packages[@]}"; do
+        count=$((count + 1))
+        local packagedir="${package%.tar.*}"
+        log_info "Building $packagedir ($count/$total_packages)..."
+
+        rm -rf "$packagedir"
+        tar -xf /sources/"$package"
+        cd "$packagedir"
+
+        ./configure $XORG_CONFIG
+        make
+        make install
+
+        cd "$BUILD_DIR"
+        rm -rf "$packagedir"
+    done
+
+    # Remove the broken xkeystone script (per BLFS instructions)
+    rm -f $XORG_PREFIX/bin/xkeystone
+
+    log_info "Xorg Applications (33 packages) installed successfully"
+    create_checkpoint "xorg-apps"
 }
 
 # =====================================================================
@@ -3072,12 +3211,18 @@ build_xcb_util
 # Build Mesa (OpenGL 3D graphics library)
 build_mesa
 
-# NOTE: Both xorg-fonts and xcursor-themes require Xorg Applications (x7app)
-# - xorg-fonts needs mkfontscale for encodings
-# - xcursor-themes needs xcursorgen
-# These will be built after Xorg Applications is implemented
-# build_xorg_fonts
-# build_xcursor_themes
+# Build libpng (required by xcursorgen)
+build_libpng
+
+# Build xbitmaps (required by Xorg Applications)
+build_xbitmaps
+
+# Build Xorg Applications (33 packages including mkfontscale, xcursorgen)
+build_xorg_apps
+
+# Now build fonts and cursor themes (depend on Xorg Applications)
+build_xorg_fonts
+build_xcursor_themes
 
 log_info ""
 log_info "Tier 3 Graphics Foundation (Phase 2) completed!"
@@ -3086,7 +3231,10 @@ log_info "  - Vulkan-Loader: Now functional with X11 support"
 log_info "  - XKeyboardConfig: Keyboard database"
 log_info "  - xcb-util: XCB utility library"
 log_info "  - Mesa: OpenGL 3D graphics (softpipe, svga, nouveau)"
-log_info "  NOTE: xorg-fonts and xcursor-themes deferred (require Xorg Applications)"
+log_info "  - xbitmaps: X11 bitmap images"
+log_info "  - Xorg Applications: 33 packages (mkfontscale, xrandr, etc.)"
+log_info "  - Xorg Fonts: 9 font packages"
+log_info "  - xcursor-themes: Cursor themes"
 log_info ""
 
 # =====================================================================

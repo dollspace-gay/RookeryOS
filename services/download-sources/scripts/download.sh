@@ -137,6 +137,9 @@ main() {
             "icu4c-77_1-src.tgz"
             "gobject-introspection-1.84.0.tar.xz"
             "vala-0.56.18.tar.xz"
+            "xbitmaps-1.1.3.tar.xz"
+            "mkfontscale-1.2.3.tar.xz"
+            "xcursorgen-1.0.8.tar.xz"
         )
 
         for pkg in "${blfs_packages[@]}"; do
@@ -1070,6 +1073,83 @@ main() {
     else
         log_info "[SKIP] libXpresent-1.0.1.tar.gz (already exists)"
     fi
+
+    # --- libpng (required by xcursorgen and many graphics applications) ---
+    if [ ! -f "libpng-1.6.50.tar.xz" ] || [ ! -s "libpng-1.6.50.tar.xz" ]; then
+        rm -f "libpng-1.6.50.tar.xz"
+        local libpng_url="https://downloads.sourceforge.net/libpng/libpng-1.6.50.tar.xz"
+        log_info "Downloading libpng-1.6.50.tar.xz..."
+        if ! download_with_retry "$libpng_url" "libpng-1.6.50.tar.xz"; then
+            additional_failed+=("$libpng_url (libpng-1.6.50.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] libpng-1.6.50.tar.xz (already exists)"
+    fi
+
+    # --- xbitmaps (required by Xorg Applications) ---
+    if [ ! -f "xbitmaps-1.1.3.tar.xz" ] || [ ! -s "xbitmaps-1.1.3.tar.xz" ]; then
+        rm -f "xbitmaps-1.1.3.tar.xz"
+        local xbitmaps_url="https://xorg.freedesktop.org/archive/individual/data/xbitmaps-1.1.3.tar.xz"
+        log_info "Downloading xbitmaps-1.1.3.tar.xz..."
+        if ! download_with_retry "$xbitmaps_url" "xbitmaps-1.1.3.tar.xz"; then
+            additional_failed+=("$xbitmaps_url (xbitmaps-1.1.3.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] xbitmaps-1.1.3.tar.xz (already exists)"
+    fi
+
+    # --- Xorg Applications (33 packages) ---
+    log_info "Downloading Xorg Applications..."
+
+    # These provide mkfontscale, xcursorgen, xrandr, etc.
+    local xorg_app_packages=(
+        "iceauth-1.0.10.tar.xz"
+        "mkfontscale-1.2.3.tar.xz"
+        "sessreg-1.1.4.tar.xz"
+        "setxkbmap-1.3.4.tar.xz"
+        "smproxy-1.0.8.tar.xz"
+        "xauth-1.1.4.tar.xz"
+        "xcmsdb-1.0.7.tar.xz"
+        "xcursorgen-1.0.9.tar.xz"
+        "xdpyinfo-1.4.0.tar.xz"
+        "xdriinfo-1.0.8.tar.xz"
+        "xev-1.2.6.tar.xz"
+        "xgamma-1.0.8.tar.xz"
+        "xhost-1.0.10.tar.xz"
+        "xinput-1.6.4.tar.xz"
+        "xkbcomp-1.4.7.tar.xz"
+        "xkbevd-1.1.6.tar.xz"
+        "xkbutils-1.0.6.tar.xz"
+        "xkill-1.0.6.tar.xz"
+        "xlsatoms-1.1.4.tar.xz"
+        "xlsclients-1.1.5.tar.xz"
+        "xmessage-1.0.7.tar.xz"
+        "xmodmap-1.0.11.tar.xz"
+        "xpr-1.2.0.tar.xz"
+        "xprop-1.2.8.tar.xz"
+        "xrandr-1.5.3.tar.xz"
+        "xrdb-1.2.2.tar.xz"
+        "xrefresh-1.1.0.tar.xz"
+        "xset-1.2.5.tar.xz"
+        "xsetroot-1.1.3.tar.xz"
+        "xvinfo-1.1.5.tar.xz"
+        "xwd-1.0.9.tar.xz"
+        "xwininfo-1.1.6.tar.xz"
+        "xwud-1.0.7.tar.xz"
+    )
+
+    for pkg in "${xorg_app_packages[@]}"; do
+        if [ ! -f "$pkg" ] || [ ! -s "$pkg" ]; then
+            rm -f "$pkg"  # Remove 0-byte files
+            local xorg_url="https://xorg.freedesktop.org/archive/individual/app/${pkg}"
+            log_info "Downloading $pkg..."
+            if ! download_with_retry "$xorg_url" "$pkg"; then
+                additional_failed+=("$xorg_url ($pkg)")
+            fi
+        else
+            log_info "[SKIP] $pkg (already exists)"
+        fi
+    done
 
     # --- Xorg Fonts (9 packages) ---
     log_info "Downloading Xorg Fonts..."
