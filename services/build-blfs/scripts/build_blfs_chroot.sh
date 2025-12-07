@@ -2585,6 +2585,214 @@ build_vulkan_loader() {
 }
 
 # =====================================================================
+# XKeyboardConfig-2.45 - BLFS Chapter 24
+# Keyboard configuration database for X Window System
+# =====================================================================
+build_xkeyboard_config() {
+    if should_skip_package "xkeyboard-config"; then
+        log_info "xkeyboard-config already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building XKeyboardConfig-2.45"
+    cd "$BUILD_DIR"
+
+    rm -rf xkeyboard-config-2.45
+    tar -xf /sources/xkeyboard-config-2.45.tar.xz
+    cd xkeyboard-config-2.45
+
+    mkdir -p build && cd build
+
+    meson setup --prefix=/usr --buildtype=release ..
+
+    ninja
+    ninja install
+
+    cd "$BUILD_DIR"
+    rm -rf xkeyboard-config-2.45
+
+    log_info "XKeyboardConfig-2.45 installed successfully"
+    create_checkpoint "xkeyboard-config"
+}
+
+# =====================================================================
+# xcb-util-0.4.1 - BLFS Chapter 24
+# XCB utility library - extensions to the XCB library
+# =====================================================================
+build_xcb_util() {
+    if should_skip_package "xcb-util"; then
+        log_info "xcb-util already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building xcb-util-0.4.1"
+    cd "$BUILD_DIR"
+
+    rm -rf xcb-util-0.4.1
+    tar -xf /sources/xcb-util-0.4.1.tar.xz
+    cd xcb-util-0.4.1
+
+    ./configure $XORG_CONFIG
+
+    make
+    make install
+
+    cd "$BUILD_DIR"
+    rm -rf xcb-util-0.4.1
+
+    log_info "xcb-util-0.4.1 installed successfully"
+    create_checkpoint "xcb-util"
+}
+
+# =====================================================================
+# Mesa-25.1.8 - BLFS Chapter 24
+# OpenGL compatible 3D graphics library
+# =====================================================================
+build_mesa() {
+    if should_skip_package "mesa"; then
+        log_info "mesa already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building Mesa-25.1.8"
+    cd "$BUILD_DIR"
+
+    # Install required Python dependencies
+    log_info "Installing Python dependencies for Mesa (Mako, PyYAML, MarkupSafe)..."
+    pip3 install --root=/ --prefix=/usr mako pyyaml markupsafe
+
+    rm -rf mesa-25.1.8
+    tar -xf /sources/mesa-25.1.8.tar.xz
+    cd mesa-25.1.8
+
+    mkdir -p build && cd build
+
+    # Configure Mesa with software rendering (softpipe) for broad compatibility
+    # Using x11 platform only since we don't have Wayland built yet
+    # Disabling Vulkan drivers since we need glslang built first
+    # Using softpipe instead of llvmpipe since we don't have LLVM
+    meson setup ..                      \
+          --prefix=/usr                 \
+          --buildtype=release           \
+          -D platforms=x11              \
+          -D gallium-drivers=softpipe,svga,nouveau,virgl \
+          -D vulkan-drivers=            \
+          -D valgrind=disabled          \
+          -D libunwind=disabled         \
+          -D glx=dri                    \
+          -D egl=enabled                \
+          -D gbm=enabled                \
+          -D gles1=enabled              \
+          -D gles2=enabled              \
+          -D shared-glapi=enabled
+
+    ninja
+    ninja install
+
+    cd "$BUILD_DIR"
+    rm -rf mesa-25.1.8
+
+    log_info "Mesa-25.1.8 installed successfully"
+    create_checkpoint "mesa"
+}
+
+# =====================================================================
+# xcursor-themes-1.0.7 - BLFS Chapter 24
+# Animated cursor themes (redglass, whiteglass)
+# =====================================================================
+build_xcursor_themes() {
+    if should_skip_package "xcursor-themes"; then
+        log_info "xcursor-themes already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building xcursor-themes-1.0.7"
+    cd "$BUILD_DIR"
+
+    rm -rf xcursor-themes-1.0.7
+    tar -xf /sources/xcursor-themes-1.0.7.tar.xz
+    cd xcursor-themes-1.0.7
+
+    # Per BLFS: Install in /usr so non-Xorg desktop environments can find them
+    ./configure --prefix=/usr
+
+    make
+    make install
+
+    cd "$BUILD_DIR"
+    rm -rf xcursor-themes-1.0.7
+
+    log_info "xcursor-themes-1.0.7 installed successfully"
+    create_checkpoint "xcursor-themes"
+}
+
+# =====================================================================
+# Xorg Fonts - BLFS Chapter 24
+# 9 font packages: font-util, encodings, font-alias, and 6 font packages
+# =====================================================================
+build_xorg_fonts() {
+    if should_skip_package "xorg-fonts"; then
+        log_info "xorg-fonts already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building Xorg Fonts (9 packages)"
+    cd "$BUILD_DIR"
+    setup_xorg_env
+
+    # Package list in correct build order (from BLFS font-7.md5)
+    # font-util must be first, then encodings, then fonts, then font-alias
+    local xorg_font_packages=(
+        "font-util-1.4.1.tar.xz"
+        "encodings-1.1.0.tar.xz"
+        "font-adobe-utopia-type1-1.0.5.tar.xz"
+        "font-bh-ttf-1.0.4.tar.xz"
+        "font-bh-type1-1.0.4.tar.xz"
+        "font-ibm-type1-1.0.4.tar.xz"
+        "font-misc-ethiopic-1.0.5.tar.xz"
+        "font-xfree86-type1-1.0.5.tar.xz"
+        "font-alias-1.0.5.tar.xz"
+    )
+
+    local count=0
+    local total=${#xorg_font_packages[@]}
+
+    for pkg in "${xorg_font_packages[@]}"; do
+        count=$((count + 1))
+        local pkg_name="${pkg%.tar.*}"
+
+        log_info "Building $pkg_name ($count/$total)..."
+
+        rm -rf "$pkg_name"
+        tar -xf "/sources/$pkg"
+        cd "$pkg_name"
+
+        ./configure $XORG_CONFIG
+
+        make
+        make install
+
+        cd "$BUILD_DIR"
+        rm -rf "$pkg_name"
+    done
+
+    # Create symlinks to font directories for Fontconfig
+    # This is needed if XORG_PREFIX is not /usr
+    log_info "Creating font directory symlinks for Fontconfig..."
+    install -v -d -m755 /usr/share/fonts
+
+    if [ -d "$XORG_PREFIX/share/fonts/X11/OTF" ]; then
+        ln -svfn "$XORG_PREFIX/share/fonts/X11/OTF" /usr/share/fonts/X11-OTF 2>/dev/null || true
+    fi
+    if [ -d "$XORG_PREFIX/share/fonts/X11/TTF" ]; then
+        ln -svfn "$XORG_PREFIX/share/fonts/X11/TTF" /usr/share/fonts/X11-TTF 2>/dev/null || true
+    fi
+
+    log_info "Xorg Fonts (9 packages) installed successfully"
+    create_checkpoint "xorg-fonts"
+}
+
+# =====================================================================
 # FreeType-2.13.3 - BLFS Chapter 10
 # Required by libXfont2 and many other graphics packages
 # =====================================================================
@@ -2855,10 +3063,30 @@ build_xorg_libraries
 # Build Vulkan-Loader (now that libX11 is available)
 build_vulkan_loader
 
+# Build XKeyboard-Config (keyboard configuration database)
+build_xkeyboard_config
+
+# Build xcb-util (XCB utility library)
+build_xcb_util
+
+# Build Mesa (OpenGL 3D graphics library)
+build_mesa
+
+# NOTE: Both xorg-fonts and xcursor-themes require Xorg Applications (x7app)
+# - xorg-fonts needs mkfontscale for encodings
+# - xcursor-themes needs xcursorgen
+# These will be built after Xorg Applications is implemented
+# build_xorg_fonts
+# build_xcursor_themes
+
 log_info ""
 log_info "Tier 3 Graphics Foundation (Phase 2) completed!"
 log_info "  - Xorg Libraries: 32 packages (libX11, libXext, etc.)"
 log_info "  - Vulkan-Loader: Now functional with X11 support"
+log_info "  - XKeyboardConfig: Keyboard database"
+log_info "  - xcb-util: XCB utility library"
+log_info "  - Mesa: OpenGL 3D graphics (softpipe, svga, nouveau)"
+log_info "  NOTE: xorg-fonts and xcursor-themes deferred (require Xorg Applications)"
 log_info ""
 
 # =====================================================================

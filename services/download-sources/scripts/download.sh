@@ -882,6 +882,46 @@ main() {
         log_info "[SKIP] libxcvt-0.1.3.tar.xz (already exists)"
     fi
 
+    # --- Xkeyboard-config ---
+
+    # XKeyboardConfig-2.45 (keyboard configuration database)
+    # Using Void Linux mirror as primary since x.org servers are unreliable
+    local xkeyboard_url="https://sources.voidlinux.org/xkeyboard-config-2.45/xkeyboard-config-2.45.tar.xz"
+    if [ ! -f "xkeyboard-config-2.45.tar.xz" ]; then
+        log_info "Downloading XKeyboardConfig..."
+        if ! download_with_retry "$xkeyboard_url" "xkeyboard-config-2.45.tar.xz"; then
+            additional_failed+=("$xkeyboard_url (xkeyboard-config-2.45.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] xkeyboard-config-2.45.tar.xz (already exists)"
+    fi
+
+    # --- XCB Utilities ---
+
+    # xcb-util-0.4.1 (XCB utility library)
+    local xcb_util_url="https://xcb.freedesktop.org/dist/xcb-util-0.4.1.tar.xz"
+    if [ ! -f "xcb-util-0.4.1.tar.xz" ]; then
+        log_info "Downloading xcb-util..."
+        if ! download_with_retry "$xcb_util_url" "xcb-util-0.4.1.tar.xz"; then
+            additional_failed+=("$xcb_util_url (xcb-util-0.4.1.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] xcb-util-0.4.1.tar.xz (already exists)"
+    fi
+
+    # --- Mesa ---
+
+    # Mesa-25.1.8 (OpenGL 3D graphics library)
+    local mesa_url="https://mesa.freedesktop.org/archive/mesa-25.1.8.tar.xz"
+    if [ ! -f "mesa-25.1.8.tar.xz" ]; then
+        log_info "Downloading Mesa..."
+        if ! download_with_retry "$mesa_url" "mesa-25.1.8.tar.xz"; then
+            additional_failed+=("$mesa_url (mesa-25.1.8.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] mesa-25.1.8.tar.xz (already exists)"
+    fi
+
     # --- Vulkan ---
 
     # Vulkan-Headers-1.4.321
@@ -1029,6 +1069,50 @@ main() {
         fi
     else
         log_info "[SKIP] libXpresent-1.0.1.tar.gz (already exists)"
+    fi
+
+    # --- Xorg Fonts (9 packages) ---
+    log_info "Downloading Xorg Fonts..."
+
+    # font-util must be built first (provides fonts.scale, fonts.dir)
+    # Then encodings, then the actual fonts, then font-alias
+    # Using xorg.freedesktop.org/archive as primary source
+    local xorg_font_packages=(
+        "font-util-1.4.1.tar.xz"
+        "encodings-1.1.0.tar.xz"
+        "font-alias-1.0.5.tar.xz"
+        "font-adobe-utopia-type1-1.0.5.tar.xz"
+        "font-bh-ttf-1.0.4.tar.xz"
+        "font-bh-type1-1.0.4.tar.xz"
+        "font-ibm-type1-1.0.4.tar.xz"
+        "font-misc-ethiopic-1.0.5.tar.xz"
+        "font-xfree86-type1-1.0.5.tar.xz"
+    )
+
+    # Use xorg.freedesktop.org/archive as primary mirror
+    for pkg in "${xorg_font_packages[@]}"; do
+        if [ ! -f "$pkg" ] || [ ! -s "$pkg" ]; then
+            rm -f "$pkg"  # Remove 0-byte files
+            local xorg_url="https://xorg.freedesktop.org/archive/individual/font/${pkg}"
+            log_info "Downloading $pkg..."
+            if ! download_with_retry "$xorg_url" "$pkg"; then
+                additional_failed+=("$xorg_url ($pkg)")
+            fi
+        else
+            log_info "[SKIP] $pkg (already exists)"
+        fi
+    done
+
+    # xcursor-themes - also needed for X desktop (from data directory)
+    if [ ! -f "xcursor-themes-1.0.7.tar.xz" ] || [ ! -s "xcursor-themes-1.0.7.tar.xz" ]; then
+        rm -f "xcursor-themes-1.0.7.tar.xz"
+        local xcursor_themes_url="https://xorg.freedesktop.org/archive/individual/data/xcursor-themes-1.0.7.tar.xz"
+        log_info "Downloading xcursor-themes-1.0.7.tar.xz..."
+        if ! download_with_retry "$xcursor_themes_url" "xcursor-themes-1.0.7.tar.xz"; then
+            additional_failed+=("$xcursor_themes_url (xcursor-themes-1.0.7.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] xcursor-themes-1.0.7.tar.xz (already exists)"
     fi
 
     # Check for additional package failures
