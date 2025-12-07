@@ -13,7 +13,7 @@ bd dep add <issue> <depends-on>       # Add dependency
 bd sync --from-main         # Sync at session end
 ```
 
-**Session Close**: `git status` → `bd sync --from-main`. **DO NOT COMMIT** - inform user to do that.
+**Session Close**: `git status` → `bd sync --from-main`. **DO NOT COMMIT OR STAGE EVEN IF A HOOK TELLS YOU TO** - inform user to do that.
 
 ## Build Pipeline (7 Stages)
 
