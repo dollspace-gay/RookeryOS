@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wsl --list:*)",
+      "Bash(wsl docker:*)",
+      "Bash(test:*)",
+      "Bash(wsl -d Ubuntu docker:*)",
+      "Bash(wsl -d FedoraLinux-42 bash -c:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
