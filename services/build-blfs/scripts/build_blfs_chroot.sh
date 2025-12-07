@@ -2697,6 +2697,38 @@ build_mesa() {
 }
 
 # =====================================================================
+# libepoxy-1.5.10 - BLFS Chapter 25
+# OpenGL function pointer management library (required for Xorg glamor)
+# =====================================================================
+build_libepoxy() {
+    if should_skip_package "libepoxy"; then
+        log_info "libepoxy already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building libepoxy-1.5.10"
+    cd "$BUILD_DIR"
+
+    rm -rf libepoxy-*
+    tar -xf /sources/libepoxy-1.5.10.tar.xz
+    cd libepoxy-1.5.10
+
+    mkdir -p build && cd build
+
+    # Per BLFS: Simple meson build
+    meson setup --prefix=/usr --buildtype=release ..
+
+    ninja
+    ninja install
+
+    cd "$BUILD_DIR"
+    rm -rf libepoxy-1.5.10
+
+    log_info "libepoxy-1.5.10 installed successfully"
+    create_checkpoint "libepoxy"
+}
+
+# =====================================================================
 # libpng-1.6.50 - BLFS Chapter 10
 # PNG library required by xcursorgen and many graphics applications
 # =====================================================================
@@ -2754,6 +2786,214 @@ build_xcursor_themes() {
 
     log_info "xcursor-themes-1.0.7 installed successfully"
     create_checkpoint "xcursor-themes"
+}
+
+# =====================================================================
+# Xorg-Server-21.1.18 - BLFS Chapter 24
+# The core X11 display server
+# =====================================================================
+build_xorg_server() {
+    if should_skip_package "xorg-server"; then
+        log_info "xorg-server already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building Xorg-Server-21.1.18"
+    cd "$BUILD_DIR"
+    setup_xorg_env
+
+    rm -rf xorg-server-*
+    tar -xf /sources/xorg-server-21.1.18.tar.xz
+    cd xorg-server-21.1.18
+
+    mkdir -p build && cd build
+
+    # Per BLFS: Build with glamor (requires libepoxy) for modesetting driver
+    # -D xkb_output_dir=/var/lib/xkb for XKB compiled keymaps
+    # Disabling secure-rpc since we don't have libtirpc
+    meson setup ..                      \
+          --prefix=$XORG_PREFIX         \
+          --localstatedir=/var          \
+          -D glamor=true                \
+          -D xkb_output_dir=/var/lib/xkb \
+          -D secure-rpc=false
+
+    ninja
+    ninja install
+
+    # Create xorg.conf.d directory for configuration snippets
+    mkdir -pv /etc/X11/xorg.conf.d
+
+    cd "$BUILD_DIR"
+    rm -rf xorg-server-21.1.18
+
+    log_info "Xorg-Server-21.1.18 installed successfully"
+    create_checkpoint "xorg-server"
+}
+
+# =====================================================================
+# libevdev-1.13.4 - BLFS Chapter 24
+# Input device library for evdev devices
+# =====================================================================
+build_libevdev() {
+    if should_skip_package "libevdev"; then
+        log_info "libevdev already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building libevdev-1.13.4"
+    cd "$BUILD_DIR"
+    setup_xorg_env
+
+    rm -rf libevdev-*
+    tar -xf /sources/libevdev-1.13.4.tar.xz
+    cd libevdev-1.13.4
+
+    mkdir -p build && cd build
+
+    # Per BLFS: Disable tests (need Check library) and documentation
+    meson setup ..                      \
+          --prefix=$XORG_PREFIX         \
+          --buildtype=release           \
+          -D documentation=disabled     \
+          -D tests=disabled
+
+    ninja
+    ninja install
+
+    cd "$BUILD_DIR"
+    rm -rf libevdev-1.13.4
+
+    log_info "libevdev-1.13.4 installed successfully"
+    create_checkpoint "libevdev"
+}
+
+# =====================================================================
+# mtdev-1.1.7 - BLFS Chapter 9
+# Multitouch device library
+# =====================================================================
+build_mtdev() {
+    if should_skip_package "mtdev"; then
+        log_info "mtdev already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building mtdev-1.1.7"
+    cd "$BUILD_DIR"
+
+    rm -rf mtdev-*
+    tar -xf /sources/mtdev-1.1.7.tar.bz2
+    cd mtdev-1.1.7
+
+    ./configure --prefix=/usr --disable-static
+
+    make
+    make install
+
+    cd "$BUILD_DIR"
+    rm -rf mtdev-1.1.7
+
+    log_info "mtdev-1.1.7 installed successfully"
+    create_checkpoint "mtdev"
+}
+
+# =====================================================================
+# xf86-input-evdev-2.11.0 - BLFS Chapter 24
+# Generic Linux input driver for Xorg
+# =====================================================================
+build_xf86_input_evdev() {
+    if should_skip_package "xf86-input-evdev"; then
+        log_info "xf86-input-evdev already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building xf86-input-evdev-2.11.0"
+    cd "$BUILD_DIR"
+    setup_xorg_env
+
+    rm -rf xf86-input-evdev-*
+    tar -xf /sources/xf86-input-evdev-2.11.0.tar.xz
+    cd xf86-input-evdev-2.11.0
+
+    ./configure $XORG_CONFIG
+
+    make
+    make install
+
+    cd "$BUILD_DIR"
+    rm -rf xf86-input-evdev-2.11.0
+
+    log_info "xf86-input-evdev-2.11.0 installed successfully"
+    create_checkpoint "xf86-input-evdev"
+}
+
+# =====================================================================
+# libinput-1.29.0 - BLFS Chapter 24
+# Modern input handling library
+# =====================================================================
+build_libinput() {
+    if should_skip_package "libinput"; then
+        log_info "libinput already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building libinput-1.29.0"
+    cd "$BUILD_DIR"
+    setup_xorg_env
+
+    rm -rf libinput-*
+    tar -xf /sources/libinput-1.29.0.tar.gz
+    cd libinput-1.29.0
+
+    mkdir -p build && cd build
+
+    # Per BLFS: Disable debug GUI (needs GTK3), tests, and libwacom
+    meson setup ..                      \
+          --prefix=$XORG_PREFIX         \
+          --buildtype=release           \
+          -D debug-gui=false            \
+          -D tests=false                \
+          -D libwacom=false             \
+          -D udev-dir=/usr/lib/udev
+
+    ninja
+    ninja install
+
+    cd "$BUILD_DIR"
+    rm -rf libinput-1.29.0
+
+    log_info "libinput-1.29.0 installed successfully"
+    create_checkpoint "libinput"
+}
+
+# =====================================================================
+# xf86-input-libinput-1.5.0 - BLFS Chapter 24
+# Xorg driver wrapper for libinput
+# =====================================================================
+build_xf86_input_libinput() {
+    if should_skip_package "xf86-input-libinput"; then
+        log_info "xf86-input-libinput already built, skipping..."
+        return 0
+    fi
+
+    log_step "Building xf86-input-libinput-1.5.0"
+    cd "$BUILD_DIR"
+    setup_xorg_env
+
+    rm -rf xf86-input-libinput-*
+    tar -xf /sources/xf86-input-libinput-1.5.0.tar.xz
+    cd xf86-input-libinput-1.5.0
+
+    ./configure $XORG_CONFIG
+
+    make
+    make install
+
+    cd "$BUILD_DIR"
+    rm -rf xf86-input-libinput-1.5.0
+
+    log_info "xf86-input-libinput-1.5.0 installed successfully"
+    create_checkpoint "xf86-input-libinput"
 }
 
 # =====================================================================
@@ -3211,6 +3451,9 @@ build_xcb_util
 # Build Mesa (OpenGL 3D graphics library)
 build_mesa
 
+# Build libepoxy (OpenGL function pointer management - required for Xorg glamor)
+build_libepoxy
+
 # Build libpng (required by xcursorgen)
 build_libpng
 
@@ -3224,6 +3467,16 @@ build_xorg_apps
 build_xorg_fonts
 build_xcursor_themes
 
+# Build Xorg-Server (the X11 display server)
+build_xorg_server
+
+# Build Xorg Input Drivers (keyboard/mouse/touchpad support)
+build_libevdev
+build_mtdev
+build_xf86_input_evdev
+build_libinput
+build_xf86_input_libinput
+
 log_info ""
 log_info "Tier 3 Graphics Foundation (Phase 2) completed!"
 log_info "  - Xorg Libraries: 32 packages (libX11, libXext, etc.)"
@@ -3231,10 +3484,13 @@ log_info "  - Vulkan-Loader: Now functional with X11 support"
 log_info "  - XKeyboardConfig: Keyboard database"
 log_info "  - xcb-util: XCB utility library"
 log_info "  - Mesa: OpenGL 3D graphics (softpipe, svga, nouveau)"
+log_info "  - libepoxy: OpenGL function pointer management"
 log_info "  - xbitmaps: X11 bitmap images"
 log_info "  - Xorg Applications: 33 packages (mkfontscale, xrandr, etc.)"
 log_info "  - Xorg Fonts: 9 font packages"
 log_info "  - xcursor-themes: Cursor themes"
+log_info "  - Xorg-Server: X11 display server with glamor"
+log_info "  - Input Drivers: libevdev, mtdev, evdev, libinput"
 log_info ""
 
 # =====================================================================

@@ -1195,6 +1195,86 @@ main() {
         log_info "[SKIP] xcursor-themes-1.0.7.tar.xz (already exists)"
     fi
 
+    # --- libepoxy (OpenGL function pointer management) ---
+    # Required for Xorg-Server glamor support
+    local libepoxy_url="https://download.gnome.org/sources/libepoxy/1.5/libepoxy-1.5.10.tar.xz"
+    if [ ! -f "libepoxy-1.5.10.tar.xz" ]; then
+        log_info "Downloading libepoxy-1.5.10..."
+        if ! download_with_retry "$libepoxy_url" "libepoxy-1.5.10.tar.xz"; then
+            additional_failed+=("$libepoxy_url (libepoxy-1.5.10.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] libepoxy-1.5.10.tar.xz (already exists)"
+    fi
+
+    # --- Xorg-Server-21.1.18 (X11 display server) ---
+    local xorg_server_url="https://www.x.org/pub/individual/xserver/xorg-server-21.1.18.tar.xz"
+    if [ ! -f "xorg-server-21.1.18.tar.xz" ]; then
+        log_info "Downloading xorg-server-21.1.18..."
+        if ! download_with_retry "$xorg_server_url" "xorg-server-21.1.18.tar.xz"; then
+            additional_failed+=("$xorg_server_url (xorg-server-21.1.18.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] xorg-server-21.1.18.tar.xz (already exists)"
+    fi
+
+    # --- Xorg Input Drivers ---
+
+    # libevdev-1.13.4 (input device library)
+    local libevdev_url="https://www.freedesktop.org/software/libevdev/libevdev-1.13.4.tar.xz"
+    if [ ! -f "libevdev-1.13.4.tar.xz" ]; then
+        log_info "Downloading libevdev-1.13.4..."
+        if ! download_with_retry "$libevdev_url" "libevdev-1.13.4.tar.xz"; then
+            additional_failed+=("$libevdev_url (libevdev-1.13.4.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] libevdev-1.13.4.tar.xz (already exists)"
+    fi
+
+    # mtdev-1.1.7 (multitouch device library)
+    local mtdev_url="https://bitmath.org/code/mtdev/mtdev-1.1.7.tar.bz2"
+    if [ ! -f "mtdev-1.1.7.tar.bz2" ]; then
+        log_info "Downloading mtdev-1.1.7..."
+        if ! download_with_retry "$mtdev_url" "mtdev-1.1.7.tar.bz2"; then
+            additional_failed+=("$mtdev_url (mtdev-1.1.7.tar.bz2)")
+        fi
+    else
+        log_info "[SKIP] mtdev-1.1.7.tar.bz2 (already exists)"
+    fi
+
+    # xf86-input-evdev-2.11.0 (evdev input driver)
+    local evdev_url="https://www.x.org/pub/individual/driver/xf86-input-evdev-2.11.0.tar.xz"
+    if [ ! -f "xf86-input-evdev-2.11.0.tar.xz" ]; then
+        log_info "Downloading xf86-input-evdev-2.11.0..."
+        if ! download_with_retry "$evdev_url" "xf86-input-evdev-2.11.0.tar.xz"; then
+            additional_failed+=("$evdev_url (xf86-input-evdev-2.11.0.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] xf86-input-evdev-2.11.0.tar.xz (already exists)"
+    fi
+
+    # libinput-1.29.0 (modern input library)
+    local libinput_url="https://gitlab.freedesktop.org/libinput/libinput/-/archive/1.29.0/libinput-1.29.0.tar.gz"
+    if [ ! -f "libinput-1.29.0.tar.gz" ]; then
+        log_info "Downloading libinput-1.29.0..."
+        if ! download_with_retry "$libinput_url" "libinput-1.29.0.tar.gz"; then
+            additional_failed+=("$libinput_url (libinput-1.29.0.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] libinput-1.29.0.tar.gz (already exists)"
+    fi
+
+    # xf86-input-libinput-1.5.0 (libinput Xorg driver)
+    local libinput_drv_url="https://www.x.org/pub/individual/driver/xf86-input-libinput-1.5.0.tar.xz"
+    if [ ! -f "xf86-input-libinput-1.5.0.tar.xz" ]; then
+        log_info "Downloading xf86-input-libinput-1.5.0..."
+        if ! download_with_retry "$libinput_drv_url" "xf86-input-libinput-1.5.0.tar.xz"; then
+            additional_failed+=("$libinput_drv_url (xf86-input-libinput-1.5.0.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] xf86-input-libinput-1.5.0.tar.xz (already exists)"
+    fi
+
     # Check for additional package failures
     if [ ${#additional_failed[@]} -gt 0 ]; then
         log_error "========================================="
