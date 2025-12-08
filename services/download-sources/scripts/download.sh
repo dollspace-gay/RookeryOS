@@ -445,11 +445,8 @@ download_package() {
 
     cd "$sources_dir"
 
-    # Optimize URL: use kernel.org mirror for GNU FTP
-    # ftpmirror.gnu.org redirector is currently broken (502 errors)
-    # mirrors.kernel.org is a reliable alternative
-    url="${url//ftp.gnu.org/mirrors.kernel.org/gnu}"
-    url="${url//ftpmirror.gnu.org\/gnu/mirrors.kernel.org/gnu}"
+    # Use GNU FTP directly - no URL rewriting needed
+    # (mirrors.kernel.org is down, ftp.gnu.org works)
 
     # Fix zlib.net URL (server returns 415 errors)
     # Use GitHub releases mirror instead
