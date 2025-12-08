@@ -79,9 +79,11 @@ download_package() {
 
     cd "$sources_dir"
 
-    # Optimize URL: use geographic mirror redirector for GNU FTP
-    # ftpmirror.gnu.org redirects to closest mirror automatically
-    url="${url//ftp.gnu.org/ftpmirror.gnu.org}"
+    # Optimize URL: use kernel.org mirror for GNU FTP
+    # ftpmirror.gnu.org redirector is currently broken (502 errors)
+    # mirrors.kernel.org is a reliable alternative
+    url="${url//ftp.gnu.org/mirrors.kernel.org/gnu}"
+    url="${url//ftpmirror.gnu.org\/gnu/mirrors.kernel.org/gnu}"
 
     # Fix zlib.net URL (server returns 415 errors)
     # Use GitHub releases mirror instead
@@ -249,7 +251,8 @@ main() {
     # D-Bus (required for systemd)
     # Note: Using Debian mirror as dbus.freedesktop.org is unreliable
     local dbus_url="http://deb.debian.org/debian/pool/main/d/dbus/dbus_1.16.2.orig.tar.xz"
-    if [ ! -f "dbus-1.16.2.tar.xz" ]; then
+    if [ ! -f "dbus-1.16.2.tar.xz" ] || [ ! -s "dbus-1.16.2.tar.xz" ]; then
+        rm -f "dbus-1.16.2.tar.xz"  # Remove 0-byte files
         if ! download_with_retry "$dbus_url" "dbus-1.16.2.tar.xz"; then
             additional_failed+=("$dbus_url (dbus-1.16.2.tar.xz)")
         fi
