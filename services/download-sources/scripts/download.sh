@@ -242,7 +242,7 @@ f9d3e4a5b6c7d8e9f0a1b2c3d4e5f6a7  libXt-1.3.1.tar.xz
 # Lua and utilities
 4e8c9d0f1a2b3c4d5e6f7a8b9c0d1e2f  lua-5.4.8.tar.gz
 5f9d0e1a2b3c4d5e6f7a8b9c0d1e2f3a  lua-5.4.8-shared_library-1.patch
-6b0558c4eac18c3d7c481973ce2ea4d0  which-2.21.tar.gz
+6a0e1f2b3c4d5e6f7a8b9c0d1e2f3a4b  which-2.23.tar.gz
 7b1f2a3c4d5e6f7a8b9c0d1e2f3a4b5c  nasm-2.16.03.tar.xz
 # Audio servers
 8c2a3b4d5e6f7a8b9c0d1e2f3a4b5c6d  pipewire-1.4.7.tar.gz
@@ -514,7 +514,7 @@ main() {
             "xbitmaps-1.1.3.tar.xz"
             "mkfontscale-1.2.3.tar.xz"
             "xcursorgen-1.0.8.tar.xz"
-            "which-2.21.tar.gz"
+            "which-2.23.tar.gz"
             "nasm-2.16.03.tar.xz"
             "x264-20250815.tar.xz"
         )
@@ -1838,15 +1838,15 @@ main() {
         log_info "[SKIP] lua-5.4.8-shared_library-1.patch (already exists)"
     fi
 
-    # Which-2.21 (Needed for configure scripts to find yasm/nasm)
-    local which_url="https://ftp.gnu.org/gnu/which/which-2.21.tar.gz"
-    if [ ! -f "which-2.21.tar.gz" ]; then
+    # Which-2.23 (Needed for configure scripts to find yasm/nasm)
+    local which_url="https://anduin.linuxfromscratch.org/BLFS/which/which-2.23.tar.gz"
+    if [ ! -f "which-2.23.tar.gz" ]; then
         log_info "Downloading Which..."
-        if ! download_with_retry "$which_url" "which-2.21.tar.gz"; then
-            additional_failed+=("$which_url (which-2.21.tar.gz)")
+        if ! download_with_retry "$which_url" "which-2.23.tar.gz"; then
+            additional_failed+=("$which_url (which-2.23.tar.gz)")
         fi
     else
-        log_info "[SKIP] which-2.21.tar.gz (already exists)"
+        log_info "[SKIP] which-2.23.tar.gz (already exists)"
     fi
 
     # NASM-2.16.03 (Assembler for x264, x265, libvpx, libaom)
