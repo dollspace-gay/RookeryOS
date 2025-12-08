@@ -32,13 +32,13 @@ View logs from the host:
 
 ```bash
 # View a specific service log
-docker run --rm -v easylfs_lfs-logs:/logs alpine cat /logs/build-toolchain.log
+docker run --rm -v easylfs_lfs-logs:/logs ubuntu:22.04 cat /logs/build-toolchain.log
 
 # View the master log
-docker run --rm -v easylfs_lfs-logs:/logs alpine cat /logs/easylfs-master.log
+docker run --rm -v easylfs_lfs-logs:/logs ubuntu:22.04 cat /logs/easylfs-master.log
 
 # Copy all logs to host
-docker run --rm -v easylfs_lfs-logs:/logs -v $(pwd):/out alpine \
+docker run --rm -v easylfs_lfs-logs:/logs -v $(pwd):/out ubuntu:22.04 \
     cp -r /logs /out/
 ```
 

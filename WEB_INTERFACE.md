@@ -195,7 +195,7 @@ WEB_TERMINAL_PORT=7777 make web-terminal
 
 3. Ensure image exists:
    ```bash
-   docker run --rm -v easylfs_lfs-dist:/dist alpine ls -lh /dist
+   docker run --rm -v easylfs_lfs-dist:/dist ubuntu:22.04 ls -lh /dist
    ```
 
 ### Performance Issues

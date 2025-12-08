@@ -91,7 +91,7 @@ case "${1:-help}" in
     export)
         auto_setup
         echo -e "${YELLOW}Exporting disk image...${NC}"
-        docker run --rm -v easylfs_lfs-dist:/dist -v "$(pwd)":/output alpine \
+        docker run --rm -v easylfs_lfs-dist:/dist -v "$(pwd)":/output ubuntu:22.04 \
             cp /dist/lfs-12.4-sysv.img /output/ 2>/dev/null || {
             echo -e "${RED}No image found. Build the system first with: ./easylfs build${NC}"
             exit 1
@@ -107,7 +107,7 @@ case "${1:-help}" in
         auto_setup
         echo -e "${YELLOW}Opening shell in LFS rootfs...${NC}"
         echo "Type 'exit' to return"
-        docker run --rm -it -v easylfs_lfs-rootfs:/lfs alpine sh -c 'cd /lfs && exec sh'
+        docker run --rm -it -v easylfs_lfs-rootfs:/lfs ubuntu:22.04 sh -c 'cd /lfs && exec sh'
         ;;
 
     test)

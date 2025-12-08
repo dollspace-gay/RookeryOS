@@ -128,7 +128,7 @@ rookery-os/
 
 ### View build logs
 ```bash
-docker run --rm -v easylfs_lfs-logs:/logs alpine tail -100 /logs/build-basesystem.log
+docker run --rm -v easylfs_lfs-logs:/logs ubuntu:22.04 tail -100 /logs/build-basesystem.log
 ```
 
 ### Force rebuild of a stage

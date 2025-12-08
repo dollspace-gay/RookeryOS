@@ -44,7 +44,7 @@ echo ""
 log_test "Validating lfs-sources volume..."
 
 if docker volume inspect easylfs_lfs-sources >/dev/null 2>&1; then
-    file_count=$(docker run --rm -v easylfs_lfs-sources:/v alpine \
+    file_count=$(docker run --rm -v easylfs_lfs-sources:/v ubuntu:22.04 \
         sh -c 'ls /v/*.tar.* 2>/dev/null | wc -l' || echo "0")
 
     if [ "$file_count" -ge 90 ]; then
@@ -55,7 +55,7 @@ if docker volume inspect easylfs_lfs-sources >/dev/null 2>&1; then
         log_skip "No source files found (run download-sources)"
     fi
 
-    if docker run --rm -v easylfs_lfs-sources:/v alpine test -f /v/md5sums; then
+    if docker run --rm -v easylfs_lfs-sources:/v ubuntu:22.04 test -f /v/md5sums; then
         log_pass "Checksum file (md5sums) present"
     else
         log_skip "Checksum file not found"
@@ -70,7 +70,7 @@ echo ""
 log_test "Validating lfs-tools volume..."
 
 if docker volume inspect easylfs_lfs-tools >/dev/null 2>&1; then
-    if docker run --rm -v easylfs_lfs-tools:/v alpine test -f /v/bin/gcc; then
+    if docker run --rm -v easylfs_lfs-tools:/v ubuntu:22.04 test -f /v/bin/gcc; then
         log_pass "Cross-compiler (gcc) found in tools"
     else
         log_skip "Cross-compiler not found (run build-toolchain)"
@@ -87,7 +87,7 @@ log_test "Validating lfs-rootfs volume..."
 if docker volume inspect easylfs_lfs-rootfs >/dev/null 2>&1; then
     # Check essential files
     for file in bin/bash etc/passwd usr/bin/gcc; do
-        if docker run --rm -v easylfs_lfs-rootfs:/v alpine test -f "/v/$file"; then
+        if docker run --rm -v easylfs_lfs-rootfs:/v ubuntu:22.04 test -f "/v/$file"; then
             log_pass "File /$file exists"
         else
             log_skip "File /$file not found"
@@ -95,11 +95,11 @@ if docker volume inspect easylfs_lfs-rootfs >/dev/null 2>&1; then
     done
 
     # Check kernel
-    if docker run --rm -v easylfs_lfs-rootfs:/v alpine test -f /v/boot/vmlinuz; then
+    if docker run --rm -v easylfs_lfs-rootfs:/v ubuntu:22.04 test -f /v/boot/vmlinuz; then
         log_pass "Kernel image (vmlinuz) found"
 
         # Check kernel size
-        size=$(docker run --rm -v easylfs_lfs-rootfs:/v alpine stat -c%s /v/boot/vmlinuz)
+        size=$(docker run --rm -v easylfs_lfs-rootfs:/v ubuntu:22.04 stat -c%s /v/boot/vmlinuz)
         if [ "$size" -gt 5000000 ] && [ "$size" -lt 20000000 ]; then
             log_pass "Kernel size OK ($(($size / 1024 / 1024))MB)"
         else
@@ -110,7 +110,7 @@ if docker volume inspect easylfs_lfs-rootfs >/dev/null 2>&1; then
     fi
 
     # Check modules
-    module_count=$(docker run --rm -v easylfs_lfs-rootfs:/v alpine \
+    module_count=$(docker run --rm -v easylfs_lfs-rootfs:/v ubuntu:22.04 \
         sh -c 'find /v/lib/modules -name "*.ko" 2>/dev/null | wc -l' || echo "0")
 
     if [ "$module_count" -gt 0 ]; then
@@ -131,24 +131,24 @@ log_test "Validating lfs-dist volume..."
 IMAGE_NAME="${IMAGE_NAME:-rookery-os-1.0}"
 
 if docker volume inspect easylfs_lfs-dist >/dev/null 2>&1; then
-    if docker run --rm -v easylfs_lfs-dist:/v alpine test -f "/v/${IMAGE_NAME}.img.gz"; then
+    if docker run --rm -v easylfs_lfs-dist:/v ubuntu:22.04 test -f "/v/${IMAGE_NAME}.img.gz"; then
         log_pass "Disk image found (${IMAGE_NAME}.img.gz)"
 
-        size=$(docker run --rm -v easylfs_lfs-dist:/v alpine stat -c%s "/v/${IMAGE_NAME}.img.gz")
+        size=$(docker run --rm -v easylfs_lfs-dist:/v ubuntu:22.04 stat -c%s "/v/${IMAGE_NAME}.img.gz")
         log_pass "Image size: $(($size / 1024 / 1024))MB"
     else
         log_skip "Disk image not found (run package-image)"
     fi
 
-    if docker run --rm -v easylfs_lfs-dist:/v alpine test -f "/v/${IMAGE_NAME}.tar.gz"; then
+    if docker run --rm -v easylfs_lfs-dist:/v ubuntu:22.04 test -f "/v/${IMAGE_NAME}.tar.gz"; then
         log_pass "System tarball found"
     else
         log_skip "System tarball not found"
     fi
 
-    if docker run --rm -v easylfs_lfs-dist:/v alpine test -f "/v/${IMAGE_NAME}.iso"; then
+    if docker run --rm -v easylfs_lfs-dist:/v ubuntu:22.04 test -f "/v/${IMAGE_NAME}.iso"; then
         log_pass "ISO image found (${IMAGE_NAME}.iso)"
-        iso_size=$(docker run --rm -v easylfs_lfs-dist:/v alpine stat -c%s "/v/${IMAGE_NAME}.iso")
+        iso_size=$(docker run --rm -v easylfs_lfs-dist:/v ubuntu:22.04 stat -c%s "/v/${IMAGE_NAME}.iso")
         log_pass "ISO size: $(($iso_size / 1024 / 1024))MB"
     else
         log_skip "ISO image not found"
@@ -164,7 +164,7 @@ log_test "Checking disk usage..."
 
 for vol in lfs-sources lfs-tools lfs-rootfs lfs-dist; do
     if docker volume inspect "easylfs_${vol}" >/dev/null 2>&1; then
-        size=$(docker run --rm -v "easylfs_${vol}:/v" alpine du -sh /v 2>/dev/null | awk '{print $1}')
+        size=$(docker run --rm -v "easylfs_${vol}:/v" ubuntu:22.04 du -sh /v 2>/dev/null | awk '{print $1}')
         echo "  easylfs_${vol}: $size"
     fi
 done

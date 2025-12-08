@@ -206,10 +206,10 @@ build_in_chroot() {
         log_error "Exit code: $CHROOT_EXIT_CODE"
         log_error ""
         log_error "To view the full log:"
-        log_error "  docker run --rm -v easylfs_lfs-rootfs:/lfs alpine cat /lfs/tmp/chroot_build.log"
+        log_error "  docker run --rm -v easylfs_lfs-rootfs:/lfs ubuntu:22.04 cat /lfs/tmp/chroot_build.log"
         log_error ""
         log_error "To view last 50 lines:"
-        log_error "  docker run --rm -v easylfs_lfs-rootfs:/lfs alpine tail -50 /lfs/tmp/chroot_build.log"
+        log_error "  docker run --rm -v easylfs_lfs-rootfs:/lfs ubuntu:22.04 tail -50 /lfs/tmp/chroot_build.log"
         echo ""
         rm -f $LFS/tmp/build_in_chroot.sh
         exit $CHROOT_EXIT_CODE

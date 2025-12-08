@@ -127,33 +127,33 @@ status:
 	@echo -e "$(YELLOW)Volume Sizes:$(NC)"
 	@for vol in easylfs_lfs-sources easylfs_lfs-tools easylfs_lfs-rootfs easylfs_lfs-dist easylfs_lfs-logs; do \
 		if docker volume inspect $$vol &> /dev/null; then \
-			size=$$(docker run --rm -v $$vol:/data alpine du -sh /data 2>/dev/null | cut -f1); \
+			size=$$(docker run --rm -v $$vol:/data ubuntu:22.04 du -sh /data 2>/dev/null | cut -f1); \
 			printf "  %-20s %s\n" "$$vol:" "$$size"; \
 		fi; \
 	done
 	@echo ""
 	@echo -e "$(YELLOW)Checkpoints:$(NC)"
-	@docker run --rm -v easylfs_lfs-rootfs:/lfs alpine sh -c 'if [ -d /lfs/.checkpoints ]; then ls -1 /lfs/.checkpoints 2>/dev/null | wc -l; else echo 0; fi' | xargs -I {} echo "  {} checkpoints found"
+	@docker run --rm -v easylfs_lfs-rootfs:/lfs ubuntu:22.04 sh -c 'if [ -d /lfs/.checkpoints ]; then ls -1 /lfs/.checkpoints 2>/dev/null | wc -l; else echo 0; fi' | xargs -I {} echo "  {} checkpoints found"
 	@echo ""
 
 logs:
 	@echo -e "$(YELLOW)Available logs:$(NC)"
-	@docker run --rm -v easylfs_lfs-logs:/logs alpine ls -lh /logs 2>/dev/null || echo "  No logs found"
+	@docker run --rm -v easylfs_lfs-logs:/logs ubuntu:22.04 ls -lh /logs 2>/dev/null || echo "  No logs found"
 	@echo ""
 	@echo "To view a specific log:"
-	@echo "  docker run --rm -v easylfs_lfs-logs:/logs alpine cat /logs/<service>.log"
+	@echo "  docker run --rm -v easylfs_lfs-logs:/logs ubuntu:22.04 cat /logs/<service>.log"
 
 inspect:
 	@echo -e "$(YELLOW)Inspecting volumes...$(NC)"
 	@echo ""
 	@echo -e "$(BLUE)lfs-sources (downloaded packages):$(NC)"
-	@docker run --rm -v easylfs_lfs-sources:/sources alpine ls -lh /sources 2>/dev/null | head -20 || echo "  Empty or not created"
+	@docker run --rm -v easylfs_lfs-sources:/sources ubuntu:22.04 ls -lh /sources 2>/dev/null | head -20 || echo "  Empty or not created"
 	@echo ""
 	@echo -e "$(BLUE)lfs-rootfs (LFS filesystem):$(NC)"
-	@docker run --rm -v easylfs_lfs-rootfs:/lfs alpine ls -la /lfs 2>/dev/null || echo "  Empty or not created"
+	@docker run --rm -v easylfs_lfs-rootfs:/lfs ubuntu:22.04 ls -la /lfs 2>/dev/null || echo "  Empty or not created"
 	@echo ""
 	@echo -e "$(BLUE)lfs-dist (final images):$(NC)"
-	@docker run --rm -v easylfs_lfs-dist:/dist alpine ls -lh /dist 2>/dev/null || echo "  Empty or not created"
+	@docker run --rm -v easylfs_lfs-dist:/dist ubuntu:22.04 ls -lh /dist 2>/dev/null || echo "  Empty or not created"
 
 test:
 	@echo -e "$(YELLOW)Running validation tests...$(NC)"
@@ -177,9 +177,9 @@ clean-basesystem-light:
 	echo; \
 	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
 		echo "Cleaning checkpoints..."; \
-		docker run --rm -v easylfs_lfs-rootfs:/lfs alpine sh -c 'rm -rf /lfs/.checkpoints/*' 2>/dev/null || true; \
+		docker run --rm -v easylfs_lfs-rootfs:/lfs ubuntu:22.04 sh -c 'rm -rf /lfs/.checkpoints/*' 2>/dev/null || true; \
 		echo "Cleaning temp files..."; \
-		docker run --rm -v easylfs_lfs-rootfs:/lfs alpine sh -c 'rm -rf /lfs/tmp/* /lfs/build/*' 2>/dev/null || true; \
+		docker run --rm -v easylfs_lfs-rootfs:/lfs ubuntu:22.04 sh -c 'rm -rf /lfs/tmp/* /lfs/build/*' 2>/dev/null || true; \
 		echo -e "$(GREEN)Light clean complete.$(NC)"; \
 		echo ""; \
 		echo "Next: make rerun-basesystem"; \
@@ -235,7 +235,7 @@ IMAGE_NAME ?= rookery-os-1.0
 # Export final image to current directory
 export:
 	@echo -e "$(YELLOW)Exporting images to current directory...$(NC)"
-	@docker run --rm -v easylfs_lfs-dist:/dist -v $(PWD):/output alpine sh -c '\
+	@docker run --rm -v easylfs_lfs-dist:/dist -v $(PWD):/output ubuntu:22.04 sh -c '\
 		for f in /dist/$(IMAGE_NAME).img /dist/$(IMAGE_NAME).img.gz /dist/$(IMAGE_NAME).iso /dist/$(IMAGE_NAME).tar.gz; do \
 			if [ -f "$$f" ]; then cp "$$f" /output/; fi; \
 		done' 2>/dev/null || echo -e "$(RED)No images found. Run 'make build' first.$(NC)"

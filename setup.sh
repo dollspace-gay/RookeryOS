@@ -53,7 +53,7 @@ echo ""
 echo -e "${YELLOW}[2/3]${NC} Setting volume permissions..."
 
 # Set correct permissions on logs volume (recursive)
-docker run --rm -v easylfs_lfs-logs:/logs alpine chmod -R 777 /logs 2>/dev/null
+docker run --rm -v easylfs_lfs-logs:/logs ubuntu:22.04 chmod -R 777 /logs 2>/dev/null
 echo -e "  ${GREEN}✓${NC} Log volume permissions set"
 
 echo ""

@@ -14,7 +14,16 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(bd sync:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(wsl -d RookeryOS echo:*)",
+      "Bash(bd update:*)",
+      "Bash(bd create:*)",
+      "Bash(bd dep add:*)",
+      "Bash(bd help:*)",
+      "Bash(bd dep remove --help:*)",
+      "Bash(bd dep remove:*)",
+      "Bash(docker run:*)",
+      "Bash(git restore:*)"
     ],
     "deny": [],
     "ask": []

@@ -117,14 +117,8 @@ All service implementations in `services/`:
 - **License**: Apache License 2.0
 - **Usage**: Pipeline service coordination
 
-### Alpine Linux
-- **Purpose**: Minimal base images
-- **Website**: https://alpinelinux.org/
-- **License**: Various (mostly MIT)
-- **Usage**: Base for utility containers and testing
-
 ### Ubuntu
-- **Purpose**: Build environment base image
+- **Purpose**: Build environment and utility container base image
 - **Website**: https://ubuntu.com/
 - **License**: Various open source licenses
 - **Usage**: Base for LFS build services

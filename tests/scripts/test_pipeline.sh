@@ -45,7 +45,7 @@ if docker compose run --rm download-sources; then
     log_pass "download-sources completed in ${duration}s"
 
     # Validate
-    file_count=$(docker run --rm -v easylfs_lfs-sources:/sources alpine \
+    file_count=$(docker run --rm -v easylfs_lfs-sources:/sources ubuntu:22.04 \
         sh -c 'ls /sources/*.tar.* 2>/dev/null | wc -l')
 
     if [ "$file_count" -ge 90 ]; then
@@ -73,7 +73,7 @@ if docker compose run --rm build-toolchain; then
     log_pass "build-toolchain completed in ${hours}h ${minutes}m"
 
     # Validate
-    if docker run --rm -v easylfs_lfs-tools:/tools alpine test -f /tools/bin/gcc; then
+    if docker run --rm -v easylfs_lfs-tools:/tools ubuntu:22.04 test -f /tools/bin/gcc; then
         log_pass "Cross-compiler found"
     else
         log_fail "Cross-compiler not found"
@@ -98,7 +98,7 @@ if docker compose run --rm build-basesystem; then
     log_pass "build-basesystem completed in ${hours}h ${minutes}m"
 
     # Validate
-    if docker run --rm -v easylfs_lfs-rootfs:/lfs alpine test -f /lfs/bin/bash; then
+    if docker run --rm -v easylfs_lfs-rootfs:/lfs ubuntu:22.04 test -f /lfs/bin/bash; then
         log_pass "Bash found in base system"
     else
         log_fail "Bash not found"
@@ -121,7 +121,7 @@ if docker compose run --rm configure-system; then
     log_pass "configure-system completed in ${duration}s"
 
     # Validate
-    if docker run --rm -v easylfs_lfs-rootfs:/lfs alpine test -f /lfs/etc/fstab; then
+    if docker run --rm -v easylfs_lfs-rootfs:/lfs ubuntu:22.04 test -f /lfs/etc/fstab; then
         log_pass "System configuration files created"
     else
         log_fail "Configuration files missing"
@@ -145,7 +145,7 @@ if docker compose run --rm build-kernel; then
     log_pass "build-kernel completed in ${minutes}m"
 
     # Validate
-    if docker run --rm -v easylfs_lfs-rootfs:/lfs alpine test -f /lfs/boot/vmlinuz; then
+    if docker run --rm -v easylfs_lfs-rootfs:/lfs ubuntu:22.04 test -f /lfs/boot/vmlinuz; then
         log_pass "Kernel image created"
     else
         log_fail "Kernel image not found"
@@ -169,7 +169,7 @@ if docker compose run --rm package-image; then
     log_pass "package-image completed in ${minutes}m"
 
     # Validate
-    if docker run --rm -v easylfs_lfs-dist:/dist alpine test -f /dist/lfs-12.4-sysv.img.gz; then
+    if docker run --rm -v easylfs_lfs-dist:/dist ubuntu:22.04 test -f /dist/lfs-12.4-sysv.img.gz; then
         log_pass "Bootable image created"
     else
         log_fail "Bootable image not found"

@@ -3675,6 +3675,435 @@ log_info "  - xinit: startx script for X sessions"
 log_info ""
 
 # =====================================================================
+# Tier 4: Multimedia Libraries
+# =====================================================================
+
+log_step "Starting Tier 4: Multimedia Libraries"
+
+# ALSA (Advanced Linux Sound Architecture)
+build_alsa_lib() {
+    should_skip_package "alsa-lib" && { log_info "Skipping alsa-lib"; return 0; }
+    log_step "Building alsa-lib-1.2.14..."
+    cd "$BUILD_DIR" && rm -rf alsa-lib-* && tar -xf /sources/alsa-lib-1.2.14.tar.bz2 && cd alsa-lib-*
+    ./configure --prefix=/usr --sysconfdir=/etc --with-confdir=/etc/alsa
+    make
+    make install
+    create_checkpoint "alsa-lib"
+}
+
+build_alsa_plugins() {
+    should_skip_package "alsa-plugins" && { log_info "Skipping alsa-plugins"; return 0; }
+    log_step "Building alsa-plugins-1.2.12..."
+    cd "$BUILD_DIR" && rm -rf alsa-plugins-* && tar -xf /sources/alsa-plugins-1.2.12.tar.bz2 && cd alsa-plugins-*
+    ./configure --prefix=/usr --sysconfdir=/etc
+    make
+    make install
+    create_checkpoint "alsa-plugins"
+}
+
+build_alsa_utils() {
+    should_skip_package "alsa-utils" && { log_info "Skipping alsa-utils"; return 0; }
+    log_step "Building alsa-utils-1.2.14..."
+    cd "$BUILD_DIR" && rm -rf alsa-utils-* && tar -xf /sources/alsa-utils-1.2.14.tar.bz2 && cd alsa-utils-*
+    ./configure --prefix=/usr --disable-alsaconf --disable-bat --disable-xmlto --with-curses=ncursesw
+    make
+    make install
+    create_checkpoint "alsa-utils"
+}
+
+# Audio Codecs
+build_libogg() {
+    should_skip_package "libogg" && { log_info "Skipping libogg"; return 0; }
+    log_step "Building libogg-1.3.6..."
+    cd "$BUILD_DIR" && rm -rf libogg-* && tar -xf /sources/libogg-1.3.6.tar.xz && cd libogg-*
+    ./configure --prefix=/usr --disable-static
+    make
+    make install
+    create_checkpoint "libogg"
+}
+
+build_libvorbis() {
+    should_skip_package "libvorbis" && { log_info "Skipping libvorbis"; return 0; }
+    log_step "Building libvorbis-1.3.7..."
+    cd "$BUILD_DIR" && rm -rf libvorbis-* && tar -xf /sources/libvorbis-1.3.7.tar.xz && cd libvorbis-*
+    ./configure --prefix=/usr --disable-static
+    make
+    make install
+    create_checkpoint "libvorbis"
+}
+
+build_flac() {
+    should_skip_package "flac" && { log_info "Skipping FLAC"; return 0; }
+    log_step "Building FLAC-1.5.0..."
+    cd "$BUILD_DIR" && rm -rf flac-* && tar -xf /sources/flac-1.5.0.tar.xz && cd flac-*
+    ./configure --prefix=/usr --disable-static
+    make
+    make install
+    create_checkpoint "flac"
+}
+
+build_opus() {
+    should_skip_package "opus" && { log_info "Skipping Opus"; return 0; }
+    log_step "Building Opus-1.5.2..."
+    cd "$BUILD_DIR" && rm -rf opus-* && tar -xf /sources/opus-1.5.2.tar.gz && cd opus-*
+    ./configure --prefix=/usr --disable-static
+    make
+    make install
+    create_checkpoint "opus"
+}
+
+build_libsndfile() {
+    should_skip_package "libsndfile" && { log_info "Skipping libsndfile"; return 0; }
+    log_step "Building libsndfile-1.2.2..."
+    cd "$BUILD_DIR" && rm -rf libsndfile-* && tar -xf /sources/libsndfile-1.2.2.tar.xz && cd libsndfile-*
+    # Use C17 standard to avoid C23 'false' keyword conflict in ALAC codec
+    ./configure --prefix=/usr --disable-static CFLAGS="-O2 -std=gnu17"
+    make
+    make install
+    create_checkpoint "libsndfile"
+}
+
+build_libsamplerate() {
+    should_skip_package "libsamplerate" && { log_info "Skipping libsamplerate"; return 0; }
+    log_step "Building libsamplerate-0.2.2..."
+    cd "$BUILD_DIR" && rm -rf libsamplerate-* && tar -xf /sources/libsamplerate-0.2.2.tar.xz && cd libsamplerate-*
+    ./configure --prefix=/usr --disable-static
+    make
+    make install
+    create_checkpoint "libsamplerate"
+}
+
+# Lua (scripting language - dependency for WirePlumber)
+build_lua() {
+    should_skip_package "lua" && { log_info "Skipping Lua"; return 0; }
+    log_step "Building Lua-5.4.8..."
+    cd "$BUILD_DIR" && rm -rf lua-* && tar -xf /sources/lua-5.4.8.tar.gz && cd lua-*
+
+    # Create pkg-config file
+    cat > lua.pc << "EOF"
+V=5.4
+R=5.4.8
+
+prefix=/usr
+INSTALL_BIN=${prefix}/bin
+INSTALL_INC=${prefix}/include
+INSTALL_LIB=${prefix}/lib
+INSTALL_MAN=${prefix}/share/man/man1
+INSTALL_LMOD=${prefix}/share/lua/${V}
+INSTALL_CMOD=${prefix}/lib/lua/${V}
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: Lua
+Description: An Extensible Extension Language
+Version: ${R}
+Requires:
+Libs: -L${libdir} -llua -lm -ldl
+Cflags: -I${includedir}
+EOF
+
+    # Apply patch and build
+    patch -Np1 -i /sources/lua-5.4.8-shared_library-1.patch
+    make linux
+    make INSTALL_TOP=/usr \
+         INSTALL_DATA="cp -d" \
+         INSTALL_MAN=/usr/share/man/man1 \
+         TO_LIB="liblua.so liblua.so.5.4 liblua.so.5.4.8" \
+         install
+
+    mkdir -pv /usr/share/doc/lua-5.4.8
+    cp -v doc/*.{html,css,gif,png} /usr/share/doc/lua-5.4.8 2>/dev/null || true
+    install -v -m644 -D lua.pc /usr/lib/pkgconfig/lua.pc
+
+    create_checkpoint "lua"
+}
+
+# Audio Servers
+build_pipewire() {
+    should_skip_package "pipewire" && { log_info "Skipping PipeWire"; return 0; }
+    log_step "Building PipeWire-1.4.7..."
+    cd "$BUILD_DIR" && rm -rf pipewire-* && tar -xf /sources/pipewire-1.4.7.tar.gz && cd pipewire-*
+    mkdir build && cd build
+    meson setup --prefix=/usr --buildtype=release -Dsession-managers=[]
+    ninja
+    ninja install
+    create_checkpoint "pipewire"
+}
+
+build_wireplumber() {
+    should_skip_package "wireplumber" && { log_info "Skipping WirePlumber"; return 0; }
+    log_step "Building WirePlumber-0.5.10..."
+    cd "$BUILD_DIR" && rm -rf wireplumber-* && tar -xf /sources/wireplumber-0.5.10.tar.gz && cd wireplumber-*
+    mkdir build && cd build
+    meson setup --prefix=/usr --buildtype=release -D system-lua=true ..
+    ninja
+    ninja install
+    mv -v /usr/share/doc/wireplumber{,-0.5.10}
+    create_checkpoint "wireplumber"
+}
+
+build_pulseaudio() {
+    should_skip_package "pulseaudio" && { log_info "Skipping PulseAudio"; return 0; }
+    log_step "Building PulseAudio-17.0..."
+    cd "$BUILD_DIR" && rm -rf pulseaudio-* && tar -xf /sources/pulseaudio-17.0.tar.xz && cd pulseaudio-*
+    mkdir build && cd build
+    meson setup --prefix=/usr --buildtype=release -Ddatabase=gdbm -Ddoxygen=false -Dbluez5=disabled -Dtests=false
+    ninja
+    ninja install
+    create_checkpoint "pulseaudio"
+}
+
+# GStreamer Framework
+build_gstreamer() {
+    should_skip_package "gstreamer" && { log_info "Skipping GStreamer"; return 0; }
+    log_step "Building GStreamer-1.26.5..."
+    cd "$BUILD_DIR" && rm -rf gstreamer-* && tar -xf /sources/gstreamer-1.26.5.tar.xz && cd gstreamer-*
+    mkdir build && cd build
+    meson setup .. --prefix=/usr --buildtype=release -D gst_debug=false
+    ninja
+    ninja install
+    create_checkpoint "gstreamer"
+}
+
+build_gst_plugins_base() {
+    should_skip_package "gst-plugins-base" && { log_info "Skipping gst-plugins-base"; return 0; }
+    log_step "Building gst-plugins-base-1.26.5..."
+    cd "$BUILD_DIR" && rm -rf gst-plugins-base-* && tar -xf /sources/gst-plugins-base-1.26.5.tar.xz && cd gst-plugins-base-*
+    mkdir build && cd build
+    meson setup .. --prefix=/usr --buildtype=release --wrap-mode=nodownload
+    ninja
+    ninja install
+    create_checkpoint "gst-plugins-base"
+}
+
+build_gst_plugins_good() {
+    should_skip_package "gst-plugins-good" && { log_info "Skipping gst-plugins-good"; return 0; }
+    log_step "Building gst-plugins-good-1.26.5..."
+    cd "$BUILD_DIR" && rm -rf gst-plugins-good-* && tar -xf /sources/gst-plugins-good-1.26.5.tar.xz && cd gst-plugins-good-*
+    mkdir build && cd build
+    meson setup .. --prefix=/usr --buildtype=release --wrap-mode=nodownload
+    ninja
+    ninja install
+    create_checkpoint "gst-plugins-good"
+}
+
+build_gst_plugins_bad() {
+    should_skip_package "gst-plugins-bad" && { log_info "Skipping gst-plugins-bad"; return 0; }
+    log_step "Building gst-plugins-bad-1.26.5..."
+    cd "$BUILD_DIR" && rm -rf gst-plugins-bad-* && tar -xf /sources/gst-plugins-bad-1.26.5.tar.xz && cd gst-plugins-bad-*
+    mkdir build && cd build
+    meson setup .. --prefix=/usr --buildtype=release --wrap-mode=nodownload
+    ninja
+    ninja install
+    create_checkpoint "gst-plugins-bad"
+}
+
+build_gst_plugins_ugly() {
+    should_skip_package "gst-plugins-ugly" && { log_info "Skipping gst-plugins-ugly"; return 0; }
+    log_step "Building gst-plugins-ugly-1.26.5..."
+    cd "$BUILD_DIR" && rm -rf gst-plugins-ugly-* && tar -xf /sources/gst-plugins-ugly-1.26.5.tar.xz && cd gst-plugins-ugly-*
+    mkdir build && cd build
+    meson setup .. --prefix=/usr --buildtype=release --wrap-mode=nodownload
+    ninja
+    ninja install
+    create_checkpoint "gst-plugins-ugly"
+}
+
+build_gst_libav() {
+    should_skip_package "gst-libav" && { log_info "Skipping gst-libav"; return 0; }
+    log_step "Building gst-libav-1.26.5..."
+    cd "$BUILD_DIR" && rm -rf gst-libav-* && tar -xf /sources/gst-libav-1.26.5.tar.xz && cd gst-libav-*
+    mkdir build && cd build
+    meson setup .. --prefix=/usr --buildtype=release --wrap-mode=nodownload
+    ninja
+    ninja install
+    create_checkpoint "gst-libav"
+}
+
+# Video Codecs
+# Which (required for configure scripts to find yasm/nasm)
+build_which() {
+    should_skip_package "which" && { log_info "Skipping Which"; return 0; }
+    log_step "Building Which-2.23..."
+    cd "$BUILD_DIR" && rm -rf which-* && tar -xf /sources/which-2.23.tar.gz && cd which-*
+    ./configure --prefix=/usr
+    make
+    make install
+    create_checkpoint "which"
+}
+
+# NASM (Assembler - required for optimized x264, x265, libvpx, libaom)
+build_nasm() {
+    should_skip_package "nasm" && { log_info "Skipping NASM"; return 0; }
+    log_step "Building NASM-2.16.03..."
+    cd "$BUILD_DIR" && rm -rf nasm-* && tar -xf /sources/nasm-2.16.03.tar.xz && cd nasm-*
+    ./configure --prefix=/usr
+    make
+    make install
+    create_checkpoint "nasm"
+}
+
+build_x264() {
+    should_skip_package "x264" && { log_info "Skipping x264"; return 0; }
+    log_step "Building x264-20250815..."
+    cd "$BUILD_DIR" && rm -rf x264-* && tar -xf /sources/x264-20250815.tar.xz && cd x264-*
+    ./configure --prefix=/usr --enable-shared --disable-cli
+    make
+    make install
+    create_checkpoint "x264"
+}
+
+build_x265() {
+    should_skip_package "x265" && { log_info "Skipping x265"; return 0; }
+    log_step "Building x265-4.1..."
+    cd "$BUILD_DIR" && rm -rf x265_* && tar -xf /sources/x265_4.1.tar.gz && cd x265_*
+
+    # Fix CMake policy (BLFS requirement)
+    sed -r '/cmake_policy.*(0025|0054)/d' -i source/CMakeLists.txt
+
+    mkdir bld && cd bld
+    cmake -D CMAKE_INSTALL_PREFIX=/usr \
+          -D GIT_ARCHETYPE=1 \
+          -D CMAKE_POLICY_VERSION_MINIMUM=3.5 \
+          -W no-dev \
+          ../source
+    make
+    make install
+    rm -vf /usr/lib/libx265.a
+    create_checkpoint "x265"
+}
+
+build_libvpx() {
+    should_skip_package "libvpx" && { log_info "Skipping libvpx"; return 0; }
+    log_step "Building libvpx-1.15.2..."
+    cd "$BUILD_DIR" && rm -rf libvpx-* && tar -xf /sources/libvpx-1.15.2.tar.gz && cd libvpx-*
+
+    # Update timestamps (BLFS requirement)
+    find -type f | xargs touch
+
+    # Fix ownership/permissions (BLFS requirement)
+    sed -i 's/cp -p/cp/' build/make/Makefile
+
+    mkdir libvpx-build && cd libvpx-build
+    ../configure --prefix=/usr --enable-shared --disable-static
+    make
+    make install
+    create_checkpoint "libvpx"
+}
+
+build_libaom() {
+    should_skip_package "libaom" && { log_info "Skipping libaom"; return 0; }
+    log_step "Building libaom-3.12.1..."
+    cd "$BUILD_DIR" && rm -rf libaom-* aom-* && tar -xf /sources/libaom-3.12.1.tar.gz && cd libaom-* || cd aom-*
+
+    mkdir aom-build && cd aom-build
+    cmake -D CMAKE_INSTALL_PREFIX=/usr \
+          -D CMAKE_BUILD_TYPE=Release \
+          -D BUILD_SHARED_LIBS=1 \
+          -D ENABLE_DOCS=no \
+          -G Ninja ..
+    ninja
+    ninja install
+    rm -v /usr/lib/libaom.a
+    create_checkpoint "libaom"
+}
+
+# Hardware Acceleration
+build_libva() {
+    should_skip_package "libva" && { log_info "Skipping libva"; return 0; }
+    log_step "Building libva-2.22.0..."
+    cd "$BUILD_DIR" && rm -rf libva-* && tar -xf /sources/libva-2.22.0.tar.bz2 && cd libva-*
+
+    cd build
+    meson setup --prefix=$XORG_PREFIX --buildtype=release
+    ninja
+    ninja install
+    create_checkpoint "libva"
+}
+
+build_libvdpau() {
+    should_skip_package "libvdpau" && { log_info "Skipping libvdpau"; return 0; }
+    log_step "Building libvdpau-1.5..."
+    cd "$BUILD_DIR" && rm -rf libvdpau-* && tar -xf /sources/libvdpau-1.5.tar.gz && cd libvdpau-*
+
+    mkdir build && cd build
+    meson setup --prefix=$XORG_PREFIX ..
+    ninja
+    ninja install
+    create_checkpoint "libvdpau"
+}
+
+# FFmpeg
+build_ffmpeg() {
+    should_skip_package "ffmpeg" && { log_info "Skipping FFmpeg"; return 0; }
+    log_step "Building FFmpeg-7.1.1..."
+    cd "$BUILD_DIR" && rm -rf ffmpeg-* && tar -xf /sources/ffmpeg-7.1.1.tar.xz && cd ffmpeg-*
+    ./configure --prefix=/usr --enable-shared --disable-static --enable-gpl --enable-version3 --enable-nonfree --disable-debug --enable-libvorbis --enable-libopus --enable-libvpx --enable-libaom --enable-libx264 --enable-libx265
+    make
+    make install
+    create_checkpoint "ffmpeg"
+}
+
+# Build multimedia packages - Tier 4
+# Phase 1: Foundation
+build_lua
+build_which
+build_nasm
+
+# Phase 2: ALSA + Audio Codecs
+build_alsa_lib
+build_libogg
+build_libvorbis
+build_flac
+build_opus
+build_libsndfile
+build_libsamplerate
+build_alsa_plugins
+build_alsa_utils
+
+# Phase 3: GStreamer Foundation (before PipeWire per BLFS recommendations)
+build_gstreamer
+build_gst_plugins_base
+
+# Phase 4: Audio Servers (PulseAudio before PipeWire per BLFS recommendations)
+build_pulseaudio
+build_pipewire
+build_wireplumber
+
+# Phase 5: Advanced GStreamer Plugins
+build_gst_plugins_good
+build_gst_plugins_bad
+build_gst_plugins_ugly
+
+# Phase 6: Video Codecs
+build_x264
+build_x265
+build_libvpx
+build_libaom
+
+# Phase 7: Hardware Acceleration
+build_libva
+build_libvdpau
+
+# Phase 8: FFmpeg (with all codec support)
+build_ffmpeg
+
+# Phase 9: GStreamer FFmpeg Plugin
+build_gst_libav
+
+log_info ""
+log_info "Tier 4 Multimedia Libraries completed!"
+log_info "  - ALSA: alsa-lib, alsa-plugins, alsa-utils"
+log_info "  - Audio Codecs: libogg, libvorbis, FLAC, Opus, libsndfile, libsamplerate"
+log_info "  - Audio Servers: PipeWire, WirePlumber, PulseAudio"
+log_info "  - GStreamer: core + base/good/bad/ugly/libav plugins"
+log_info "  - Video Codecs: x264, x265, libvpx, libaom"
+log_info "  - Hardware Accel: libva, libvdpau"
+log_info "  - FFmpeg: Multimedia framework"
+log_info ""
+
+# =====================================================================
 # Summary
 # =====================================================================
 log_info ""

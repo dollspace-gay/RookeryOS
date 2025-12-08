@@ -1762,10 +1762,10 @@ if [ "$VERIFICATION_FAILED" -eq 1 ]; then
     log_error "The build stopped before completion"
     log_error ""
     log_error "To debug, check the build log for errors:"
-    log_error "  docker run --rm -v easylfs_lfs-logs:/logs alpine cat /logs/build-basesystem.log"
+    log_error "  docker run --rm -v easylfs_lfs-logs:/logs ubuntu:22.04 cat /logs/build-basesystem.log"
     log_error ""
     log_error "Or view recent log entries:"
-    log_error "  docker run --rm -v easylfs_lfs-logs:/logs alpine tail -100 /logs/build-basesystem.log"
+    log_error "  docker run --rm -v easylfs_lfs-logs:/logs ubuntu:22.04 tail -100 /logs/build-basesystem.log"
     log_error "=========================================="
     exit 1
 fi

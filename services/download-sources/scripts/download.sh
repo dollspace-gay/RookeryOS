@@ -146,6 +146,9 @@ main() {
             "xbitmaps-1.1.3.tar.xz"
             "mkfontscale-1.2.3.tar.xz"
             "xcursorgen-1.0.8.tar.xz"
+            "which-2.23.tar.gz"
+            "nasm-2.16.03.tar.xz"
+            "x264-20250815.tar.xz"
         )
 
         for pkg in "${blfs_packages[@]}"; do
@@ -1323,6 +1326,345 @@ main() {
             log_info "[SKIP] $pkg_file (already exists)"
         fi
     done
+
+    # =========================================================================
+    # Multimedia Libraries (Tier 4)
+    # =========================================================================
+
+    # --- ALSA (Advanced Linux Sound Architecture) ---
+
+    # alsa-lib-1.2.14 (ALSA library - core audio)
+    local alsa_lib_url="https://www.alsa-project.org/files/pub/lib/alsa-lib-1.2.14.tar.bz2"
+    if [ ! -f "alsa-lib-1.2.14.tar.bz2" ]; then
+        log_info "Downloading alsa-lib..."
+        if ! download_with_retry "$alsa_lib_url" "alsa-lib-1.2.14.tar.bz2"; then
+            additional_failed+=("$alsa_lib_url (alsa-lib-1.2.14.tar.bz2)")
+        fi
+    else
+        log_info "[SKIP] alsa-lib-1.2.14.tar.bz2 (already exists)"
+    fi
+
+    # alsa-plugins-1.2.12 (ALSA plugins for format conversion)
+    local alsa_plugins_url="https://www.alsa-project.org/files/pub/plugins/alsa-plugins-1.2.12.tar.bz2"
+    if [ ! -f "alsa-plugins-1.2.12.tar.bz2" ]; then
+        log_info "Downloading alsa-plugins..."
+        if ! download_with_retry "$alsa_plugins_url" "alsa-plugins-1.2.12.tar.bz2"; then
+            additional_failed+=("$alsa_plugins_url (alsa-plugins-1.2.12.tar.bz2)")
+        fi
+    else
+        log_info "[SKIP] alsa-plugins-1.2.12.tar.bz2 (already exists)"
+    fi
+
+    # alsa-utils-1.2.14 (ALSA utilities - aplay, amixer, etc.)
+    local alsa_utils_url="https://www.alsa-project.org/files/pub/utils/alsa-utils-1.2.14.tar.bz2"
+    if [ ! -f "alsa-utils-1.2.14.tar.bz2" ]; then
+        log_info "Downloading alsa-utils..."
+        if ! download_with_retry "$alsa_utils_url" "alsa-utils-1.2.14.tar.bz2"; then
+            additional_failed+=("$alsa_utils_url (alsa-utils-1.2.14.tar.bz2)")
+        fi
+    else
+        log_info "[SKIP] alsa-utils-1.2.14.tar.bz2 (already exists)"
+    fi
+
+    # --- Audio Codecs ---
+
+    # libogg-1.3.6 (Ogg container format)
+    local libogg_url="https://downloads.xiph.org/releases/ogg/libogg-1.3.6.tar.xz"
+    if [ ! -f "libogg-1.3.6.tar.xz" ]; then
+        log_info "Downloading libogg..."
+        if ! download_with_retry "$libogg_url" "libogg-1.3.6.tar.xz"; then
+            additional_failed+=("$libogg_url (libogg-1.3.6.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] libogg-1.3.6.tar.xz (already exists)"
+    fi
+
+    # libvorbis-1.3.7 (Vorbis audio codec)
+    local libvorbis_url="https://downloads.xiph.org/releases/vorbis/libvorbis-1.3.7.tar.xz"
+    if [ ! -f "libvorbis-1.3.7.tar.xz" ]; then
+        log_info "Downloading libvorbis..."
+        if ! download_with_retry "$libvorbis_url" "libvorbis-1.3.7.tar.xz"; then
+            additional_failed+=("$libvorbis_url (libvorbis-1.3.7.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] libvorbis-1.3.7.tar.xz (already exists)"
+    fi
+
+    # FLAC-1.5.0 (Free Lossless Audio Codec)
+    local flac_url="https://downloads.xiph.org/releases/flac/flac-1.5.0.tar.xz"
+    if [ ! -f "flac-1.5.0.tar.xz" ]; then
+        log_info "Downloading FLAC..."
+        if ! download_with_retry "$flac_url" "flac-1.5.0.tar.xz"; then
+            additional_failed+=("$flac_url (flac-1.5.0.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] flac-1.5.0.tar.xz (already exists)"
+    fi
+
+    # Opus-1.5.2 (Opus audio codec)
+    local opus_url="https://downloads.xiph.org/releases/opus/opus-1.5.2.tar.gz"
+    if [ ! -f "opus-1.5.2.tar.gz" ]; then
+        log_info "Downloading Opus..."
+        if ! download_with_retry "$opus_url" "opus-1.5.2.tar.gz"; then
+            additional_failed+=("$opus_url (opus-1.5.2.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] opus-1.5.2.tar.gz (already exists)"
+    fi
+
+    # libsndfile-1.2.2 (Audio file I/O library)
+    local libsndfile_url="https://github.com/libsndfile/libsndfile/releases/download/1.2.2/libsndfile-1.2.2.tar.xz"
+    if [ ! -f "libsndfile-1.2.2.tar.xz" ]; then
+        log_info "Downloading libsndfile..."
+        if ! download_with_retry "$libsndfile_url" "libsndfile-1.2.2.tar.xz"; then
+            additional_failed+=("$libsndfile_url (libsndfile-1.2.2.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] libsndfile-1.2.2.tar.xz (already exists)"
+    fi
+
+    # libsamplerate-0.2.2 (Sample rate conversion)
+    local libsamplerate_url="https://github.com/libsndfile/libsamplerate/releases/download/0.2.2/libsamplerate-0.2.2.tar.xz"
+    if [ ! -f "libsamplerate-0.2.2.tar.xz" ]; then
+        log_info "Downloading libsamplerate..."
+        if ! download_with_retry "$libsamplerate_url" "libsamplerate-0.2.2.tar.xz"; then
+            additional_failed+=("$libsamplerate_url (libsamplerate-0.2.2.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] libsamplerate-0.2.2.tar.xz (already exists)"
+    fi
+
+    # --- Lua (scripting language - dependency for WirePlumber) ---
+
+    # lua-5.4.8 (scripting language)
+    local lua_url="https://www.lua.org/ftp/lua-5.4.8.tar.gz"
+    if [ ! -f "lua-5.4.8.tar.gz" ]; then
+        log_info "Downloading Lua..."
+        if ! download_with_retry "$lua_url" "lua-5.4.8.tar.gz"; then
+            additional_failed+=("$lua_url (lua-5.4.8.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] lua-5.4.8.tar.gz (already exists)"
+    fi
+
+    # lua-5.4.8-shared_library-1.patch (required patch for shared library support)
+    local lua_patch_url="https://www.linuxfromscratch.org/patches/blfs/12.4/lua-5.4.8-shared_library-1.patch"
+    if [ ! -f "lua-5.4.8-shared_library-1.patch" ]; then
+        log_info "Downloading Lua patch..."
+        if ! download_with_retry "$lua_patch_url" "lua-5.4.8-shared_library-1.patch"; then
+            additional_failed+=("$lua_patch_url (lua-5.4.8-shared_library-1.patch)")
+        fi
+    else
+        log_info "[SKIP] lua-5.4.8-shared_library-1.patch (already exists)"
+    fi
+
+    # Which-2.23 (Needed for configure scripts to find yasm/nasm)
+    local which_url="https://ftp.gnu.org/gnu/which/which-2.23.tar.gz"
+    if [ ! -f "which-2.23.tar.gz" ]; then
+        log_info "Downloading Which..."
+        if ! download_with_retry "$which_url" "which-2.23.tar.gz"; then
+            additional_failed+=("$which_url (which-2.23.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] which-2.23.tar.gz (already exists)"
+    fi
+
+    # NASM-2.16.03 (Assembler for x264, x265, libvpx, libaom)
+    local nasm_url="https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/nasm-2.16.03.tar.xz"
+    if [ ! -f "nasm-2.16.03.tar.xz" ]; then
+        log_info "Downloading NASM..."
+        if ! download_with_retry "$nasm_url" "nasm-2.16.03.tar.xz"; then
+            additional_failed+=("$nasm_url (nasm-2.16.03.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] nasm-2.16.03.tar.xz (already exists)"
+    fi
+
+    # --- Audio Servers ---
+
+    # PipeWire-1.4.7 (Modern audio/video server)
+    local pipewire_url="https://gitlab.freedesktop.org/pipewire/pipewire/-/archive/1.4.7/pipewire-1.4.7.tar.gz"
+    if [ ! -f "pipewire-1.4.7.tar.gz" ]; then
+        log_info "Downloading PipeWire..."
+        if ! download_with_retry "$pipewire_url" "pipewire-1.4.7.tar.gz"; then
+            additional_failed+=("$pipewire_url (pipewire-1.4.7.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] pipewire-1.4.7.tar.gz (already exists)"
+    fi
+
+    # WirePlumber-0.5.10 (Session manager for PipeWire)
+    local wireplumber_url="https://gitlab.freedesktop.org/pipewire/wireplumber/-/archive/0.5.10/wireplumber-0.5.10.tar.gz"
+    if [ ! -f "wireplumber-0.5.10.tar.gz" ]; then
+        log_info "Downloading WirePlumber..."
+        if ! download_with_retry "$wireplumber_url" "wireplumber-0.5.10.tar.gz"; then
+            additional_failed+=("$wireplumber_url (wireplumber-0.5.10.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] wireplumber-0.5.10.tar.gz (already exists)"
+    fi
+
+    # PulseAudio-17.0 (Traditional audio server)
+    local pulseaudio_url="https://www.freedesktop.org/software/pulseaudio/releases/pulseaudio-17.0.tar.xz"
+    if [ ! -f "pulseaudio-17.0.tar.xz" ]; then
+        log_info "Downloading PulseAudio..."
+        if ! download_with_retry "$pulseaudio_url" "pulseaudio-17.0.tar.xz"; then
+            additional_failed+=("$pulseaudio_url (pulseaudio-17.0.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] pulseaudio-17.0.tar.xz (already exists)"
+    fi
+
+    # --- GStreamer Multimedia Framework ---
+
+    # gstreamer-1.26.5 (Core framework)
+    local gstreamer_url="https://gstreamer.freedesktop.org/src/gstreamer/gstreamer-1.26.5.tar.xz"
+    if [ ! -f "gstreamer-1.26.5.tar.xz" ]; then
+        log_info "Downloading GStreamer..."
+        if ! download_with_retry "$gstreamer_url" "gstreamer-1.26.5.tar.xz"; then
+            additional_failed+=("$gstreamer_url (gstreamer-1.26.5.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] gstreamer-1.26.5.tar.xz (already exists)"
+    fi
+
+    # gst-plugins-base-1.26.5 (Base plugins)
+    local gst_plugins_base_url="https://gstreamer.freedesktop.org/src/gst-plugins-base/gst-plugins-base-1.26.5.tar.xz"
+    if [ ! -f "gst-plugins-base-1.26.5.tar.xz" ]; then
+        log_info "Downloading gst-plugins-base..."
+        if ! download_with_retry "$gst_plugins_base_url" "gst-plugins-base-1.26.5.tar.xz"; then
+            additional_failed+=("$gst_plugins_base_url (gst-plugins-base-1.26.5.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] gst-plugins-base-1.26.5.tar.xz (already exists)"
+    fi
+
+    # gst-plugins-good-1.26.5 (Good quality plugins)
+    local gst_plugins_good_url="https://gstreamer.freedesktop.org/src/gst-plugins-good/gst-plugins-good-1.26.5.tar.xz"
+    if [ ! -f "gst-plugins-good-1.26.5.tar.xz" ]; then
+        log_info "Downloading gst-plugins-good..."
+        if ! download_with_retry "$gst_plugins_good_url" "gst-plugins-good-1.26.5.tar.xz"; then
+            additional_failed+=("$gst_plugins_good_url (gst-plugins-good-1.26.5.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] gst-plugins-good-1.26.5.tar.xz (already exists)"
+    fi
+
+    # gst-plugins-bad-1.26.5 (Experimental plugins)
+    local gst_plugins_bad_url="https://gstreamer.freedesktop.org/src/gst-plugins-bad/gst-plugins-bad-1.26.5.tar.xz"
+    if [ ! -f "gst-plugins-bad-1.26.5.tar.xz" ]; then
+        log_info "Downloading gst-plugins-bad..."
+        if ! download_with_retry "$gst_plugins_bad_url" "gst-plugins-bad-1.26.5.tar.xz"; then
+            additional_failed+=("$gst_plugins_bad_url (gst-plugins-bad-1.26.5.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] gst-plugins-bad-1.26.5.tar.xz (already exists)"
+    fi
+
+    # gst-plugins-ugly-1.26.5 (Patent-encumbered plugins)
+    local gst_plugins_ugly_url="https://gstreamer.freedesktop.org/src/gst-plugins-ugly/gst-plugins-ugly-1.26.5.tar.xz"
+    if [ ! -f "gst-plugins-ugly-1.26.5.tar.xz" ]; then
+        log_info "Downloading gst-plugins-ugly..."
+        if ! download_with_retry "$gst_plugins_ugly_url" "gst-plugins-ugly-1.26.5.tar.xz"; then
+            additional_failed+=("$gst_plugins_ugly_url (gst-plugins-ugly-1.26.5.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] gst-plugins-ugly-1.26.5.tar.xz (already exists)"
+    fi
+
+    # gst-libav-1.26.5 (FFmpeg plugin wrapper)
+    local gst_libav_url="https://gstreamer.freedesktop.org/src/gst-libav/gst-libav-1.26.5.tar.xz"
+    if [ ! -f "gst-libav-1.26.5.tar.xz" ]; then
+        log_info "Downloading gst-libav..."
+        if ! download_with_retry "$gst_libav_url" "gst-libav-1.26.5.tar.xz"; then
+            additional_failed+=("$gst_libav_url (gst-libav-1.26.5.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] gst-libav-1.26.5.tar.xz (already exists)"
+    fi
+
+    # --- Video Codecs ---
+
+    # x264-20250815 (H.264 encoder)
+    local x264_url="https://anduin.linuxfromscratch.org/BLFS/x264/x264-20250815.tar.xz"
+    if [ ! -f "x264-20250815.tar.xz" ]; then
+        log_info "Downloading x264..."
+        if ! download_with_retry "$x264_url" "x264-20250815.tar.xz"; then
+            additional_failed+=("$x264_url (x264-20250815.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] x264-20250815.tar.xz (already exists)"
+    fi
+
+    # x265-4.1 (H.265/HEVC encoder)
+    local x265_url="https://bitbucket.org/multicoreware/x265_git/downloads/x265_4.1.tar.gz"
+    if [ ! -f "x265_4.1.tar.gz" ]; then
+        log_info "Downloading x265..."
+        if ! download_with_retry "$x265_url" "x265_4.1.tar.gz"; then
+            additional_failed+=("$x265_url (x265_4.1.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] x265_4.1.tar.gz (already exists)"
+    fi
+
+    # libvpx-1.15.2 (VP8/VP9 codec)
+    local libvpx_url="https://github.com/webmproject/libvpx/archive/v1.15.2/libvpx-1.15.2.tar.gz"
+    if [ ! -f "libvpx-1.15.2.tar.gz" ]; then
+        log_info "Downloading libvpx..."
+        if ! download_with_retry "$libvpx_url" "libvpx-1.15.2.tar.gz"; then
+            additional_failed+=("$libvpx_url (libvpx-1.15.2.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] libvpx-1.15.2.tar.gz (already exists)"
+    fi
+
+    # libaom-3.12.1 (AV1 codec)
+    local libaom_url="https://storage.googleapis.com/aom-releases/libaom-3.12.1.tar.gz"
+    if [ ! -f "libaom-3.12.1.tar.gz" ]; then
+        log_info "Downloading libaom..."
+        if ! download_with_retry "$libaom_url" "libaom-3.12.1.tar.gz"; then
+            additional_failed+=("$libaom_url (libaom-3.12.1.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] libaom-3.12.1.tar.gz (already exists)"
+    fi
+
+    # --- Hardware Acceleration ---
+
+    # libva-2.22.0 (VA-API for video acceleration)
+    local libva_url="https://github.com/intel/libva/releases/download/2.22.0/libva-2.22.0.tar.bz2"
+    if [ ! -f "libva-2.22.0.tar.bz2" ]; then
+        log_info "Downloading libva..."
+        if ! download_with_retry "$libva_url" "libva-2.22.0.tar.bz2"; then
+            additional_failed+=("$libva_url (libva-2.22.0.tar.bz2)")
+        fi
+    else
+        log_info "[SKIP] libva-2.22.0.tar.bz2 (already exists)"
+    fi
+
+    # libvdpau-1.5 (VDPAU for video acceleration)
+    local libvdpau_url="https://gitlab.freedesktop.org/vdpau/libvdpau/-/archive/1.5/libvdpau-1.5.tar.gz"
+    if [ ! -f "libvdpau-1.5.tar.gz" ]; then
+        log_info "Downloading libvdpau..."
+        if ! download_with_retry "$libvdpau_url" "libvdpau-1.5.tar.gz"; then
+            additional_failed+=("$libvdpau_url (libvdpau-1.5.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] libvdpau-1.5.tar.gz (already exists)"
+    fi
+
+    # --- FFmpeg ---
+
+    # FFmpeg-7.1.1 (Multimedia framework)
+    local ffmpeg_url="https://ffmpeg.org/releases/ffmpeg-7.1.1.tar.xz"
+    if [ ! -f "ffmpeg-7.1.1.tar.xz" ]; then
+        log_info "Downloading FFmpeg..."
+        if ! download_with_retry "$ffmpeg_url" "ffmpeg-7.1.1.tar.xz"; then
+            additional_failed+=("$ffmpeg_url (ffmpeg-7.1.1.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] ffmpeg-7.1.1.tar.xz (already exists)"
+    fi
 
     # Check for additional package failures
     if [ ${#additional_failed[@]} -gt 0 ]; then

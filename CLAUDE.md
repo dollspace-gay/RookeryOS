@@ -76,10 +76,10 @@ docker-compose run --rm build-blfs   # Single stage
 docker-compose build --no-cache build-blfs  # Rebuild container
 
 # View logs
-docker run --rm -v easylfs_lfs-logs:/logs alpine tail -100 /logs/build-basesystem.log
+docker run --rm -v easylfs_lfs-logs:/logs ubuntu:22.04 tail -100 /logs/build-basesystem.log
 
 # Force rebuild package
-docker run --rm -v easylfs_lfs-rootfs:/lfs alpine rm -f /lfs/.checkpoints/blfs-<pkg>.checkpoint
+docker run --rm -v easylfs_lfs-rootfs:/lfs ubuntu:22.04 rm -f /lfs/.checkpoints/blfs-<pkg>.checkpoint
 
 # Test image
 qemu-system-x86_64 -m 2G -drive file=dist/rookery-os-1.0.img,format=raw -nographic -serial mon:stdio

@@ -690,7 +690,7 @@ main() {
         log_info "✓ CC symlink exists at $LFS/usr/bin/cc"
         log_info ""
         log_info "To force rebuild, remove these files or clear checkpoints:"
-        log_info "  docker run --rm -v easylfs_lfs-rootfs:/lfs alpine rm -rf /lfs/.checkpoints"
+        log_info "  docker run --rm -v easylfs_lfs-rootfs:/lfs ubuntu:22.04 rm -rf /lfs/.checkpoints"
         log_info "=========================================="
         exit 0
     fi
