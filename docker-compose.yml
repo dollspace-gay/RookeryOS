@@ -156,7 +156,7 @@ services:
       - ./linux-6.6.102:/kernel-src:ro,Z  # Grsecurity kernel source
     environment:
       - LFS=/lfs
-      - MAKEFLAGS=-j42
+      - MAKEFLAGS=-j20
       - KERNEL_VERSION=6.6.102-grsec
       - USE_LOCAL_KERNEL=true
       - SERVICE_NAME=build-kernel
