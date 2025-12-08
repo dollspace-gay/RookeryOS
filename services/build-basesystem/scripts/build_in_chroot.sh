@@ -1592,8 +1592,8 @@ fi
 mkdir -p /run/dbus
 chown messagebus:messagebus /run/dbus
 
-tar -xf /sources/dbus-*.tar.xz
-cd dbus-*
+tar -xf /sources/dbus-1.16.2.tar.xz
+cd dbus-1.16.2
 
 mkdir build
 cd build
