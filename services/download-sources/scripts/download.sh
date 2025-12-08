@@ -39,6 +39,32 @@ FAILED_DOWNLOADS_FILE="/tmp/failed_downloads.$$"
 trap 'finalize_logging $?; rm -f "$FAILED_DOWNLOADS_FILE" /tmp/blfs-md5sums.$$' EXIT
 
 # =============================================================================
+# Halt on Download Failure
+# This function is called when any download fails permanently after all retries.
+# It logs the failure and immediately halts the entire script.
+# =============================================================================
+halt_on_download_failure() {
+    local url="$1"
+    local filename="${2:-$(basename "$url")}"
+    
+    log_error "========================================="
+    log_error "FATAL: Download failed - halting build"
+    log_error "========================================="
+    log_error "URL:      $url"
+    log_error "Filename: $filename"
+    log_error "========================================="
+    log_error "The download failed after $MAX_RETRIES attempts."
+    log_error "Please check:"
+    log_error "  - Your network connection"
+    log_error "  - If the URL is still valid"
+    log_error "  - If the server is available"
+    log_error "========================================="
+    
+    # Exit with error code
+    exit 1
+}
+
+# =============================================================================
 # BLFS Package Checksums (MD5)
 # These are checksums for BLFS packages not in the official LFS md5sums file.
 # Format: MD5SUM  FILENAME (two spaces between checksum and filename)
@@ -405,6 +431,7 @@ download_blfs_package() {
 }
 
 # Download with retry and speed monitoring
+# On permanent failure (after all retries), this function halts the entire script.
 download_with_retry() {
     local url="$1"
     local output="$2"
@@ -433,8 +460,8 @@ download_with_retry() {
         ((attempt++))
     done
 
-    log_error "Failed to download $url after $MAX_RETRIES attempts"
-    return 1
+    # All retries exhausted - halt the entire script
+    halt_on_download_failure "$url" "$output"
 }
 
 # Download a single package (used by parallel jobs)
@@ -467,14 +494,16 @@ download_package() {
     fi
 
     # Download the package
+    # Note: download_with_retry will halt the entire script on failure,
+    # so the else branch is just a defensive fallback
     if download_with_retry "$url" "$filename"; then
         echo "[OK] $filename"
         return 0
     else
+        # This should never be reached due to halt_on_download_failure
         echo "[FAIL] $filename"
-        # Record failure for later reporting
         echo "$url" >> /tmp/failed_downloads.$$
-        return 1
+        exit 1
     fi
 }
 
@@ -557,6 +586,7 @@ main() {
     # Export functions for parallel execution
     export -f download_with_retry
     export -f download_package
+    export -f halt_on_download_failure
     export -f log_info
     export -f log_warn
     export -f log_error
@@ -566,27 +596,29 @@ main() {
     # Download all packages in parallel
     echo ""
     log_info "Starting parallel downloads..."
+    log_info "NOTE: Build will halt immediately if any download fails"
 
     # Filter out comments and empty lines, then download in parallel
-    # Note: We don't fail immediately here - we collect failures and report at end
+    # Using --halt now,fail=1 to stop all jobs immediately if any download fails
     if command -v parallel >/dev/null 2>&1; then
         # Use GNU parallel if available (better progress tracking)
+        # --halt now,fail=1: halt all jobs immediately when any job fails
         log_info "Using GNU parallel for downloads"
         grep -v '^[[:space:]]*#' wget-list | grep -v '^[[:space:]]*$' | \
-            parallel -j "$PARALLEL_DOWNLOADS" --line-buffer --tag \
-                download_package {} "$SOURCES_DIR" || true
+            parallel -j "$PARALLEL_DOWNLOADS" --line-buffer --tag --halt now,fail=1 \
+                download_package {} "$SOURCES_DIR"
     else
-        # Fallback to xargs -P
+        # Fallback to xargs -P (will exit on first failure detected)
         log_info "Using xargs for parallel downloads"
         grep -v '^[[:space:]]*#' wget-list | grep -v '^[[:space:]]*$' | \
-            xargs -P "$PARALLEL_DOWNLOADS" -I {} bash -c 'download_package "$@"' _ {} "$SOURCES_DIR" || true
+            xargs -P "$PARALLEL_DOWNLOADS" -I {} bash -c 'download_package "$@"' _ {} "$SOURCES_DIR"
     fi
 
     echo ""
     log_info "Download phase completed"
     log_info "Total packages: $total_packages"
 
-    # Check for any failures from parallel downloads
+    # Check for any failures from parallel downloads (backup check)
     if [ -s "$FAILED_DOWNLOADS_FILE" ]; then
         log_error "========================================="
         log_error "DOWNLOAD FAILED - The following packages could not be downloaded:"
