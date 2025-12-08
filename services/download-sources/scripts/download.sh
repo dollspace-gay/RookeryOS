@@ -839,6 +839,17 @@ main() {
 
     # --- Graphics Libraries ---
 
+    # Brotli-1.1.0 (Compression library - required by FreeType for WOFF2 fonts)
+    local brotli_url="https://github.com/google/brotli/archive/v1.1.0/brotli-1.1.0.tar.gz"
+    if [ ! -f "brotli-1.1.0.tar.gz" ]; then
+        log_info "Downloading Brotli..."
+        if ! download_with_retry "$brotli_url" "brotli-1.1.0.tar.gz"; then
+            additional_failed+=("$brotli_url (brotli-1.1.0.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] brotli-1.1.0.tar.gz (already exists)"
+    fi
+
     # FreeType-2.13.3 (TrueType font rendering - required by libXfont2)
     local freetype_url="https://downloads.sourceforge.net/freetype/freetype-2.13.3.tar.xz"
     if [ ! -f "freetype-2.13.3.tar.xz" ]; then
@@ -1954,6 +1965,17 @@ main() {
         fi
     else
         log_info "[SKIP] gsettings-desktop-schemas-48.0.tar.xz (already exists)"
+    fi
+
+    # docbook-xml-4.5 (DocBook XML DTDs - required by docbook-xsl)
+    local docbookxml_url="https://www.docbook.org/xml/4.5/docbook-xml-4.5.zip"
+    if [ ! -f "docbook-xml-4.5.zip" ]; then
+        log_info "Downloading docbook-xml..."
+        if ! download_with_retry "$docbookxml_url" "docbook-xml-4.5.zip"; then
+            additional_failed+=("$docbookxml_url (docbook-xml-4.5.zip)")
+        fi
+    else
+        log_info "[SKIP] docbook-xml-4.5.zip (already exists)"
     fi
 
     # docbook-xsl-nons-1.79.2 (DocBook XSLT stylesheets)
