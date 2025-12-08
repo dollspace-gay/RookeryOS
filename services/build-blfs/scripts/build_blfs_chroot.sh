@@ -3937,8 +3937,8 @@ build_gst_libav() {
 # Which (required for configure scripts to find yasm/nasm)
 build_which() {
     should_skip_package "which" && { log_info "Skipping Which"; return 0; }
-    log_step "Building Which-2.23..."
-    cd "$BUILD_DIR" && rm -rf which-* && tar -xf /sources/which-2.23.tar.gz && cd which-*
+    log_step "Building Which-2.21..."
+    cd "$BUILD_DIR" && rm -rf which-* && tar -xf /sources/which-2.21.tar.gz && cd which-*
     ./configure --prefix=/usr
     make
     make install
