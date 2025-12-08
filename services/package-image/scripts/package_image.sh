@@ -10,7 +10,7 @@ set -euo pipefail
 
 export LFS="${LFS:-/lfs}"
 export IMAGE_NAME="${IMAGE_NAME:-rookery-os-1.0}"
-export IMAGE_SIZE="${IMAGE_SIZE:-6144}"  # Size in MB (6GB for firmware + modules)
+export IMAGE_SIZE="${IMAGE_SIZE:-204800}"  # Size in MB (200GB for full BLFS system)
 
 DIST_DIR="/dist"
 
@@ -86,8 +86,9 @@ create_disk_image() {
     sleep 2  # Give kernel time to release devices
 
     # Mount the partition
+    # NOTE: Using /mnt instead of /tmp because /tmp may be a tmpfs with limited space
     log_step "Mounting partition..."
-    local mount_point="/tmp/lfs-mount"
+    local mount_point="/mnt/lfs-mount"
     mkdir -p "$mount_point"
     mount -o loop,offset=$partition_offset "$image_file" "$mount_point"
 

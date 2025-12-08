@@ -184,7 +184,7 @@ services:
     environment:
       - LFS=/lfs
       - IMAGE_NAME=rookery-os-1.0
-      - IMAGE_SIZE=6144  # Size in MB (6GB - extra space for firmware and modules)
+      - IMAGE_SIZE=204800  # Size in MB (200GB for full BLFS system)
       - SERVICE_NAME=package-image
     restart: "no"
     depends_on:
