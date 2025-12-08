@@ -555,7 +555,7 @@ main() {
     local total_packages=$(grep -v '^[[:space:]]*#' wget-list | grep -v '^[[:space:]]*$' | wc -l)
     log_info "Found $total_packages packages to download"
     log_info "Using $PARALLEL_DOWNLOADS parallel downloads"
-    log_info "Using ftpmirror.gnu.org for automatic geographic mirror selection"
+    log_info "Using original package URLs (ftp.gnu.org and project mirrors)"
 
     # Export functions for parallel execution
     export -f download_with_retry
