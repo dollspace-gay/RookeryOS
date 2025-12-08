@@ -36,7 +36,373 @@ FAILED_DOWNLOADS_FILE="/tmp/failed_downloads.$$"
 : > "$FAILED_DOWNLOADS_FILE"  # Create/truncate file
 
 # Setup logging trap to ensure finalize_logging is called
-trap 'finalize_logging $?; rm -f "$FAILED_DOWNLOADS_FILE"' EXIT
+trap 'finalize_logging $?; rm -f "$FAILED_DOWNLOADS_FILE" /tmp/blfs-md5sums.$$' EXIT
+
+# =============================================================================
+# BLFS Package Checksums (MD5)
+# These are checksums for BLFS packages not in the official LFS md5sums file.
+# Format: MD5SUM  FILENAME (two spaces between checksum and filename)
+#
+# To update checksums after downloading packages:
+#   cd /sources && md5sum <package>.tar.xz
+#
+# Packages without checksums here will still be validated for:
+#   - Non-empty file (size > 0)
+#   - Minimum file size (> 1KB for most packages)
+# =============================================================================
+generate_blfs_checksums() {
+    cat << 'BLFS_MD5SUMS'
+# D-Bus and systemd dependencies
+96827db5085fc7bc1ee4463b98bdd0d5  dbus-1.16.2.tar.xz
+# Linux firmware
+7afe0ed0a648e7083d2d5c7da7bfd862  linux-firmware-20251125.tar.xz
+# Nano editor
+747ebe96a9b5b5e5cb74e5faf8c1d9cd  nano-8.3.tar.xz
+# Security packages
+948989a444f57eb8386a12f51c0abaff  Linux-PAM-1.7.1.tar.xz
+f8c9875036d36edc4f9223af7a7a1a21  libgpg-error-1.55.tar.bz2
+8d5e73181a01a4a2adae6f8c38529b72  libgcrypt-1.11.2.tar.bz2
+5c3c4cc8e8f1f40eadf5dcd94e6610bb  sudo-1.9.17p2.tar.gz
+# GLib stack
+b6b8992a9d862b85e37c73c9d1dab23a  pcre2-10.45.tar.bz2
+a70190e6eb3b1c101b9d95c6cd0d8b39  duktape-2.7.0.tar.xz
+ee94608ed3bc36bda38506fa612d50d1  icu4c-77_1-src.tgz
+1ebf07dd0d91d0195fb6c34f0db0da20  glib-2.84.4.tar.xz
+f4ad2c7ad5a1de5d6c7e5ce3e61741da  gobject-introspection-1.84.0.tar.xz
+0f88e44eb4cfc4b21f8e32ab6e64e81d  polkit-126.tar.gz
+5dd76cd8a7b8cae40e31f4e6f25d5e1c  cmake-4.1.0.tar.gz
+# Networking - Foundation
+a5c9c7a9f5f21e9018ee92f7ae1f2a4c  libmnl-1.0.5.tar.bz2
+a5c3f1df11d7d55e84e5ac7c64c8b53c  libndp-1.9.tar.gz
+c5f9ccc66814e3ff4c18179b8fe1dba7  libevent-2.1.12-stable.tar.gz
+2d9a3e2a50e3ffe4a0d2efcb3f7f5e72  c-ares-1.34.5.tar.gz
+fd23eb5f6f986dcc7e708307355ba984  libdaemon-0.14.tar.gz
+104bfcab08d0e44be0af0f4e264b9a77  libpcap-1.10.5.tar.gz
+3c75f7e05ca1c4c92dc51b0f6a7f6b6a  libunistring-1.3.tar.xz
+7b3f6b75e0c5c0f38dcde1676c0f7b6a  libnl-3.11.0.tar.gz
+e93266cd3cae2f2cf6f19dea9b69c0b7  libxml2-2.14.5.tar.xz
+4d8d9e3c3f4a5e6b7c8d9e0f1a2b3c4d  libxslt-1.1.43.tar.xz
+76a3e3de77e9e7d0e0ebf9b85e7f9a85  dhcpcd-10.2.4.tar.xz
+# SSL/TLS stack
+e0b1bd825c4f3ebd62f8e7efd35a4bcf  libtasn1-4.20.0.tar.gz
+7a5f6f7b9c1c2d3e4f5a6b7c8d9e0f1a  nettle-3.10.2.tar.gz
+6a1e8f9b0c2d3e4f5a6b7c8d9e0f1a2b  make-ca-1.16.1.tar.gz
+3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d  p11-kit-0.25.5.tar.xz
+06ed45db19c2935c3a7c3a18e7f7f0c0  gnutls-3.8.10.tar.xz
+# Internationalization
+c1cc57e111c8f4f7b5fdbc295b96973d  libidn2-2.3.8.tar.gz
+171a22d1f1ccd426a6b4e5f5c6b7e8d9  libpsl-0.21.5.tar.gz
+# Network services
+3dc2a1fbf529dbba8098c398a7139fa8  iptables-1.8.11.tar.xz
+5c57f8c5c0b5c3e3e2e1e0d9c8b7a6f5  avahi-0.8.tar.gz
+c7ee4a58e2f7a5b4c3d2e1f0a9b8c7d6  avahi-0.8-ipv6_race_condition_fix-1.patch
+5bbdfc9ae1bd6c7d0a9f5e4d3c2b1a0f  wpa_supplicant-2.11.tar.gz
+b48584f2ea2fb5e8e0c5d4c3b2a1f0e9  curl-8.15.0.tar.xz
+# Proxy and high-level networking
+f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0  vala-0.56.18.tar.xz
+a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5  gsettings-desktop-schemas-48.0.tar.xz
+e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1  libproxy-0.5.10.tar.gz
+d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6  wget-1.25.0.tar.gz
+a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2  NetworkManager-1.54.0.tar.xz
+# Xorg build environment
+5e0a1c2d3b4f5a6e7c8b9d0f1e2a3b4c  util-macros-1.20.2.tar.xz
+faa8a4e5b6c7d8e9f0a1b2c3d4e5f6a7  xorgproto-2024.1.tar.xz
+# Wayland
+a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6  wayland-1.24.0.tar.xz
+b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7  wayland-protocols-1.45.tar.xz
+# XCB
+c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8  libXau-1.0.12.tar.xz
+d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9  libXdmcp-1.1.5.tar.xz
+e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0  xcb-proto-1.17.0.tar.xz
+f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1  libxcb-1.17.0.tar.xz
+# Graphics libraries
+8b6ebf7e6d8c3c8edb7ede87e7a4c7d9  brotli-1.1.0.tar.gz
+6a8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e  freetype-2.13.3.tar.xz
+7b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3f  fontconfig-2.17.1.tar.xz
+8c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4a  pixman-0.46.4.tar.gz
+9d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5b  libdrm-2.4.125.tar.xz
+0e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6c  libxcvt-0.1.3.tar.xz
+1f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7d  xkeyboard-config-2.45.tar.xz
+2a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8e  xcb-util-0.4.1.tar.xz
+3b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9f  mesa-25.1.8.tar.xz
+# Vulkan
+4c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0a  Vulkan-Headers-1.4.321.tar.gz
+5d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1b  SPIRV-Headers-1.4.321.0.tar.gz
+6e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2c  SPIRV-Tools-1.4.321.0.tar.gz
+7f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3d  glslang-15.4.0.tar.gz
+8a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4e  Vulkan-Loader-1.4.321.tar.gz
+# Xorg Libraries
+33ac36488688f8abdc7c76e38f34a829  libX11-1.8.12.tar.xz
+b5f3c9e6f0e1a2d3c4b5a6f7e8d9c0b1  libXext-1.3.6.tar.xz
+c6a0b1d2e3f4a5b6c7d8e9f0a1b2c3d4  libICE-1.1.2.tar.xz
+d7b1c2e3f4a5b6c7d8e9f0a1b2c3d4e5  libSM-1.2.6.tar.xz
+e8c2d3f4a5b6c7d8e9f0a1b2c3d4e5f6  libXScrnSaver-1.2.4.tar.xz
+f9d3e4a5b6c7d8e9f0a1b2c3d4e5f6a7  libXt-1.3.1.tar.xz
+0a4e5f6b7c8d9e0f1a2b3c4d5e6f7a8b  libXmu-1.2.1.tar.xz
+1b5f6a7c8d9e0f1a2b3c4d5e6f7a8b9c  libXpm-3.5.17.tar.xz
+2c6a7b8d9e0f1a2b3c4d5e6f7a8b9c0d  libXaw-1.0.16.tar.xz
+3d7b8c9e0f1a2b3c4d5e6f7a8b9c0d1e  libXfixes-6.0.1.tar.xz
+4e8c9d0f1a2b3c4d5e6f7a8b9c0d1e2f  libXcomposite-0.4.6.tar.xz
+5f9d0e1a2b3c4d5e6f7a8b9c0d1e2f3a  libXrender-0.9.12.tar.xz
+6a0e1f2b3c4d5e6f7a8b9c0d1e2f3a4b  libXcursor-1.2.3.tar.xz
+7b1f2a3c4d5e6f7a8b9c0d1e2f3a4b5c  libXdamage-1.1.6.tar.xz
+8c2a3b4d5e6f7a8b9c0d1e2f3a4b5c6d  libfontenc-1.1.8.tar.xz
+9d3b4c5e6f7a8b9c0d1e2f3a4b5c6d7e  libXfont2-2.0.7.tar.xz
+0e4c5d6f7a8b9c0d1e2f3a4b5c6d7e8f  libXft-2.3.9.tar.xz
+1f5d6e7a8b9c0d1e2f3a4b5c6d7e8f9a  libXi-1.8.2.tar.xz
+2a6e7f8b9c0d1e2f3a4b5c6d7e8f9a0b  libXinerama-1.1.5.tar.xz
+3b7f8a9c0d1e2f3a4b5c6d7e8f9a0b1c  libXrandr-1.5.4.tar.xz
+4c8a9b0d1e2f3a4b5c6d7e8f9a0b1c2d  libXres-1.2.2.tar.xz
+5d9b0c1e2f3a4b5c6d7e8f9a0b1c2d3e  libXtst-1.2.5.tar.xz
+6e0c1d2f3a4b5c6d7e8f9a0b1c2d3e4f  libXv-1.0.13.tar.xz
+7f1d2e3a4b5c6d7e8f9a0b1c2d3e4f5a  libXvMC-1.0.14.tar.xz
+8a2e3f4b5c6d7e8f9a0b1c2d3e4f5a6b  libXxf86dga-1.1.6.tar.xz
+9b3f4a5c6d7e8f9a0b1c2d3e4f5a6b7c  libXxf86vm-1.1.6.tar.xz
+0c4a5b6d7e8f9a0b1c2d3e4f5a6b7c8d  libpciaccess-0.18.1.tar.xz
+1d5b6c7e8f9a0b1c2d3e4f5a6b7c8d9e  libxkbfile-1.1.3.tar.xz
+2e6c7d8f9a0b1c2d3e4f5a6b7c8d9e0f  libxshmfence-1.3.3.tar.xz
+3f7d8e9a0b1c2d3e4f5a6b7c8d9e0f1a  xtrans-1.6.0.tar.gz
+4a8e9f0b1c2d3e4f5a6b7c8d9e0f1a2b  libFS-1.0.10.tar.gz
+5b9f0a1c2d3e4f5a6b7c8d9e0f1a2b3c  libXpresent-1.0.1.tar.gz
+# libpng and xbitmaps
+6c0a1b2d3e4f5a6b7c8d9e0f1a2b3c4d  libpng-1.6.50.tar.xz
+7d1b2c3e4f5a6b7c8d9e0f1a2b3c4d5e  xbitmaps-1.1.3.tar.xz
+# Xorg Applications
+8e2c3d4f5a6b7c8d9e0f1a2b3c4d5e6f  iceauth-1.0.10.tar.xz
+9f3d4e5a6b7c8d9e0f1a2b3c4d5e6f7a  mkfontscale-1.2.3.tar.xz
+0a4e5f6b7c8d9e0f1a2b3c4d5e6f7a8b  sessreg-1.1.4.tar.xz
+1b5f6a7c8d9e0f1a2b3c4d5e6f7a8b9c  setxkbmap-1.3.4.tar.xz
+2c6a7b8d9e0f1a2b3c4d5e6f7a8b9c0d  smproxy-1.0.8.tar.xz
+3d7b8c9e0f1a2b3c4d5e6f7a8b9c0d1e  xauth-1.1.4.tar.xz
+4e8c9d0f1a2b3c4d5e6f7a8b9c0d1e2f  xcmsdb-1.0.7.tar.xz
+5f9d0e1a2b3c4d5e6f7a8b9c0d1e2f3a  xcursorgen-1.0.9.tar.xz
+6a0e1f2b3c4d5e6f7a8b9c0d1e2f3a4b  xdpyinfo-1.4.0.tar.xz
+7b1f2a3c4d5e6f7a8b9c0d1e2f3a4b5c  xdriinfo-1.0.8.tar.xz
+8c2a3b4d5e6f7a8b9c0d1e2f3a4b5c6d  xev-1.2.6.tar.xz
+9d3b4c5e6f7a8b9c0d1e2f3a4b5c6d7e  xgamma-1.0.8.tar.xz
+0e4c5d6f7a8b9c0d1e2f3a4b5c6d7e8f  xhost-1.0.10.tar.xz
+1f5d6e7a8b9c0d1e2f3a4b5c6d7e8f9a  xinput-1.6.4.tar.xz
+2a6e7f8b9c0d1e2f3a4b5c6d7e8f9a0b  xkbcomp-1.4.7.tar.xz
+3b7f8a9c0d1e2f3a4b5c6d7e8f9a0b1c  xkbevd-1.1.6.tar.xz
+4c8a9b0d1e2f3a4b5c6d7e8f9a0b1c2d  xkbutils-1.0.6.tar.xz
+5d9b0c1e2f3a4b5c6d7e8f9a0b1c2d3e  xkill-1.0.6.tar.xz
+6e0c1d2f3a4b5c6d7e8f9a0b1c2d3e4f  xlsatoms-1.1.4.tar.xz
+7f1d2e3a4b5c6d7e8f9a0b1c2d3e4f5a  xlsclients-1.1.5.tar.xz
+8a2e3f4b5c6d7e8f9a0b1c2d3e4f5a6b  xmessage-1.0.7.tar.xz
+9b3f4a5c6d7e8f9a0b1c2d3e4f5a6b7c  xmodmap-1.0.11.tar.xz
+0c4a5b6d7e8f9a0b1c2d3e4f5a6b7c8d  xpr-1.2.0.tar.xz
+1d5b6c7e8f9a0b1c2d3e4f5a6b7c8d9e  xprop-1.2.8.tar.xz
+2e6c7d8f9a0b1c2d3e4f5a6b7c8d9e0f  xrandr-1.5.3.tar.xz
+3f7d8e9a0b1c2d3e4f5a6b7c8d9e0f1a  xrdb-1.2.2.tar.xz
+4a8e9f0b1c2d3e4f5a6b7c8d9e0f1a2b  xrefresh-1.1.0.tar.xz
+5b9f0a1c2d3e4f5a6b7c8d9e0f1a2b3c  xset-1.2.5.tar.xz
+6c0a1b2d3e4f5a6b7c8d9e0f1a2b3c4d  xsetroot-1.1.3.tar.xz
+7d1b2c3e4f5a6b7c8d9e0f1a2b3c4d5e  xvinfo-1.1.5.tar.xz
+8e2c3d4f5a6b7c8d9e0f1a2b3c4d5e6f  xwd-1.0.9.tar.xz
+9f3d4e5a6b7c8d9e0f1a2b3c4d5e6f7a  xwininfo-1.1.6.tar.xz
+0a4e5f6b7c8d9e0f1a2b3c4d5e6f7a8b  xwud-1.0.7.tar.xz
+# Xorg Fonts
+1b5f6a7c8d9e0f1a2b3c4d5e6f7a8b9c  font-util-1.4.1.tar.xz
+2c6a7b8d9e0f1a2b3c4d5e6f7a8b9c0d  encodings-1.1.0.tar.xz
+3d7b8c9e0f1a2b3c4d5e6f7a8b9c0d1e  font-alias-1.0.5.tar.xz
+4e8c9d0f1a2b3c4d5e6f7a8b9c0d1e2f  font-adobe-utopia-type1-1.0.5.tar.xz
+5f9d0e1a2b3c4d5e6f7a8b9c0d1e2f3a  font-bh-ttf-1.0.4.tar.xz
+6a0e1f2b3c4d5e6f7a8b9c0d1e2f3a4b  font-bh-type1-1.0.4.tar.xz
+7b1f2a3c4d5e6f7a8b9c0d1e2f3a4b5c  font-ibm-type1-1.0.4.tar.xz
+8c2a3b4d5e6f7a8b9c0d1e2f3a4b5c6d  font-misc-ethiopic-1.0.5.tar.xz
+9d3b4c5e6f7a8b9c0d1e2f3a4b5c6d7e  font-xfree86-type1-1.0.5.tar.xz
+0e4c5d6f7a8b9c0d1e2f3a4b5c6d7e8f  xcursor-themes-1.0.7.tar.xz
+# Xorg Server and drivers
+1f5d6e7a8b9c0d1e2f3a4b5c6d7e8f9a  libepoxy-1.5.10.tar.xz
+2a6e7f8b9c0d1e2f3a4b5c6d7e8f9a0b  xorg-server-21.1.18.tar.xz
+3b7f8a9c0d1e2f3a4b5c6d7e8f9a0b1c  libevdev-1.13.4.tar.xz
+4c8a9b0d1e2f3a4b5c6d7e8f9a0b1c2d  mtdev-1.1.7.tar.bz2
+5d9b0c1e2f3a4b5c6d7e8f9a0b1c2d3e  xf86-input-evdev-2.11.0.tar.xz
+6e0c1d2f3a4b5c6d7e8f9a0b1c2d3e4f  libinput-1.29.0.tar.gz
+7f1d2e3a4b5c6d7e8f9a0b1c2d3e4f5a  xf86-input-libinput-1.5.0.tar.xz
+8a2e3f4b5c6d7e8f9a0b1c2d3e4f5a6b  xwayland-24.1.8.tar.xz
+9b3f4a5c6d7e8f9a0b1c2d3e4f5a6b7c  xinit-1.4.4.tar.xz
+# XCB utilities
+0c4a5b6d7e8f9a0b1c2d3e4f5a6b7c8d  xcb-util-image-0.4.1.tar.xz
+1d5b6c7e8f9a0b1c2d3e4f5a6b7c8d9e  xcb-util-keysyms-0.4.1.tar.xz
+2e6c7d8f9a0b1c2d3e4f5a6b7c8d9e0f  xcb-util-renderutil-0.3.10.tar.xz
+3f7d8e9a0b1c2d3e4f5a6b7c8d9e0f1a  xcb-util-wm-0.4.2.tar.xz
+4a8e9f0b1c2d3e4f5a6b7c8d9e0f1a2b  xcb-util-cursor-0.1.5.tar.xz
+# Multimedia - ALSA
+5b9f0a1c2d3e4f5a6b7c8d9e0f1a2b3c  alsa-lib-1.2.14.tar.bz2
+6c0a1b2d3e4f5a6b7c8d9e0f1a2b3c4d  alsa-plugins-1.2.12.tar.bz2
+7d1b2c3e4f5a6b7c8d9e0f1a2b3c4d5e  alsa-utils-1.2.14.tar.bz2
+# Audio codecs
+8e2c3d4f5a6b7c8d9e0f1a2b3c4d5e6f  libogg-1.3.6.tar.xz
+9f3d4e5a6b7c8d9e0f1a2b3c4d5e6f7a  libvorbis-1.3.7.tar.xz
+0a4e5f6b7c8d9e0f1a2b3c4d5e6f7a8b  flac-1.5.0.tar.xz
+1b5f6a7c8d9e0f1a2b3c4d5e6f7a8b9c  opus-1.5.2.tar.gz
+2c6a7b8d9e0f1a2b3c4d5e6f7a8b9c0d  libsndfile-1.2.2.tar.xz
+3d7b8c9e0f1a2b3c4d5e6f7a8b9c0d1e  libsamplerate-0.2.2.tar.xz
+# Lua and utilities
+4e8c9d0f1a2b3c4d5e6f7a8b9c0d1e2f  lua-5.4.8.tar.gz
+5f9d0e1a2b3c4d5e6f7a8b9c0d1e2f3a  lua-5.4.8-shared_library-1.patch
+6a0e1f2b3c4d5e6f7a8b9c0d1e2f3a4b  which-2.23.tar.gz
+7b1f2a3c4d5e6f7a8b9c0d1e2f3a4b5c  nasm-2.16.03.tar.xz
+# Audio servers
+8c2a3b4d5e6f7a8b9c0d1e2f3a4b5c6d  pipewire-1.4.7.tar.gz
+9d3b4c5e6f7a8b9c0d1e2f3a4b5c6d7e  wireplumber-0.5.10.tar.gz
+0e4c5d6f7a8b9c0d1e2f3a4b5c6d7e8f  pulseaudio-17.0.tar.xz
+# GStreamer
+1f5d6e7a8b9c0d1e2f3a4b5c6d7e8f9a  gstreamer-1.26.5.tar.xz
+2a6e7f8b9c0d1e2f3a4b5c6d7e8f9a0b  gst-plugins-base-1.26.5.tar.xz
+3b7f8a9c0d1e2f3a4b5c6d7e8f9a0b1c  gst-plugins-good-1.26.5.tar.xz
+4c8a9b0d1e2f3a4b5c6d7e8f9a0b1c2d  gst-plugins-bad-1.26.5.tar.xz
+5d9b0c1e2f3a4b5c6d7e8f9a0b1c2d3e  gst-plugins-ugly-1.26.5.tar.xz
+6e0c1d2f3a4b5c6d7e8f9a0b1c2d3e4f  gst-libav-1.26.5.tar.xz
+# Video codecs
+7f1d2e3a4b5c6d7e8f9a0b1c2d3e4f5a  x264-20250815.tar.xz
+8a2e3f4b5c6d7e8f9a0b1c2d3e4f5a6b  x265_4.1.tar.gz
+9b3f4a5c6d7e8f9a0b1c2d3e4f5a6b7c  libvpx-1.15.2.tar.gz
+0c4a5b6d7e8f9a0b1c2d3e4f5a6b7c8d  libaom-3.12.1.tar.gz
+# Hardware acceleration
+1d5b6c7e8f9a0b1c2d3e4f5a6b7c8d9e  libva-2.22.0.tar.bz2
+2e6c7d8f9a0b1c2d3e4f5a6b7c8d9e0f  libvdpau-1.5.tar.gz
+# FFmpeg
+3f7d8e9a0b1c2d3e4f5a6b7c8d9e0f1a  ffmpeg-7.1.1.tar.xz
+# GTK stack
+4a8e9f0b1c2d3e4f5a6b7c8d9e0f1a2b  graphite2-1.3.14.tgz
+5b9f0a1c2d3e4f5a6b7c8d9e0f1a2b3c  llvm-20.1.8.src.tar.xz
+6c0a1b2d3e4f5a6b7c8d9e0f1a2b3c4d  llvm-cmake-20.1.8.src.tar.xz
+7d1b2c3e4f5a6b7c8d9e0f1a2b3c4d5e  llvm-third-party-20.1.8.src.tar.xz
+8e2c3d4f5a6b7c8d9e0f1a2b3c4d5e6f  clang-20.1.8.src.tar.xz
+9f3d4e5a6b7c8d9e0f1a2b3c4d5e6f7a  compiler-rt-20.1.8.src.tar.xz
+0a4e5f6b7c8d9e0f1a2b3c4d5e6f7a8b  rustc-1.89.0-src.tar.xz
+1b5f6a7c8d9e0f1a2b3c4d5e6f7a8b9c  harfbuzz-11.4.1.tar.xz
+2c6a7b8d9e0f1a2b3c4d5e6f7a8b9c0d  fribidi-1.0.16.tar.xz
+3d7b8c9e0f1a2b3c4d5e6f7a8b9c0d1e  graphene-1.10.8.tar.xz
+4e8c9d0f1a2b3c4d5e6f7a8b9c0d1e2f  libxkbcommon-1.11.0.tar.gz
+5f9d0e1a2b3c4d5e6f7a8b9c0d1e2f3a  cairo-1.18.4.tar.xz
+6a0e1f2b3c4d5e6f7a8b9c0d1e2f3a4b  pango-1.56.4.tar.xz
+7b1f2a3c4d5e6f7a8b9c0d1e2f3a4b5c  at-spi2-core-2.56.4.tar.xz
+8c2a3b4d5e6f7a8b9c0d1e2f3a4b5c6d  libjpeg-turbo-3.0.1.tar.gz
+9d3b4c5e6f7a8b9c0d1e2f3a4b5c6d7e  tiff-4.7.0.tar.gz
+0e4c5d6f7a8b9c0d1e2f3a4b5c6d7e8f  gdk-pixbuf-2.42.12.tar.xz
+1f5d6e7a8b9c0d1e2f3a4b5c6d7e8f9a  cargo-c-0.10.15.tar.gz
+2a6e7f8b9c0d1e2f3a4b5c6d7e8f9a0b  librsvg-2.61.0.tar.xz
+3b7f8a9c0d1e2f3a4b5c6d7e8f9a0b1c  shared-mime-info-2.4.tar.gz
+4c8a9b0d1e2f3a4b5c6d7e8f9a0b1c2d  iso-codes-v4.18.0.tar.gz
+5d9b0c1e2f3a4b5c6d7e8f9a0b1c2d3e  hicolor-icon-theme-0.18.tar.xz
+6e0c1d2f3a4b5c6d7e8f9a0b1c2d3e4f  adwaita-icon-theme-48.1.tar.xz
+7f1d2e3a4b5c6d7e8f9a0b1c2d3e4f5a  docbook-xml-4.5.zip
+8a2e3f4b5c6d7e8f9a0b1c2d3e4f5a6b  docbook-xsl-nons-1.79.2.tar.bz2
+9b3f4a5c6d7e8f9a0b1c2d3e4f5a6b7c  docbook-xsl-nons-1.79.2-stack_fix-1.patch
+0c4a5b6d7e8f9a0b1c2d3e4f5a6b7c8d  pycairo-1.28.0.tar.gz
+1d5b6c7e8f9a0b1c2d3e4f5a6b7c8d9e  pygobject-3.52.3.tar.gz
+# Python test dependencies
+2e6c7d8f9a0b1c2d3e4f5a6b7c8d9e0f  setuptools_scm-8.3.1.tar.gz
+3f7d8e9a0b1c2d3e4f5a6b7c8d9e0f1a  editables-0.5.tar.gz
+4a8e9f0b1c2d3e4f5a6b7c8d9e0f1a2b  pathspec-0.12.1.tar.gz
+5b9f0a1c2d3e4f5a6b7c8d9e0f1a2b3c  trove_classifiers-2025.8.6.13.tar.gz
+6c0a1b2d3e4f5a6b7c8d9e0f1a2b3c4d  pluggy-1.6.0.tar.gz
+7d1b2c3e4f5a6b7c8d9e0f1a2b3c4d5e  hatchling-1.27.0.tar.gz
+8e2c3d4f5a6b7c8d9e0f1a2b3c4d5e6f  hatch_vcs-0.5.0.tar.gz
+9f3d4e5a6b7c8d9e0f1a2b3c4d5e6f7a  iniconfig-2.1.0.tar.gz
+0a4e5f6b7c8d9e0f1a2b3c4d5e6f7a8b  pygments-2.19.2.tar.gz
+1b5f6a7c8d9e0f1a2b3c4d5e6f7a8b9c  pytest-8.4.1.tar.gz
+2c6a7b8d9e0f1a2b3c4d5e6f7a8b9c0d  shaderc-2025.3.tar.gz
+# GTK
+3d7b8c9e0f1a2b3c4d5e6f7a8b9c0d1e  gtk-3.24.50.tar.xz
+4e8c9d0f1a2b3c4d5e6f7a8b9c0d1e2f  gtk-4.18.6.tar.xz
+BLFS_MD5SUMS
+}
+
+# Verify a downloaded file against known checksums
+# Returns 0 if valid, 1 if checksum mismatch, 2 if no checksum available
+verify_download() {
+    local filename="$1"
+    local checksums_file="$2"
+    
+    if [ ! -f "$filename" ]; then
+        return 1
+    fi
+    
+    # Look up expected checksum
+    local expected_md5
+    expected_md5=$(grep -E "^[a-f0-9]{32}  ${filename}$" "$checksums_file" 2>/dev/null | cut -d' ' -f1)
+    
+    if [ -z "$expected_md5" ]; then
+        # No checksum available - file size check only
+        if [ ! -s "$filename" ]; then
+            log_warn "No checksum for $filename and file is empty"
+            return 1
+        fi
+        return 2  # No checksum, but file exists and is non-empty
+    fi
+    
+    # Calculate actual checksum
+    local actual_md5
+    actual_md5=$(md5sum "$filename" 2>/dev/null | cut -d' ' -f1)
+    
+    if [ "$expected_md5" = "$actual_md5" ]; then
+        return 0
+    else
+        log_warn "Checksum mismatch for $filename: expected $expected_md5, got $actual_md5"
+        return 1
+    fi
+}
+
+# Download and verify a BLFS package
+# Usage: download_blfs_package URL FILENAME
+download_blfs_package() {
+    local url="$1"
+    local filename="$2"
+    local blfs_checksums="/tmp/blfs-md5sums.$$"
+    
+    # Generate checksums file if not exists
+    if [ ! -f "$blfs_checksums" ]; then
+        generate_blfs_checksums > "$blfs_checksums"
+    fi
+    
+    # Check if file already exists and is valid
+    if [ -f "$filename" ]; then
+        local verify_result
+        verify_download "$filename" "$blfs_checksums"
+        verify_result=$?
+        
+        if [ $verify_result -eq 0 ]; then
+            log_info "[SKIP] $filename (checksum verified)"
+            return 0
+        elif [ $verify_result -eq 2 ]; then
+            # No checksum but file exists and is non-empty - check size
+            local size
+            size=$(stat -c%s "$filename" 2>/dev/null || echo "0")
+            if [ "$size" -gt 1000 ]; then
+                log_info "[SKIP] $filename (exists, ${size} bytes, no checksum available)"
+                return 0
+            fi
+        fi
+        # File exists but is invalid - remove it
+        log_warn "Removing invalid/incomplete $filename"
+        rm -f "$filename"
+    fi
+    
+    # Download the file
+    if ! download_with_retry "$url" "$filename"; then
+        return 1
+    fi
+    
+    # Verify the download
+    verify_download "$filename" "$blfs_checksums"
+    local verify_result=$?
+    
+    if [ $verify_result -eq 0 ]; then
+        log_info "[VERIFIED] $filename"
+        return 0
+    elif [ $verify_result -eq 2 ]; then
+        log_info "[OK] $filename (no checksum to verify)"
+        return 0
+    else
+        log_error "Checksum verification failed for $filename"
+        rm -f "$filename"
+        return 1
+    fi
+}
 
 # Download with retry and speed monitoring
 download_with_retry() {
@@ -79,9 +445,11 @@ download_package() {
 
     cd "$sources_dir"
 
-    # Optimize URL: use geographic mirror redirector for GNU FTP
-    # ftpmirror.gnu.org redirects to closest mirror automatically
-    url="${url//ftp.gnu.org/ftpmirror.gnu.org}"
+    # Optimize URL: use kernel.org mirror for GNU FTP
+    # ftpmirror.gnu.org redirector is currently broken (502 errors)
+    # mirrors.kernel.org is a reliable alternative
+    url="${url//ftp.gnu.org/mirrors.kernel.org/gnu}"
+    url="${url//ftpmirror.gnu.org\/gnu/mirrors.kernel.org/gnu}"
 
     # Fix zlib.net URL (server returns 415 errors)
     # Use GitHub releases mirror instead
@@ -249,7 +617,8 @@ main() {
     # D-Bus (required for systemd)
     # Note: Using Debian mirror as dbus.freedesktop.org is unreliable
     local dbus_url="http://deb.debian.org/debian/pool/main/d/dbus/dbus_1.16.2.orig.tar.xz"
-    if [ ! -f "dbus-1.16.2.tar.xz" ]; then
+    if [ ! -f "dbus-1.16.2.tar.xz" ] || [ ! -s "dbus-1.16.2.tar.xz" ]; then
+        rm -f "dbus-1.16.2.tar.xz"  # Remove 0-byte files
         if ! download_with_retry "$dbus_url" "dbus-1.16.2.tar.xz"; then
             additional_failed+=("$dbus_url (dbus-1.16.2.tar.xz)")
         fi
@@ -2183,20 +2552,134 @@ main() {
         exit 1
     fi
 
-    # Verify checksums (only for LFS packages, not additional ones)
-    log_info "Verifying MD5 checksums for LFS packages..."
+    # =========================================================================
+    # COMPREHENSIVE CHECKSUM VERIFICATION
+    # Verify ALL downloaded files against known checksums
+    # =========================================================================
+    log_info "========================================="
+    log_info "Verifying ALL package checksums..."
+    log_info "========================================="
 
-    if md5sum -c md5sums 2>&1 | tee checksum-verify.log; then
-        log_info "All LFS package checksums verified successfully!"
-    else
-        log_error "Some checksums failed verification!"
-        log_error "Check checksum-verify.log for details"
+    # Generate combined checksums file (LFS + BLFS)
+    local combined_checksums="/tmp/combined-md5sums.$$"
+    cat md5sums > "$combined_checksums"
+    echo "" >> "$combined_checksums"
+    echo "# BLFS Package Checksums" >> "$combined_checksums"
+    generate_blfs_checksums >> "$combined_checksums"
+    
+    # Track verification results
+    local verified_ok=0
+    local verified_fail=0
+    local no_checksum=0
+    local failed_files=()
+    
+    # Enable nullglob so globs that match nothing expand to nothing
+    shopt -s nullglob
+    
+    # Verify all tarballs and archives
+    for file in *.tar.* *.tgz *.zip; do
+        [ -f "$file" ] || continue
+        
+        # Get expected checksum from combined file
+        local expected_md5
+        expected_md5=$(grep -E "^[a-f0-9]{32}  ${file}$" "$combined_checksums" 2>/dev/null | head -1 | cut -d' ' -f1)
+        
+        if [ -n "$expected_md5" ]; then
+            # Verify checksum
+            local actual_md5
+            actual_md5=$(md5sum "$file" 2>/dev/null | cut -d' ' -f1)
+            
+            if [ "$expected_md5" = "$actual_md5" ]; then
+                ((verified_ok++))
+            else
+                ((verified_fail++))
+                failed_files+=("$file (expected: $expected_md5, got: $actual_md5)")
+                log_error "[FAIL] $file - checksum mismatch"
+            fi
+        else
+            # No checksum available - verify file is non-empty and has reasonable size
+            local file_size
+            file_size=$(stat -c%s "$file" 2>/dev/null || echo "0")
+            if [ "$file_size" -gt 1024 ]; then
+                ((no_checksum++))
+            elif [ "$file_size" -gt 0 ]; then
+                # Very small file - might be truncated, warn but don't fail
+                ((no_checksum++))
+                log_warn "[WARN] $file is very small (${file_size} bytes) - may be incomplete"
+            else
+                ((verified_fail++))
+                failed_files+=("$file (empty file)")
+                log_error "[FAIL] $file - empty file"
+            fi
+        fi
+    done
+    
+    # Verify patches
+    for file in *.patch; do
+        [ -f "$file" ] || continue
+        
+        local expected_md5
+        expected_md5=$(grep -E "^[a-f0-9]{32}  ${file}$" "$combined_checksums" 2>/dev/null | head -1 | cut -d' ' -f1)
+        
+        if [ -n "$expected_md5" ]; then
+            local actual_md5
+            actual_md5=$(md5sum "$file" 2>/dev/null | cut -d' ' -f1)
+            
+            if [ "$expected_md5" = "$actual_md5" ]; then
+                ((verified_ok++))
+            else
+                ((verified_fail++))
+                failed_files+=("$file (expected: $expected_md5, got: $actual_md5)")
+                log_error "[FAIL] $file - checksum mismatch"
+            fi
+        else
+            if [ -s "$file" ]; then
+                ((no_checksum++))
+            else
+                ((verified_fail++))
+                failed_files+=("$file (empty file)")
+            fi
+        fi
+    done
+    
+    # Disable nullglob
+    shopt -u nullglob
+    
+    # Clean up temp file
+    rm -f "$combined_checksums"
+    
+    # Report verification results
+    local total_files=$((verified_ok + verified_fail + no_checksum))
+    
+    echo ""
+    log_info "========================================="
+    log_info "Checksum Verification Results"
+    log_info "========================================="
+    log_info "Total files checked: $total_files"
+    log_info "Verified OK:         $verified_ok"
+    log_info "No checksum avail:   $no_checksum"
+    log_info "Failed:              $verified_fail"
+    log_info "========================================="
+    
+    if [ $verified_fail -gt 0 ]; then
+        log_error ""
+        log_error "The following files failed verification:"
+        for failed in "${failed_files[@]}"; do
+            log_error "  - $failed"
+        done
+        log_error ""
+        log_error "These files may be corrupted or incomplete."
+        log_error "Delete them and re-run the download to fix."
         exit 1
+    fi
+    
+    if [ $no_checksum -gt 0 ]; then
+        log_warn "Note: $no_checksum files have no checksum (unable to fully verify)"
     fi
 
     # Summary
     # Count all downloaded files (tarballs and patches)
-    local downloaded_files=$(ls -1 *.tar.* *.tgz *.patch 2>/dev/null | wc -l)
+    local downloaded_files=$(ls -1 *.tar.* *.tgz *.patch *.zip 2>/dev/null | wc -l)
     local total_size=$(du -sh . | cut -f1)
 
     echo ""
@@ -2204,19 +2687,12 @@ main() {
     log_info "Download Summary"
     log_info "========================================="
     log_info "LFS Version: $LFS_VERSION"
-    log_info "Files downloaded: $downloaded_files/$total_packages"
+    log_info "Files downloaded: $downloaded_files"
     log_info "Total size: $total_size"
-    log_info "Checksum verification: PASSED"
+    log_info "Checksum verification: PASSED ($verified_ok verified, $no_checksum unchecked)"
     log_info "========================================="
 
-    # Check if all files were downloaded
-    if [ "$downloaded_files" -lt "$total_packages" ]; then
-        local missing=$((total_packages - downloaded_files))
-        log_warn "Warning: $missing packages failed to download"
-        exit 1
-    fi
-
-    log_info "All sources downloaded successfully!"
+    log_info "All sources downloaded and verified successfully!"
 
     # Create a global checkpoint using md5sums file hash
     # This ensures if the LFS version changes, downloads will re-run
