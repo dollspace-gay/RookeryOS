@@ -3345,6 +3345,11 @@ build_xorg_fonts() {
 # =====================================================================
 # FreeType-2.13.3 - BLFS Chapter 10
 # Required by libXfont2 and many other graphics packages
+#
+# NOTE: This is the FIRST FreeType build WITHOUT HarfBuzz support.
+# FreeType will be rebuilt WITH HarfBuzz support later in Tier 5
+# after HarfBuzz is built (circular dependency resolution).
+# See: rebuild_freetype() in Tier 5 GTK Stack section
 # =====================================================================
 build_freetype() {
     if should_skip_package "freetype"; then
@@ -3352,7 +3357,7 @@ build_freetype() {
         return 0
     fi
 
-    log_step "Building FreeType-2.13.3"
+    log_step "Building FreeType-2.13.3 (without HarfBuzz - will rebuild later)"
     cd "$BUILD_DIR"
 
     tar -xf /sources/freetype-2.13.3.tar.xz
@@ -3365,7 +3370,13 @@ build_freetype() {
     sed -r "s:.*(#.*SUBPIXEL_RENDERING) .*:\1:" \
         -i include/freetype/config/ftoption.h
 
-    ./configure --prefix=/usr --enable-freetype-config --disable-static
+    # Build WITHOUT HarfBuzz (--without-harfbuzz) - HarfBuzz doesn't exist yet
+    # FreeType will be rebuilt with HarfBuzz support after HarfBuzz is installed
+    ./configure --prefix=/usr          \
+                --enable-freetype-config \
+                --disable-static       \
+                --with-png             \
+                --without-harfbuzz
 
     make
     make install
@@ -3373,7 +3384,7 @@ build_freetype() {
     cd "$BUILD_DIR"
     rm -rf freetype-2.13.3
 
-    log_info "FreeType-2.13.3 installed successfully"
+    log_info "FreeType-2.13.3 installed successfully (without HarfBuzz)"
     create_checkpoint "freetype"
 }
 
@@ -4348,34 +4359,92 @@ EOF
 }
 
 # HarfBuzz-11.4.1 (OpenType text shaping engine)
+#
+# CIRCULAR DEPENDENCY: FreeType <-> HarfBuzz <-> Cairo
+# Build order per BLFS:
+#   1. Build FreeType WITHOUT HarfBuzz (done earlier in build_freetype)
+#   2. Build HarfBuzz WITH FreeType support (this function)
+#   3. Rebuild FreeType WITH HarfBuzz support (rebuild_freetype below)
+#   4. Build Cairo (build_cairo in Phase 2)
+#   5. Rebuild HarfBuzz WITH Cairo support (rebuild_harfbuzz below)
+#
 build_harfbuzz() {
     should_skip_package "harfbuzz" && { log_info "Skipping HarfBuzz"; return 0; }
-    log_step "Building HarfBuzz-11.4.1..."
+    log_step "Building HarfBuzz-11.4.1 (with FreeType, without Cairo)..."
     cd "$BUILD_DIR" && rm -rf harfbuzz-* && tar -xf /sources/harfbuzz-11.4.1.tar.xz && cd harfbuzz-*
 
     mkdir build && cd build
+    # Enable FreeType (installed), Graphite2 (installed), GLib/GObject (installed)
+    # Disable Cairo (not yet installed - will rebuild HarfBuzz with Cairo later)
+    # Disable docs and tests to speed up build
     meson setup .. \
         --prefix=/usr \
         --buildtype=release \
-        -D graphite2=enabled
+        -D freetype=enabled \
+        -D graphite2=enabled \
+        -D glib=enabled \
+        -D gobject=enabled \
+        -D cairo=disabled \
+        -D docs=disabled \
+        -D tests=disabled
     ninja
     ninja install
     create_checkpoint "harfbuzz"
 }
 
 # Rebuild FreeType-2.13.3 with HarfBuzz support
+# This is step 3 of the circular dependency resolution:
+#   1. FreeType (without HarfBuzz) - done earlier
+#   2. HarfBuzz (with FreeType) - done above
+#   3. FreeType (with HarfBuzz) - THIS FUNCTION
 rebuild_freetype() {
     should_skip_package "freetype-rebuild" && { log_info "Skipping FreeType rebuild"; return 0; }
     log_step "Rebuilding FreeType-2.13.3 with HarfBuzz support..."
     cd "$BUILD_DIR" && rm -rf freetype-* && tar -xf /sources/freetype-2.13.3.tar.xz && cd freetype-*
 
+    # Enable GX/AAT and OpenType table validation
     sed -ri "s:.*(AUX_MODULES.*valid):\1:" modules.cfg
+    # Enable Subpixel Rendering
     sed -r "s:.*(#.*SUBPIXEL_RENDERING) .*:\1:" -i include/freetype/config/ftoption.h
 
-    ./configure --prefix=/usr --enable-freetype-config --with-harfbuzz --with-png --disable-static
+    # NOW we can enable HarfBuzz support since HarfBuzz is installed
+    ./configure --prefix=/usr          \
+                --enable-freetype-config \
+                --disable-static       \
+                --with-png             \
+                --with-harfbuzz        \
+                --with-brotli          \
+                --with-bzip2
     make
     make install
     create_checkpoint "freetype-rebuild"
+}
+
+# Rebuild HarfBuzz-11.4.1 with Cairo support
+# This is step 5 of the circular dependency resolution:
+#   4. Cairo (with HarfBuzz) - done in Phase 2
+#   5. HarfBuzz (with Cairo) - THIS FUNCTION
+# This enables full HarfBuzz functionality including Cairo rendering
+rebuild_harfbuzz() {
+    should_skip_package "harfbuzz-rebuild" && { log_info "Skipping HarfBuzz rebuild"; return 0; }
+    log_step "Rebuilding HarfBuzz-11.4.1 with Cairo support..."
+    cd "$BUILD_DIR" && rm -rf harfbuzz-* && tar -xf /sources/harfbuzz-11.4.1.tar.xz && cd harfbuzz-*
+
+    mkdir build && cd build
+    # NOW we can enable Cairo support since Cairo is installed
+    meson setup .. \
+        --prefix=/usr \
+        --buildtype=release \
+        -D freetype=enabled \
+        -D graphite2=enabled \
+        -D glib=enabled \
+        -D gobject=enabled \
+        -D cairo=enabled \
+        -D docs=disabled \
+        -D tests=disabled
+    ninja
+    ninja install
+    create_checkpoint "harfbuzz-rebuild"
 }
 
 # FriBidi-1.0.16 (Unicode Bidirectional Algorithm)
@@ -4907,20 +4976,24 @@ build_gtk4() {
 }
 
 # Execute Tier 5 builds
-log_info "Phase 1: Foundation Libraries (with HarfBuzz-FreeType circular dependency fix)"
+log_info "Phase 1: Foundation Libraries (FreeType-HarfBuzz circular dependency resolution)"
+log_info "  Step 1: FreeType without HarfBuzz was built earlier in Tier 3"
+log_info "  Step 2: Building HarfBuzz with FreeType support"
+log_info "  Step 3: Rebuilding FreeType with HarfBuzz support"
 build_graphite2
 build_llvm
 build_rust
-build_harfbuzz
-rebuild_freetype
+build_harfbuzz          # Step 2: Build HarfBuzz with FreeType
+rebuild_freetype        # Step 3: Rebuild FreeType with HarfBuzz
 build_fribidi
 build_pixman
 build_fontconfig
 build_graphene
 build_libxkbcommon
 
-log_info "Phase 2: Graphics & Rendering"
+log_info "Phase 2: Graphics & Rendering (with HarfBuzz-Cairo circular dependency fix)"
 build_cairo
+rebuild_harfbuzz  # Rebuild HarfBuzz with Cairo support now that Cairo is installed
 build_pango
 build_atspi
 
@@ -4962,8 +5035,8 @@ build_pygobject
 
 log_info ""
 log_info "Tier 5 GTK Stack completed!"
-log_info "  - Foundation: Graphite2, Rust-1.84.0, HarfBuzz, FreeType (rebuilt), FriBidi, Pixman, Fontconfig, Graphene, libxkbcommon"
-log_info "  - Graphics: Cairo, Pango, at-spi2-core"
+log_info "  - Foundation: Graphite2, Rust-1.84.0, HarfBuzz (with FreeType), FreeType (rebuilt with HarfBuzz), FriBidi, Pixman, Fontconfig, Graphene, libxkbcommon"
+log_info "  - Graphics: Cairo, HarfBuzz (rebuilt with Cairo), Pango, at-spi2-core"
 log_info "  - Images: libjpeg-turbo, libtiff, gdk-pixbuf, librsvg, shared-mime-info"
 log_info "  - Icons: ISO Codes, hicolor-icon-theme, adwaita-icon-theme"
 log_info "  - Schemas: gsettings-desktop-schemas"
