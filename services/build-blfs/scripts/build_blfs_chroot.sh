@@ -1501,37 +1501,6 @@ create_checkpoint "nettle"
 }
 
 # =====================================================================
-# make-ca-1.16.1 (CA certificates management)
-# https://www.linuxfromscratch.org/blfs/view/12.4/postlfs/make-ca.html
-# Required by: GnuTLS, OpenSSL for proper TLS verification
-# =====================================================================
-should_skip_package "make-ca" && { log_info "Skipping make-ca (already built)"; } || {
-log_step "Installing make-ca-1.16.1..."
-
-if [ ! -f /sources/make-ca-1.16.1.tar.gz ]; then
-    log_error "make-ca-1.16.1.tar.gz not found in /sources"
-    exit 1
-fi
-
-cd "$BUILD_DIR"
-rm -rf make-ca-*
-tar -xf /sources/make-ca-1.16.1.tar.gz
-cd make-ca-*
-
-make install
-install -vdm755 /etc/ssl/local
-
-log_info "Running make-ca to install CA certificates..."
-/usr/sbin/make-ca -g || log_warn "make-ca -g failed (may need network access)"
-
-cd "$BUILD_DIR"
-rm -rf make-ca-*
-
-log_info "make-ca-1.16.1 installed successfully"
-create_checkpoint "make-ca"
-}
-
-# =====================================================================
 # p11-kit-0.25.5 (PKCS#11 library)
 # https://www.linuxfromscratch.org/blfs/view/12.4/postlfs/p11-kit.html
 # Required by: GnuTLS
@@ -1586,6 +1555,38 @@ rm -rf p11-kit-*
 
 log_info "p11-kit-0.25.5 installed successfully"
 create_checkpoint "p11-kit"
+}
+
+# =====================================================================
+# make-ca-1.16.1 (CA certificates management)
+# https://www.linuxfromscratch.org/blfs/view/12.4/postlfs/make-ca.html
+# Required by: GnuTLS, OpenSSL for proper TLS verification
+# Depends on: p11-kit (runtime)
+# =====================================================================
+should_skip_package "make-ca" && { log_info "Skipping make-ca (already built)"; } || {
+log_step "Installing make-ca-1.16.1..."
+
+if [ ! -f /sources/make-ca-1.16.1.tar.gz ]; then
+    log_error "make-ca-1.16.1.tar.gz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf make-ca-*
+tar -xf /sources/make-ca-1.16.1.tar.gz
+cd make-ca-*
+
+make install
+install -vdm755 /etc/ssl/local
+
+log_info "Running make-ca to populate CA certificates..."
+/usr/sbin/make-ca -g || log_warn "make-ca -g failed (may need network access)"
+
+cd "$BUILD_DIR"
+rm -rf make-ca-*
+
+log_info "make-ca-1.16.1 installed successfully"
+create_checkpoint "make-ca"
 }
 
 # =====================================================================
@@ -4101,6 +4102,873 @@ log_info "  - GStreamer: core + base/good/bad/ugly/libav plugins"
 log_info "  - Video Codecs: x264, x265, libvpx, libaom"
 log_info "  - Hardware Accel: libva, libvdpau"
 log_info "  - FFmpeg: Multimedia framework"
+log_info ""
+
+# =====================================================================
+# Tier 5: GTK Stack
+# =====================================================================
+
+log_info ""
+log_info "=========================================="
+log_info "Building Tier 5: GTK Stack"
+log_info "=========================================="
+log_info ""
+
+# Graphite2-1.3.14 (TrueType font rendering engine - dependency for HarfBuzz)
+build_graphite2() {
+    should_skip_package "graphite2" && { log_info "Skipping Graphite2"; return 0; }
+    log_step "Building Graphite2-1.3.14..."
+    cd "$BUILD_DIR" && rm -rf graphite2-* && tar -xf /sources/graphite2-1.3.14.tgz && cd graphite2-*
+
+    sed -i '/cmptest/d' tests/CMakeLists.txt
+    sed -i '/cmake_policy(SET CMP0012 NEW)/d' CMakeLists.txt
+    sed -i 's/PythonInterp/Python3/' CMakeLists.txt
+    find . -name CMakeLists.txt | xargs sed -i 's/VERSION 2.8.0 FATAL_ERROR/VERSION 4.0.0/'
+    sed -i '/Font.h/i #include <cstdint>' tests/featuremap/featuremaptest.cpp
+
+    mkdir build && cd build
+    cmake -D CMAKE_INSTALL_PREFIX=/usr ..
+    make
+    make install
+    create_checkpoint "graphite2"
+}
+
+# =====================================================================
+# LLVM-20.1.8 (Low Level Virtual Machine - required for Rust, Mesa, etc.)
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/llvm.html
+# Required by: Rust, Mesa
+# Depends on: CMake
+# =====================================================================
+build_llvm() {
+    should_skip_package "llvm" && { log_info "Skipping LLVM"; return 0; }
+    log_step "Building LLVM-20.1.8..."
+
+    # Verify sources exist
+    if [ ! -f /sources/llvm-20.1.8.src.tar.xz ] || [ ! -f /sources/llvm-cmake-20.1.8.src.tar.xz ] || \
+       [ ! -f /sources/llvm-third-party-20.1.8.src.tar.xz ] || [ ! -f /sources/clang-20.1.8.src.tar.xz ]; then
+        log_error "LLVM source files not found in /sources"
+        return 1
+    fi
+
+    cd "$BUILD_DIR"
+    rm -rf llvm-*
+    tar -xf /sources/llvm-20.1.8.src.tar.xz
+    cd llvm-20.1.8.src
+
+    # Extract CMake modules and third-party dependencies
+    tar -xf /sources/llvm-cmake-20.1.8.src.tar.xz
+    tar -xf /sources/llvm-third-party-20.1.8.src.tar.xz
+
+    # Modify build system to use extracted directories (BLFS requirement)
+    sed '/LLVM_COMMON_CMAKE_UTILS/s@../cmake@cmake-20.1.8.src@' -i CMakeLists.txt
+    sed '/LLVM_THIRD_PARTY_DIR/s@../third-party@third-party-20.1.8.src@' -i cmake/modules/HandleLLVMOptions.cmake
+
+    # Install Clang into the source tree
+    tar -xf /sources/clang-20.1.8.src.tar.xz -C tools
+    mv tools/clang-20.1.8.src tools/clang
+
+    # Install Compiler-RT into the source tree (optional but recommended)
+    if [ -f /sources/compiler-rt-20.1.8.src.tar.xz ]; then
+        tar -xf /sources/compiler-rt-20.1.8.src.tar.xz -C projects
+        mv projects/compiler-rt-20.1.8.src projects/compiler-rt
+    fi
+
+    # Fix Python scripts to use Python3
+    grep -rl '#!.*python' | xargs sed -i '1s/python$/python3/'
+
+    # Ensure FileCheck program is installed (needed for Rust tests)
+    sed 's/utility/tool/' -i utils/FileCheck/CMakeLists.txt
+
+    # Create build directory
+    mkdir -v build
+    cd build
+
+    # Configure with CMake (BLFS 12.4 llvm.html)
+    log_info "Configuring LLVM with CMake... (this may take a while)"
+    CC=gcc CXX=g++ \
+    cmake -D CMAKE_INSTALL_PREFIX=/usr \
+          -D CMAKE_SKIP_INSTALL_RPATH=ON \
+          -D LLVM_ENABLE_FFI=ON \
+          -D CMAKE_BUILD_TYPE=Release \
+          -D LLVM_BUILD_LLVM_DYLIB=ON \
+          -D LLVM_LINK_LLVM_DYLIB=ON \
+          -D LLVM_ENABLE_RTTI=ON \
+          -D LLVM_TARGETS_TO_BUILD="host;AMDGPU" \
+          -D LLVM_BINUTILS_INCDIR=/usr/include \
+          -D LLVM_INCLUDE_BENCHMARKS=OFF \
+          -D CLANG_DEFAULT_PIE_ON_LINUX=ON \
+          -D CLANG_CONFIG_FILE_SYSTEM_DIR=/etc/clang \
+          -W no-dev -G Ninja ..
+
+    # Build LLVM (this will take ~13 SBU)
+    log_info "Building LLVM... (this will take significant time - approximately 13 SBU)"
+    ninja
+
+    # Install LLVM
+    log_info "Installing LLVM..."
+    ninja install
+
+    # Configure Clang to use stack protector (BLFS requirement)
+    mkdir -pv /etc/clang
+    for i in clang clang++; do
+        echo -fstack-protector-strong > /etc/clang/$i.cfg
+    done
+
+    cd "$BUILD_DIR"
+    rm -rf llvm-*
+
+    log_info "LLVM-20.1.8 installed successfully"
+    create_checkpoint "llvm"
+}
+
+# Rust-1.89.0 (Rust compiler and cargo - required for cargo-c and librsvg)
+build_rust() {
+    should_skip_package "rust" && { log_info "Skipping Rust"; return 0; }
+    log_step "Building Rust-1.89.0..."
+
+    # Create /opt directory if it doesn't exist
+    mkdir -pv /opt
+
+    # Extract to /opt
+    cd /opt
+    rm -rf rustc-1.89.0-src
+    tar -xf /sources/rustc-1.89.0-src.tar.xz
+    cd rustc-1.89.0-src
+
+    # Create bootstrap configuration (BLFS 12.4 rust.html)
+    cat > bootstrap.toml << "EOF"
+# See bootstrap.toml.example for more possible options,
+# and see src/bootstrap/defaults/bootstrap.dist.toml for a few options
+# automatically set when building from a release tarball
+# (unfortunately, we have to override many of them).
+
+# Tell x.py the editors have reviewed the content of this file
+# and updated it to follow the major changes of the building system,
+# so x.py will not warn us to do such a review.
+change-id = 142379
+
+[llvm]
+# When using system llvm prefer shared libraries
+link-shared = true
+
+# If building the shipped LLVM source, only enable the x86 target
+# instead of all the targets supported by LLVM.
+targets = "X86"
+
+[target.x86_64-unknown-linux-gnu]
+llvm-config = "/usr/bin/llvm-config"
+
+[target.i686-unknown-linux-gnu]
+llvm-config = "/usr/bin/llvm-config"
+
+[build]
+description = "for BLFS 12.4"
+
+# Omit docs to save time and space (default is to build them).
+docs = false
+
+# Do not query new versions of dependencies online.
+locked-deps = true
+
+# Specify which extended tools (those from the default install).
+tools = ["cargo", "clippy", "rustdoc", "rustfmt"]
+
+[install]
+prefix = "/opt/rustc-1.89.0"
+docdir = "share/doc/rustc-1.89.0"
+
+[rust]
+channel = "stable"
+
+# Enable the same optimizations as the official upstream build.
+lto = "thin"
+codegen-units = 1
+
+# Don't build lld which does not belong to this package and seems not
+# so useful for BLFS.  Even if it turns out to be really useful we'd build
+# it as a part of the LLVM package instead.
+lld = false
+
+# Don't build llvm-bitcode-linker which is only useful for the NVPTX
+# backend that we don't enable.
+llvm-bitcode-linker = false
+EOF
+
+    # Export environment variables for system libraries (BLFS recommendation)
+    [ ! -e /usr/include/libssh2.h ] || export LIBSSH2_SYS_USE_PKG_CONFIG=1
+    [ ! -e /usr/include/sqlite3.h ] || export LIBSQLITE3_SYS_USE_PKG_CONFIG=1
+
+    # Build Rust (this will take ~9 SBU)
+    log_info "Building Rust... (this will take significant time - approximately 9 SBU)"
+    ./x.py build
+
+    # Install Rust
+    log_info "Installing Rust..."
+    ./x.py install
+
+    # Clean up bootstrap
+    rm -rf build
+
+    # Fix documentation installation, symlink Zsh completion, move Bash completion
+    rm -fv /opt/rustc-1.89.0/share/doc/rustc-1.89.0/*.old
+    install -vm644 README.md /opt/rustc-1.89.0/share/doc/rustc-1.89.0
+
+    install -vdm755 /usr/share/zsh/site-functions
+    ln -sfv /opt/rustc/share/zsh/site-functions/_cargo /usr/share/zsh/site-functions
+
+    if [ -f /etc/bash_completion.d/cargo ]; then
+        mv -v /etc/bash_completion.d/cargo /usr/share/bash-completion/completions
+    fi
+
+    # Create /opt/rustc symlink
+    ln -svfn rustc-1.89.0 /opt/rustc
+
+    # Configure PATH for Rust
+    cat > /etc/profile.d/rustc.sh << "EOF"
+# Begin /etc/profile.d/rustc.sh
+
+# Add Rust to PATH
+export PATH=/opt/rustc/bin:$PATH
+
+# End /etc/profile.d/rustc.sh
+EOF
+
+    # Make cargo available immediately by setting PATH
+    export PATH=/opt/rustc/bin:$PATH
+
+    # Unset environment variables
+    unset LIBSSH2_SYS_USE_PKG_CONFIG
+    unset LIBSQLITE3_SYS_USE_PKG_CONFIG
+
+    # Verify cargo is available
+    which cargo || { log_error "Cargo not found in PATH after Rust installation"; return 1; }
+    cargo --version || { log_error "Cargo not functional after installation"; return 1; }
+
+    create_checkpoint "rust"
+}
+
+# HarfBuzz-11.4.1 (OpenType text shaping engine)
+build_harfbuzz() {
+    should_skip_package "harfbuzz" && { log_info "Skipping HarfBuzz"; return 0; }
+    log_step "Building HarfBuzz-11.4.1..."
+    cd "$BUILD_DIR" && rm -rf harfbuzz-* && tar -xf /sources/harfbuzz-11.4.1.tar.xz && cd harfbuzz-*
+
+    mkdir build && cd build
+    meson setup .. \
+        --prefix=/usr \
+        --buildtype=release \
+        -D graphite2=enabled
+    ninja
+    ninja install
+    create_checkpoint "harfbuzz"
+}
+
+# Rebuild FreeType-2.13.3 with HarfBuzz support
+rebuild_freetype() {
+    should_skip_package "freetype-rebuild" && { log_info "Skipping FreeType rebuild"; return 0; }
+    log_step "Rebuilding FreeType-2.13.3 with HarfBuzz support..."
+    cd "$BUILD_DIR" && rm -rf freetype-* && tar -xf /sources/freetype-2.13.3.tar.xz && cd freetype-*
+
+    sed -ri "s:.*(AUX_MODULES.*valid):\1:" modules.cfg
+    sed -r "s:.*(#.*SUBPIXEL_RENDERING) .*:\1:" -i include/freetype/config/ftoption.h
+
+    ./configure --prefix=/usr --enable-freetype-config --with-harfbuzz --with-png --disable-static
+    make
+    make install
+    create_checkpoint "freetype-rebuild"
+}
+
+# FriBidi-1.0.16 (Unicode Bidirectional Algorithm)
+build_fribidi() {
+    should_skip_package "fribidi" && { log_info "Skipping FriBidi"; return 0; }
+    log_step "Building FriBidi-1.0.16..."
+    cd "$BUILD_DIR" && rm -rf fribidi-* && tar -xf /sources/fribidi-1.0.16.tar.xz && cd fribidi-*
+
+    mkdir build && cd build
+    meson setup --prefix=/usr --buildtype=release ..
+    ninja
+    ninja install
+    create_checkpoint "fribidi"
+}
+
+# Pixman-0.46.4 (Low-level pixel manipulation library)
+build_pixman() {
+    should_skip_package "pixman" && { log_info "Skipping Pixman"; return 0; }
+    log_step "Building Pixman-0.46.4..."
+    cd "$BUILD_DIR" && rm -rf pixman-* && tar -xf /sources/pixman-0.46.4.tar.gz && cd pixman-*
+
+    mkdir build && cd build
+    meson setup --prefix=/usr --buildtype=release ..
+    ninja
+    ninja install
+    create_checkpoint "pixman"
+}
+
+# Fontconfig-2.17.1 (Font configuration library)
+build_fontconfig() {
+    should_skip_package "fontconfig" && { log_info "Skipping Fontconfig"; return 0; }
+    log_step "Building Fontconfig-2.17.1..."
+    cd "$BUILD_DIR" && rm -rf fontconfig-* && tar -xf /sources/fontconfig-2.17.1.tar.xz && cd fontconfig-*
+
+    ./configure --prefix=/usr \
+                --sysconfdir=/etc \
+                --localstatedir=/var \
+                --disable-docs \
+                --docdir=/usr/share/doc/fontconfig-2.17.1
+    make
+    make install
+    create_checkpoint "fontconfig"
+}
+
+# Graphene-1.10.8 (Thin layer of types for graphics)
+build_graphene() {
+    should_skip_package "graphene" && { log_info "Skipping Graphene"; return 0; }
+    log_step "Building Graphene-1.10.8..."
+    cd "$BUILD_DIR" && rm -rf graphene-* && tar -xf /sources/graphene-1.10.8.tar.xz && cd graphene-*
+
+    mkdir build && cd build
+    meson setup --prefix=/usr --buildtype=release ..
+    ninja
+    ninja install
+    create_checkpoint "graphene"
+}
+
+# libxkbcommon-1.11.0 (XKB keymap handling library)
+build_libxkbcommon() {
+    should_skip_package "libxkbcommon" && { log_info "Skipping libxkbcommon"; return 0; }
+    log_step "Building libxkbcommon-1.11.0..."
+    cd "$BUILD_DIR" && rm -rf libxkbcommon-* && tar -xf /sources/libxkbcommon-1.11.0.tar.gz && cd libxkbcommon-*
+
+    mkdir build && cd build
+    meson setup --prefix=/usr --buildtype=release -Denable-docs=false ..
+    ninja
+    ninja install
+    create_checkpoint "libxkbcommon"
+}
+
+# Cairo-1.18.4 (2D graphics library)
+build_cairo() {
+    should_skip_package "cairo" && { log_info "Skipping Cairo"; return 0; }
+    log_step "Building Cairo-1.18.4..."
+    cd "$BUILD_DIR" && rm -rf cairo-* && tar -xf /sources/cairo-1.18.4.tar.xz && cd cairo-*
+
+    mkdir build && cd build
+    meson setup --prefix=/usr --buildtype=release ..
+    ninja
+    ninja install
+    create_checkpoint "cairo"
+}
+
+# Pango-1.56.4 (Text layout library)
+build_pango() {
+    should_skip_package "pango" && { log_info "Skipping Pango"; return 0; }
+    log_step "Building Pango-1.56.4..."
+    cd "$BUILD_DIR" && rm -rf pango-* && tar -xf /sources/pango-1.56.4.tar.xz && cd pango-*
+
+    mkdir build && cd build
+    meson setup --prefix=/usr --buildtype=release --wrap-mode=nofallback -Dintrospection=enabled ..
+    ninja
+    ninja install
+    create_checkpoint "pango"
+}
+
+# at-spi2-core-2.56.4 (Assistive Technology Service Provider Interface)
+build_atspi() {
+    should_skip_package "atspi" && { log_info "Skipping at-spi2-core"; return 0; }
+    log_step "Building at-spi2-core-2.56.4..."
+    cd "$BUILD_DIR" && rm -rf at-spi2-core-* && tar -xf /sources/at-spi2-core-2.56.4.tar.xz && cd at-spi2-core-*
+
+    mkdir build && cd build
+    meson setup --prefix=/usr --buildtype=release -Dgtk2_atk_adaptor=false ..
+    ninja
+    ninja install
+    create_checkpoint "atspi"
+}
+
+# libjpeg-turbo-3.0.1 (JPEG image codec)
+build_libjpeg_turbo() {
+    should_skip_package "libjpeg-turbo" && { log_info "Skipping libjpeg-turbo"; return 0; }
+    log_step "Building libjpeg-turbo-3.0.1..."
+    cd "$BUILD_DIR" && rm -rf libjpeg-turbo-* && tar -xf /sources/libjpeg-turbo-3.0.1.tar.gz && cd libjpeg-turbo-*
+
+    mkdir build && cd build
+    cmake -D CMAKE_INSTALL_PREFIX=/usr \
+          -D CMAKE_BUILD_TYPE=RELEASE \
+          -D ENABLE_STATIC=FALSE \
+          -D CMAKE_INSTALL_DEFAULT_LIBDIR=lib \
+          -D CMAKE_POLICY_VERSION_MINIMUM=3.5 \
+          -D CMAKE_SKIP_INSTALL_RPATH=ON \
+          -D CMAKE_INSTALL_DOCDIR=/usr/share/doc/libjpeg-turbo-3.0.1 \
+          ..
+    make
+    make install
+    create_checkpoint "libjpeg-turbo"
+}
+
+# libtiff-4.7.0 (TIFF image library)
+build_libtiff() {
+    should_skip_package "libtiff" && { log_info "Skipping libtiff"; return 0; }
+    log_step "Building libtiff-4.7.0..."
+    cd "$BUILD_DIR" && rm -rf tiff-* && tar -xf /sources/tiff-4.7.0.tar.gz && cd tiff-*
+
+    mkdir -p libtiff-build && cd libtiff-build
+    cmake -D CMAKE_INSTALL_PREFIX=/usr \
+          -D CMAKE_POLICY_VERSION_MINIMUM=3.5 \
+          -G Ninja \
+          -D CMAKE_INSTALL_DOCDIR=/usr/share/doc/libtiff-4.7.0 \
+          ..
+    ninja
+    ninja install
+    create_checkpoint "libtiff"
+}
+
+# gdk-pixbuf-2.42.12 (Image loading library for GTK)
+build_gdk_pixbuf() {
+    should_skip_package "gdk-pixbuf" && { log_info "Skipping gdk-pixbuf"; return 0; }
+    log_step "Building gdk-pixbuf-2.42.12..."
+    cd "$BUILD_DIR" && rm -rf gdk-pixbuf-* && tar -xf /sources/gdk-pixbuf-2.42.12.tar.xz && cd gdk-pixbuf-*
+
+    mkdir build && cd build
+    meson setup --prefix=/usr --buildtype=release -Dothers=enabled -Dman=false --wrap-mode=nofallback ..
+    ninja
+    ninja install
+    gdk-pixbuf-query-loaders --update-cache
+    create_checkpoint "gdk-pixbuf"
+}
+
+# cargo-c-0.10.15 (Helper to build Rust C-ABI libraries)
+build_cargo_c() {
+    should_skip_package "cargo-c" && { log_info "Skipping cargo-c"; return 0; }
+    log_step "Building cargo-c-0.10.15..."
+    cd "$BUILD_DIR" && rm -rf cargo-c-* && tar -xf /sources/cargo-c-0.10.15.tar.gz && cd cargo-c-*
+
+    cargo build --release
+    install -vDm755 target/release/cargo-cbuild /usr/bin/
+    install -vDm755 target/release/cargo-cinstall /usr/bin/
+    install -vDm755 target/release/cargo-ctest /usr/bin/
+    create_checkpoint "cargo-c"
+}
+
+# librsvg-2.61.0 (SVG rendering library)
+build_librsvg() {
+    should_skip_package "librsvg" && { log_info "Skipping librsvg"; return 0; }
+    log_step "Building librsvg-2.61.0..."
+    cd "$BUILD_DIR" && rm -rf librsvg-* && tar -xf /sources/librsvg-2.61.0.tar.xz && cd librsvg-*
+
+    mkdir build && cd build
+    meson setup --prefix=/usr --buildtype=release ..
+    ninja
+    ninja install
+    create_checkpoint "librsvg"
+}
+
+# shared-mime-info-2.4 (MIME database)
+build_shared_mime_info() {
+    should_skip_package "shared-mime-info" && { log_info "Skipping shared-mime-info"; return 0; }
+    log_step "Building shared-mime-info-2.4..."
+    cd "$BUILD_DIR" && rm -rf shared-mime-info-* && tar -xf /sources/shared-mime-info-2.4.tar.gz && cd shared-mime-info-*
+
+    mkdir build && cd build
+    meson setup --prefix=/usr --buildtype=release -Dupdate-mimedb=true ..
+    ninja
+    ninja install
+    create_checkpoint "shared-mime-info"
+}
+
+# ISO Codes-4.18.0 (ISO country/language/currency codes)
+build_iso_codes() {
+    should_skip_package "iso-codes" && { log_info "Skipping ISO Codes"; return 0; }
+    log_step "Building ISO Codes-4.18.0..."
+    cd "$BUILD_DIR" && rm -rf iso-codes-* && tar -xf /sources/iso-codes-v4.18.0.tar.gz && cd iso-codes-*
+
+    ./configure --prefix=/usr
+    make
+    make install LN_S='ln -sfn'
+    create_checkpoint "iso-codes"
+}
+
+# hicolor-icon-theme-0.18 (Default icon theme)
+build_hicolor_icon_theme() {
+    should_skip_package "hicolor-icon-theme" && { log_info "Skipping hicolor-icon-theme"; return 0; }
+    log_step "Building hicolor-icon-theme-0.18..."
+    cd "$BUILD_DIR" && rm -rf hicolor-icon-theme-* && tar -xf /sources/hicolor-icon-theme-0.18.tar.xz && cd hicolor-icon-theme-*
+
+    mkdir build && cd build
+    meson setup --prefix=/usr --buildtype=release ..
+    ninja
+    ninja install
+    create_checkpoint "hicolor-icon-theme"
+}
+
+# adwaita-icon-theme-48.1 (GNOME icon theme)
+build_adwaita_icon_theme() {
+    should_skip_package "adwaita-icon-theme" && { log_info "Skipping adwaita-icon-theme"; return 0; }
+    log_step "Building adwaita-icon-theme-48.1..."
+    cd "$BUILD_DIR" && rm -rf adwaita-icon-theme-* && tar -xf /sources/adwaita-icon-theme-48.1.tar.xz && cd adwaita-icon-theme-*
+
+    mkdir build && cd build
+    meson setup --prefix=/usr ..
+    ninja
+    rm -rf /usr/share/icons/Adwaita/
+    ninja install
+    create_checkpoint "adwaita-icon-theme"
+}
+
+# gsettings-desktop-schemas-48.0 (GSettings schemas for desktop applications)
+build_gsettings_desktop_schemas() {
+    should_skip_package "gsettings-desktop-schemas" && { log_info "Skipping gsettings-desktop-schemas"; return 0; }
+    log_step "Building gsettings-desktop-schemas-48.0..."
+    cd "$BUILD_DIR" && rm -rf gsettings-desktop-schemas-* && tar -xf /sources/gsettings-desktop-schemas-48.0.tar.xz && cd gsettings-desktop-schemas-*
+
+    sed -i -r 's:"(/system):"/org/gnome\1:g' schemas/*.in
+
+    mkdir build && cd build
+    meson setup --prefix=/usr --buildtype=release ..
+    ninja
+    ninja install
+    glib-compile-schemas /usr/share/glib-2.0/schemas
+    create_checkpoint "gsettings-desktop-schemas"
+}
+
+# docbook-xsl-nons-1.79.2 (DocBook XSLT stylesheets)
+build_docbook_xsl() {
+    should_skip_package "docbook-xsl" && { log_info "Skipping docbook-xsl"; return 0; }
+    log_step "Building docbook-xsl-nons-1.79.2..."
+    cd "$BUILD_DIR" && rm -rf docbook-xsl-* && tar -xf /sources/docbook-xsl-nons-1.79.2.tar.bz2 && cd docbook-xsl-*
+
+    patch -Np1 -i /sources/docbook-xsl-nons-1.79.2-stack_fix-1.patch
+
+    install -v -m755 -d /usr/share/xml/docbook/xsl-stylesheets-nons-1.79.2
+    cp -v -R VERSION assembly common eclipse epub epub3 extensions fo \
+             highlighting html htmlhelp images javahelp lib manpages params \
+             profiling roundtrip slides template tests tools webhelp website \
+             xhtml xhtml-1_1 xhtml5 \
+        /usr/share/xml/docbook/xsl-stylesheets-nons-1.79.2
+
+    ln -s VERSION /usr/share/xml/docbook/xsl-stylesheets-nons-1.79.2/VERSION.xsl
+
+    install -v -m644 -D README \
+                        /usr/share/doc/docbook-xsl-nons-1.79.2/README.txt
+    install -v -m644    RELEASE-NOTES* NEWS* \
+                        /usr/share/doc/docbook-xsl-nons-1.79.2
+
+    if [ ! -d /etc/xml ]; then install -v -m755 -d /etc/xml; fi
+    if [ ! -f /etc/xml/catalog ]; then
+        xmlcatalog --noout --create /etc/xml/catalog
+    fi
+
+    xmlcatalog --noout --add "rewriteSystem" \
+               "https://cdn.docbook.org/release/xsl-nons/1.79.2" \
+               "/usr/share/xml/docbook/xsl-stylesheets-nons-1.79.2" \
+        /etc/xml/catalog
+
+    xmlcatalog --noout --add "rewriteURI" \
+               "https://cdn.docbook.org/release/xsl-nons/1.79.2" \
+               "/usr/share/xml/docbook/xsl-stylesheets-nons-1.79.2" \
+        /etc/xml/catalog
+
+    xmlcatalog --noout --add "rewriteSystem" \
+               "https://cdn.docbook.org/release/xsl-nons/current" \
+               "/usr/share/xml/docbook/xsl-stylesheets-nons-1.79.2" \
+        /etc/xml/catalog
+
+    xmlcatalog --noout --add "rewriteURI" \
+               "https://cdn.docbook.org/release/xsl-nons/current" \
+               "/usr/share/xml/docbook/xsl-stylesheets-nons-1.79.2" \
+        /etc/xml/catalog
+
+    xmlcatalog --noout --add "rewriteSystem" \
+               "http://docbook.sourceforge.net/release/xsl/current" \
+               "/usr/share/xml/docbook/xsl-stylesheets-nons-1.79.2" \
+        /etc/xml/catalog
+
+    xmlcatalog --noout --add "rewriteURI" \
+               "http://docbook.sourceforge.net/release/xsl/current" \
+               "/usr/share/xml/docbook/xsl-stylesheets-nons-1.79.2" \
+        /etc/xml/catalog
+
+    create_checkpoint "docbook-xsl"
+}
+
+# ========================================
+# Python Test Dependencies (for PyGObject tests)
+# Build order: setuptools_scm → editables, pathspec, trove-classifiers → pluggy, hatchling → hatch_vcs → iniconfig → pytest
+# ========================================
+
+# Setuptools_scm-8.3.1 (no required dependencies)
+build_setuptools_scm() {
+    should_skip_package "setuptools_scm" && { log_info "Skipping Setuptools_scm"; return 0; }
+    log_step "Building Setuptools_scm-8.3.1..."
+    cd "$BUILD_DIR" && rm -rf setuptools_scm-* && tar -xf /sources/setuptools_scm-8.3.1.tar.gz && cd setuptools_scm-*
+
+    pip3 wheel -w dist --no-build-isolation --no-deps --no-cache-dir $PWD
+    pip3 install --no-index --find-links dist --no-user setuptools_scm
+    create_checkpoint "setuptools_scm"
+}
+
+# Editables-0.5 (required by hatchling)
+build_editables() {
+    should_skip_package "editables" && { log_info "Skipping Editables"; return 0; }
+    log_step "Building Editables-0.5..."
+    cd "$BUILD_DIR" && rm -rf editables-* && tar -xf /sources/editables-0.5.tar.gz && cd editables-*
+
+    pip3 wheel -w dist --no-build-isolation --no-deps --no-cache-dir $PWD
+    pip3 install --no-index --find-links dist --no-user editables
+    create_checkpoint "editables"
+}
+
+# Pathspec-0.12.1 (required by hatchling)
+build_pathspec() {
+    should_skip_package "pathspec" && { log_info "Skipping Pathspec"; return 0; }
+    log_step "Building Pathspec-0.12.1..."
+    cd "$BUILD_DIR" && rm -rf pathspec-* && tar -xf /sources/pathspec-0.12.1.tar.gz && cd pathspec-*
+
+    pip3 wheel -w dist --no-build-isolation --no-deps --no-cache-dir $PWD
+    pip3 install --no-index --find-links dist --no-user pathspec
+    create_checkpoint "pathspec"
+}
+
+# Trove-Classifiers-2025.8.6.13 (required by hatchling)
+build_trove_classifiers() {
+    should_skip_package "trove_classifiers" && { log_info "Skipping Trove-Classifiers"; return 0; }
+    log_step "Building Trove-Classifiers-2025.8.6.13..."
+    cd "$BUILD_DIR" && rm -rf trove_classifiers-* && tar -xf /sources/trove_classifiers-2025.8.6.13.tar.gz && cd trove_classifiers-*
+
+    # Hard code version to work around calver module issue
+    sed -i '/calver/s/^/#/;$iversion="2025.8.6.13"' setup.py
+
+    pip3 wheel -w dist --no-build-isolation --no-deps --no-cache-dir $PWD
+    pip3 install --no-index --find-links dist --no-user trove-classifiers
+    create_checkpoint "trove_classifiers"
+}
+
+# Pluggy-1.6.0 (required by pytest, recommends setuptools_scm)
+build_pluggy() {
+    should_skip_package "pluggy" && { log_info "Skipping Pluggy"; return 0; }
+    log_step "Building Pluggy-1.6.0..."
+    cd "$BUILD_DIR" && rm -rf pluggy-* && tar -xf /sources/pluggy-1.6.0.tar.gz && cd pluggy-*
+
+    pip3 wheel -w dist --no-build-isolation --no-deps --no-cache-dir $PWD
+    pip3 install --no-index --find-links dist --no-user pluggy
+    create_checkpoint "pluggy"
+}
+
+# Hatchling-1.27.0 (required by hatch_vcs)
+build_hatchling() {
+    should_skip_package "hatchling" && { log_info "Skipping Hatchling"; return 0; }
+    log_step "Building Hatchling-1.27.0..."
+    cd "$BUILD_DIR" && rm -rf hatchling-* && tar -xf /sources/hatchling-1.27.0.tar.gz && cd hatchling-*
+
+    pip3 wheel -w dist --no-build-isolation --no-deps --no-cache-dir $PWD
+    pip3 install --no-index --find-links dist --no-user hatchling
+    create_checkpoint "hatchling"
+}
+
+# Hatch_vcs-0.5.0 (required by iniconfig)
+build_hatch_vcs() {
+    should_skip_package "hatch_vcs" && { log_info "Skipping Hatch_vcs"; return 0; }
+    log_step "Building Hatch_vcs-0.5.0..."
+    cd "$BUILD_DIR" && rm -rf hatch_vcs-* && tar -xf /sources/hatch_vcs-0.5.0.tar.gz && cd hatch_vcs-*
+
+    pip3 wheel -w dist --no-build-isolation --no-deps --no-cache-dir $PWD
+    pip3 install --no-index --find-links dist --no-user hatch_vcs
+    create_checkpoint "hatch_vcs"
+}
+
+# Iniconfig-2.1.0 (required by pytest)
+build_iniconfig() {
+    should_skip_package "iniconfig" && { log_info "Skipping Iniconfig"; return 0; }
+    log_step "Building Iniconfig-2.1.0..."
+    cd "$BUILD_DIR" && rm -rf iniconfig-* && tar -xf /sources/iniconfig-2.1.0.tar.gz && cd iniconfig-*
+
+    pip3 wheel -w dist --no-build-isolation --no-deps --no-cache-dir $PWD
+    pip3 install --no-index --find-links dist --no-user iniconfig
+    create_checkpoint "iniconfig"
+}
+
+# Pygments-2.19.2 (syntax highlighter - required by pytest)
+build_pygments() {
+    should_skip_package "pygments" && { log_info "Skipping Pygments"; return 0; }
+    log_step "Building Pygments-2.19.2..."
+    cd "$BUILD_DIR" && rm -rf pygments-* && tar -xf /sources/pygments-2.19.2.tar.gz && cd pygments-*
+
+    pip3 wheel -w dist --no-build-isolation --no-deps --no-cache-dir $PWD
+    pip3 install --no-index --find-links dist --no-user Pygments
+    create_checkpoint "pygments"
+}
+
+# Pytest-8.4.1 (test framework - optional for PyGObject tests)
+build_pytest() {
+    should_skip_package "pytest" && { log_info "Skipping Pytest"; return 0; }
+    log_step "Building Pytest-8.4.1..."
+    cd "$BUILD_DIR" && rm -rf pytest-* && tar -xf /sources/pytest-8.4.1.tar.gz && cd pytest-*
+
+    pip3 wheel -w dist --no-build-isolation --no-deps --no-cache-dir $PWD
+    pip3 install --no-index --find-links dist --no-user pytest
+    create_checkpoint "pytest"
+}
+
+# Install pep8 and pyflakes via pip3 (PyPI packages, not in BLFS book)
+build_pep8_pyflakes() {
+    should_skip_package "pep8_pyflakes" && { log_info "Skipping pep8 and pyflakes"; return 0; }
+    log_step "Installing pep8 and pyflakes via pip3..."
+
+    # Install directly from PyPI
+    pip3 install pep8 pyflakes
+    create_checkpoint "pep8_pyflakes"
+}
+
+# PyCairo-1.28.0 (Python Cairo bindings - recommended for PyGObject)
+build_pycairo() {
+    should_skip_package "pycairo" && { log_info "Skipping PyCairo"; return 0; }
+    log_step "Building PyCairo-1.28.0..."
+    cd "$BUILD_DIR" && rm -rf pycairo-* && tar -xf /sources/pycairo-1.28.0.tar.gz && cd pycairo-*
+
+    mkdir build && cd build
+    meson setup --prefix=/usr --buildtype=release ..
+    ninja
+    ninja install
+    create_checkpoint "pycairo"
+}
+
+# PyGObject-3.52.3 (Python GObject bindings)
+build_pygobject() {
+    should_skip_package "pygobject" && { log_info "Skipping PyGObject"; return 0; }
+    log_step "Building PyGObject-3.52.3..."
+    cd "$BUILD_DIR" && rm -rf pygobject-* && tar -xf /sources/pygobject-3.52.3.tar.gz && cd pygobject-*
+
+    mv -v tests/test_gdbus.py{,.nouse}
+    mv -v tests/test_overrides_gtk.py{,.nouse}
+
+    mkdir build && cd build
+    meson setup --prefix=/usr --buildtype=release ..
+    ninja
+    ninja install
+    create_checkpoint "pygobject"
+}
+
+# shaderc-2025.3 (Shader compiler for Vulkan)
+build_shaderc() {
+    should_skip_package "shaderc" && { log_info "Skipping shaderc"; return 0; }
+    log_step "Building shaderc-2025.3..."
+    cd "$BUILD_DIR" && rm -rf shaderc-* && tar -xf /sources/shaderc-2025.3.tar.gz && cd shaderc-*
+
+    sed '/build-version/d'   -i glslc/CMakeLists.txt
+    sed '/third_party/d'     -i CMakeLists.txt
+    sed 's|SPIRV|glslang/&|' -i libshaderc_util/src/compiler.cc
+
+    echo '"2025.3"' > glslc/src/build-version.inc
+
+    mkdir build && cd build
+    cmake -D CMAKE_INSTALL_PREFIX=/usr \
+          -D CMAKE_BUILD_TYPE=Release \
+          -D SHADERC_SKIP_TESTS=ON \
+          -G Ninja ..
+    ninja
+    install -vm755 glslc/glslc /usr/bin
+    create_checkpoint "shaderc"
+}
+
+# GTK-3.24.50 (GTK+ toolkit version 3)
+build_gtk3() {
+    should_skip_package "gtk3" && { log_info "Skipping GTK-3"; return 0; }
+    log_step "Building GTK-3.24.50..."
+    cd "$BUILD_DIR" && rm -rf gtk-3* && tar -xf /sources/gtk-3.24.50.tar.xz && cd gtk-*
+
+    mkdir build && cd build
+    meson setup --prefix=/usr --buildtype=release -Dman=true -Dbroadway_backend=true ..
+    ninja
+    ninja install
+    gtk-query-immodules-3.0 --update-cache
+    glib-compile-schemas /usr/share/glib-2.0/schemas
+    create_checkpoint "gtk3"
+}
+
+# GTK-4.18.6 (GTK toolkit version 4)
+build_gtk4() {
+    should_skip_package "gtk4" && { log_info "Skipping GTK-4"; return 0; }
+    log_step "Building GTK-4.18.6..."
+    cd "$BUILD_DIR" && rm -rf gtk-4.18.6 && tar -xf /sources/gtk-4.18.6.tar.xz && cd gtk-4.18.6
+
+    sed -e '939 s/= { 0, }//' \
+        -e '940 a memset (&transform, 0, sizeof(GtkCssTransform));' \
+        -i gtk/gtkcsstransformvalue.c
+
+    mkdir build && cd build
+    meson setup --prefix=/usr --buildtype=release \
+                -Dbroadway-backend=true \
+                -Dintrospection=enabled \
+                -Dvulkan=enabled \
+                ..
+    ninja
+    ninja install
+    glib-compile-schemas /usr/share/glib-2.0/schemas
+    create_checkpoint "gtk4"
+}
+
+# Execute Tier 5 builds
+log_info "Phase 1: Foundation Libraries (with HarfBuzz-FreeType circular dependency fix)"
+build_graphite2
+build_llvm
+build_rust
+build_harfbuzz
+rebuild_freetype
+build_fribidi
+build_pixman
+build_fontconfig
+build_graphene
+build_libxkbcommon
+
+log_info "Phase 2: Graphics & Rendering"
+build_cairo
+build_pango
+build_atspi
+
+log_info "Phase 3: Image & Icon Support"
+build_libjpeg_turbo
+build_libtiff
+build_shared_mime_info
+build_gdk_pixbuf
+build_cargo_c
+build_librsvg
+build_iso_codes
+build_hicolor_icon_theme
+build_gsettings_desktop_schemas
+
+log_info "Phase 4: Documentation & Test Infrastructure"
+build_docbook_xsl
+build_shaderc
+
+# Python test dependencies (for PyGObject tests)
+log_info "Building Python test dependencies..."
+build_setuptools_scm
+build_editables
+build_pathspec
+build_trove_classifiers
+build_pluggy
+build_hatchling
+build_hatch_vcs
+build_iniconfig
+build_pygments
+build_pytest
+build_pep8_pyflakes
+
+log_info "Phase 5: GTK Toolkits & Python Bindings"
+build_gtk3
+build_gtk4
+build_adwaita_icon_theme
+build_pycairo
+build_pygobject
+
+log_info ""
+log_info "Tier 5 GTK Stack completed!"
+log_info "  - Foundation: Graphite2, Rust-1.84.0, HarfBuzz, FreeType (rebuilt), FriBidi, Pixman, Fontconfig, Graphene, libxkbcommon"
+log_info "  - Graphics: Cairo, Pango, at-spi2-core"
+log_info "  - Images: libjpeg-turbo, libtiff, gdk-pixbuf, librsvg, shared-mime-info"
+log_info "  - Icons: ISO Codes, hicolor-icon-theme, adwaita-icon-theme"
+log_info "  - Schemas: gsettings-desktop-schemas"
+log_info "  - Tooling: cargo-c, docbook-xsl, PyGObject, shaderc"
+log_info "  - GTK: GTK-3.24.50, GTK-4.18.6"
 log_info ""
 
 # =====================================================================

@@ -23,7 +23,15 @@
       "Bash(bd dep remove --help:*)",
       "Bash(bd dep remove:*)",
       "Bash(docker run:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(bd close:*)",
+      "Bash(wsl git -C c:\\Users\\texas\\rookery\\RookeryOS status --short)",
+      "Bash(wsl bash -c \"cd /mnt/c/Users/texas/rookery/RookeryOS && git status --short\")",
+      "Bash(wsl bash -c \"cd /mnt/c/Users/texas/rookery/RookeryOS && docker-compose build --no-cache download-sources\")",
+      "Bash(wsl bash -c \"cd /mnt/c/Users/texas/rookery/RookeryOS && docker-compose build --no-cache build-blfs\")",
+      "Bash(wsl bash -c \"cd /mnt/c/Users/texas/rookery/RookeryOS && docker run --rm -v easylfs_lfs-rootfs:/lfs ubuntu:22.04 sh -c ''rm -f /lfs/.checkpoints/blfs-complete.checkpoint && ls /lfs/.checkpoints/ | grep blfs-complete || echo Checkpoint removed''\")",
+      "Bash(wsl bash:*)",
+      "Bash(wsl git:*)"
     ],
     "deny": [],
     "ask": []

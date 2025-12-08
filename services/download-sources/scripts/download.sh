@@ -1666,6 +1666,487 @@ main() {
         log_info "[SKIP] ffmpeg-7.1.1.tar.xz (already exists)"
     fi
 
+    # --- Tier 5: GTK Stack ---
+
+    # Graphite2-1.3.14 (TrueType font rendering engine - dependency for HarfBuzz)
+    local graphite2_url="https://github.com/silnrsi/graphite/releases/download/1.3.14/graphite2-1.3.14.tgz"
+    if [ ! -f "graphite2-1.3.14.tgz" ]; then
+        log_info "Downloading Graphite2..."
+        if ! download_with_retry "$graphite2_url" "graphite2-1.3.14.tgz"; then
+            additional_failed+=("$graphite2_url (graphite2-1.3.14.tgz)")
+        fi
+    else
+        log_info "[SKIP] graphite2-1.3.14.tgz (already exists)"
+    fi
+
+    # LLVM-20.1.8 (Low Level Virtual Machine - required for Rust)
+    local llvm_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-20.1.8/llvm-20.1.8.src.tar.xz"
+    if [ ! -f "llvm-20.1.8.src.tar.xz" ]; then
+        log_info "Downloading LLVM..."
+        if ! download_with_retry "$llvm_url" "llvm-20.1.8.src.tar.xz"; then
+            additional_failed+=("$llvm_url (llvm-20.1.8.src.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] llvm-20.1.8.src.tar.xz (already exists)"
+    fi
+
+    # LLVM CMake modules
+    local llvm_cmake_url="https://anduin.linuxfromscratch.org/BLFS/llvm/llvm-cmake-20.1.8.src.tar.xz"
+    if [ ! -f "llvm-cmake-20.1.8.src.tar.xz" ]; then
+        log_info "Downloading LLVM CMake modules..."
+        if ! download_with_retry "$llvm_cmake_url" "llvm-cmake-20.1.8.src.tar.xz"; then
+            additional_failed+=("$llvm_cmake_url (llvm-cmake-20.1.8.src.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] llvm-cmake-20.1.8.src.tar.xz (already exists)"
+    fi
+
+    # LLVM Third-party dependencies
+    local llvm_third_party_url="https://anduin.linuxfromscratch.org/BLFS/llvm/llvm-third-party-20.1.8.src.tar.xz"
+    if [ ! -f "llvm-third-party-20.1.8.src.tar.xz" ]; then
+        log_info "Downloading LLVM third-party dependencies..."
+        if ! download_with_retry "$llvm_third_party_url" "llvm-third-party-20.1.8.src.tar.xz"; then
+            additional_failed+=("$llvm_third_party_url (llvm-third-party-20.1.8.src.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] llvm-third-party-20.1.8.src.tar.xz (already exists)"
+    fi
+
+    # Clang-20.1.8 (C/C++/Objective-C compiler frontend for LLVM)
+    local clang_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-20.1.8/clang-20.1.8.src.tar.xz"
+    if [ ! -f "clang-20.1.8.src.tar.xz" ]; then
+        log_info "Downloading Clang..."
+        if ! download_with_retry "$clang_url" "clang-20.1.8.src.tar.xz"; then
+            additional_failed+=("$clang_url (clang-20.1.8.src.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] clang-20.1.8.src.tar.xz (already exists)"
+    fi
+
+    # Compiler-RT-20.1.8 (LLVM runtime libraries - optional but recommended)
+    local compiler_rt_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-20.1.8/compiler-rt-20.1.8.src.tar.xz"
+    if [ ! -f "compiler-rt-20.1.8.src.tar.xz" ]; then
+        log_info "Downloading Compiler-RT..."
+        if ! download_with_retry "$compiler_rt_url" "compiler-rt-20.1.8.src.tar.xz"; then
+            additional_failed+=("$compiler_rt_url (compiler-rt-20.1.8.src.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] compiler-rt-20.1.8.src.tar.xz (already exists)"
+    fi
+
+    # Rust-1.89.0 (Rust compiler and cargo - required for cargo-c and librsvg)
+    local rust_url="https://static.rust-lang.org/dist/rustc-1.89.0-src.tar.xz"
+    if [ ! -f "rustc-1.89.0-src.tar.xz" ]; then
+        log_info "Downloading Rust..."
+        if ! download_with_retry "$rust_url" "rustc-1.89.0-src.tar.xz"; then
+            additional_failed+=("$rust_url (rustc-1.89.0-src.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] rustc-1.89.0-src.tar.xz (already exists)"
+    fi
+
+    # HarfBuzz-11.4.1 (OpenType text shaping engine)
+    local harfbuzz_url="https://github.com/harfbuzz/harfbuzz/releases/download/11.4.1/harfbuzz-11.4.1.tar.xz"
+    if [ ! -f "harfbuzz-11.4.1.tar.xz" ]; then
+        log_info "Downloading HarfBuzz..."
+        if ! download_with_retry "$harfbuzz_url" "harfbuzz-11.4.1.tar.xz"; then
+            additional_failed+=("$harfbuzz_url (harfbuzz-11.4.1.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] harfbuzz-11.4.1.tar.xz (already exists)"
+    fi
+
+    # FriBidi-1.0.16 (Unicode Bidirectional Algorithm)
+    local fribidi_url="https://github.com/fribidi/fribidi/releases/download/v1.0.16/fribidi-1.0.16.tar.xz"
+    if [ ! -f "fribidi-1.0.16.tar.xz" ]; then
+        log_info "Downloading FriBidi..."
+        if ! download_with_retry "$fribidi_url" "fribidi-1.0.16.tar.xz"; then
+            additional_failed+=("$fribidi_url (fribidi-1.0.16.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] fribidi-1.0.16.tar.xz (already exists)"
+    fi
+
+    # Pixman-0.46.4 (Low-level pixel manipulation library)
+    local pixman_url="https://www.cairographics.org/releases/pixman-0.46.4.tar.gz"
+    if [ ! -f "pixman-0.46.4.tar.gz" ]; then
+        log_info "Downloading Pixman..."
+        if ! download_with_retry "$pixman_url" "pixman-0.46.4.tar.gz"; then
+            additional_failed+=("$pixman_url (pixman-0.46.4.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] pixman-0.46.4.tar.gz (already exists)"
+    fi
+
+    # Fontconfig-2.17.1 (Font configuration library)
+    local fontconfig_url="https://gitlab.freedesktop.org/api/v4/projects/890/packages/generic/fontconfig/2.17.1/fontconfig-2.17.1.tar.xz"
+    if [ ! -f "fontconfig-2.17.1.tar.xz" ]; then
+        log_info "Downloading Fontconfig..."
+        if ! download_with_retry "$fontconfig_url" "fontconfig-2.17.1.tar.xz"; then
+            additional_failed+=("$fontconfig_url (fontconfig-2.17.1.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] fontconfig-2.17.1.tar.xz (already exists)"
+    fi
+
+    # Graphene-1.10.8 (Thin layer of types for graphics)
+    local graphene_url="https://download.gnome.org/sources/graphene/1.10/graphene-1.10.8.tar.xz"
+    if [ ! -f "graphene-1.10.8.tar.xz" ]; then
+        log_info "Downloading Graphene..."
+        if ! download_with_retry "$graphene_url" "graphene-1.10.8.tar.xz"; then
+            additional_failed+=("$graphene_url (graphene-1.10.8.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] graphene-1.10.8.tar.xz (already exists)"
+    fi
+
+    # libxkbcommon-1.11.0 (XKB keymap handling library)
+    local libxkbcommon_url="https://github.com/lfs-book/libxkbcommon/archive/v1.11.0/libxkbcommon-1.11.0.tar.gz"
+    if [ ! -f "libxkbcommon-1.11.0.tar.gz" ]; then
+        log_info "Downloading libxkbcommon..."
+        if ! download_with_retry "$libxkbcommon_url" "libxkbcommon-1.11.0.tar.gz"; then
+            additional_failed+=("$libxkbcommon_url (libxkbcommon-1.11.0.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] libxkbcommon-1.11.0.tar.gz (already exists)"
+    fi
+
+    # Cairo-1.18.4 (2D graphics library)
+    local cairo_url="https://www.cairographics.org/releases/cairo-1.18.4.tar.xz"
+    if [ ! -f "cairo-1.18.4.tar.xz" ]; then
+        log_info "Downloading Cairo..."
+        if ! download_with_retry "$cairo_url" "cairo-1.18.4.tar.xz"; then
+            additional_failed+=("$cairo_url (cairo-1.18.4.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] cairo-1.18.4.tar.xz (already exists)"
+    fi
+
+    # Pango-1.56.4 (Text layout library)
+    local pango_url="https://download.gnome.org/sources/pango/1.56/pango-1.56.4.tar.xz"
+    if [ ! -f "pango-1.56.4.tar.xz" ]; then
+        log_info "Downloading Pango..."
+        if ! download_with_retry "$pango_url" "pango-1.56.4.tar.xz"; then
+            additional_failed+=("$pango_url (pango-1.56.4.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] pango-1.56.4.tar.xz (already exists)"
+    fi
+
+    # at-spi2-core-2.56.4 (Assistive Technology Service Provider Interface)
+    local atspi_url="https://download.gnome.org/sources/at-spi2-core/2.56/at-spi2-core-2.56.4.tar.xz"
+    if [ ! -f "at-spi2-core-2.56.4.tar.xz" ]; then
+        log_info "Downloading at-spi2-core..."
+        if ! download_with_retry "$atspi_url" "at-spi2-core-2.56.4.tar.xz"; then
+            additional_failed+=("$atspi_url (at-spi2-core-2.56.4.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] at-spi2-core-2.56.4.tar.xz (already exists)"
+    fi
+
+    # libepoxy-1.5.10 (OpenGL function pointer management - already in Xorg section, skip)
+
+    # libjpeg-turbo-3.0.1 (JPEG image codec)
+    local libjpeg_url="https://downloads.sourceforge.net/libjpeg-turbo/libjpeg-turbo-3.0.1.tar.gz"
+    if [ ! -f "libjpeg-turbo-3.0.1.tar.gz" ]; then
+        log_info "Downloading libjpeg-turbo..."
+        if ! download_with_retry "$libjpeg_url" "libjpeg-turbo-3.0.1.tar.gz"; then
+            additional_failed+=("$libjpeg_url (libjpeg-turbo-3.0.1.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] libjpeg-turbo-3.0.1.tar.gz (already exists)"
+    fi
+
+    # libtiff-4.7.0 (TIFF image library)
+    local libtiff_url="https://download.osgeo.org/libtiff/tiff-4.7.0.tar.gz"
+    if [ ! -f "tiff-4.7.0.tar.gz" ]; then
+        log_info "Downloading libtiff..."
+        if ! download_with_retry "$libtiff_url" "tiff-4.7.0.tar.gz"; then
+            additional_failed+=("$libtiff_url (tiff-4.7.0.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] tiff-4.7.0.tar.gz (already exists)"
+    fi
+
+    # gdk-pixbuf-2.42.12 (Image loading library for GTK)
+    local gdkpixbuf_url="https://download.gnome.org/sources/gdk-pixbuf/2.42/gdk-pixbuf-2.42.12.tar.xz"
+    if [ ! -f "gdk-pixbuf-2.42.12.tar.xz" ]; then
+        log_info "Downloading gdk-pixbuf..."
+        if ! download_with_retry "$gdkpixbuf_url" "gdk-pixbuf-2.42.12.tar.xz"; then
+            additional_failed+=("$gdkpixbuf_url (gdk-pixbuf-2.42.12.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] gdk-pixbuf-2.42.12.tar.xz (already exists)"
+    fi
+
+    # cargo-c-0.10.15 (Helper to build Rust C-ABI libraries)
+    local cargoc_url="https://github.com/lu-zero/cargo-c/archive/v0.10.15/cargo-c-0.10.15.tar.gz"
+    if [ ! -f "cargo-c-0.10.15.tar.gz" ]; then
+        log_info "Downloading cargo-c..."
+        if ! download_with_retry "$cargoc_url" "cargo-c-0.10.15.tar.gz"; then
+            additional_failed+=("$cargoc_url (cargo-c-0.10.15.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] cargo-c-0.10.15.tar.gz (already exists)"
+    fi
+
+    # librsvg-2.61.0 (SVG rendering library)
+    local librsvg_url="https://download.gnome.org/sources/librsvg/2.61/librsvg-2.61.0.tar.xz"
+    if [ ! -f "librsvg-2.61.0.tar.xz" ]; then
+        log_info "Downloading librsvg..."
+        if ! download_with_retry "$librsvg_url" "librsvg-2.61.0.tar.xz"; then
+            additional_failed+=("$librsvg_url (librsvg-2.61.0.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] librsvg-2.61.0.tar.xz (already exists)"
+    fi
+
+    # shared-mime-info-2.4 (MIME database)
+    local sharedmime_url="https://gitlab.freedesktop.org/xdg/shared-mime-info/-/archive/2.4/shared-mime-info-2.4.tar.gz"
+    if [ ! -f "shared-mime-info-2.4.tar.gz" ]; then
+        log_info "Downloading shared-mime-info..."
+        if ! download_with_retry "$sharedmime_url" "shared-mime-info-2.4.tar.gz"; then
+            additional_failed+=("$sharedmime_url (shared-mime-info-2.4.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] shared-mime-info-2.4.tar.gz (already exists)"
+    fi
+
+    # ISO Codes-4.18.0 (ISO country/language/currency codes)
+    local isocodes_url="https://salsa.debian.org/iso-codes-team/iso-codes/-/archive/v4.18.0/iso-codes-v4.18.0.tar.gz"
+    if [ ! -f "iso-codes-v4.18.0.tar.gz" ]; then
+        log_info "Downloading ISO Codes..."
+        if ! download_with_retry "$isocodes_url" "iso-codes-v4.18.0.tar.gz"; then
+            additional_failed+=("$isocodes_url (iso-codes-v4.18.0.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] iso-codes-v4.18.0.tar.gz (already exists)"
+    fi
+
+    # hicolor-icon-theme-0.18 (Default icon theme)
+    local hicolor_url="https://icon-theme.freedesktop.org/releases/hicolor-icon-theme-0.18.tar.xz"
+    if [ ! -f "hicolor-icon-theme-0.18.tar.xz" ]; then
+        log_info "Downloading hicolor-icon-theme..."
+        if ! download_with_retry "$hicolor_url" "hicolor-icon-theme-0.18.tar.xz"; then
+            additional_failed+=("$hicolor_url (hicolor-icon-theme-0.18.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] hicolor-icon-theme-0.18.tar.xz (already exists)"
+    fi
+
+    # adwaita-icon-theme-48.1 (GNOME icon theme)
+    local adwaita_url="https://download.gnome.org/sources/adwaita-icon-theme/48/adwaita-icon-theme-48.1.tar.xz"
+    if [ ! -f "adwaita-icon-theme-48.1.tar.xz" ]; then
+        log_info "Downloading adwaita-icon-theme..."
+        if ! download_with_retry "$adwaita_url" "adwaita-icon-theme-48.1.tar.xz"; then
+            additional_failed+=("$adwaita_url (adwaita-icon-theme-48.1.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] adwaita-icon-theme-48.1.tar.xz (already exists)"
+    fi
+
+    # gsettings-desktop-schemas-48.0 (GSettings schemas for desktop applications)
+    local gsettings_url="https://download.gnome.org/sources/gsettings-desktop-schemas/48/gsettings-desktop-schemas-48.0.tar.xz"
+    if [ ! -f "gsettings-desktop-schemas-48.0.tar.xz" ]; then
+        log_info "Downloading gsettings-desktop-schemas..."
+        if ! download_with_retry "$gsettings_url" "gsettings-desktop-schemas-48.0.tar.xz"; then
+            additional_failed+=("$gsettings_url (gsettings-desktop-schemas-48.0.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] gsettings-desktop-schemas-48.0.tar.xz (already exists)"
+    fi
+
+    # docbook-xsl-nons-1.79.2 (DocBook XSLT stylesheets)
+    local docbookxsl_url="https://github.com/docbook/xslt10-stylesheets/releases/download/release/1.79.2/docbook-xsl-nons-1.79.2.tar.bz2"
+    if [ ! -f "docbook-xsl-nons-1.79.2.tar.bz2" ]; then
+        log_info "Downloading docbook-xsl-nons..."
+        if ! download_with_retry "$docbookxsl_url" "docbook-xsl-nons-1.79.2.tar.bz2"; then
+            additional_failed+=("$docbookxsl_url (docbook-xsl-nons-1.79.2.tar.bz2)")
+        fi
+    else
+        log_info "[SKIP] docbook-xsl-nons-1.79.2.tar.bz2 (already exists)"
+    fi
+
+    # docbook-xsl-nons-1.79.2-stack_fix-1.patch (Required patch for docbook-xsl)
+    local docbookxsl_patch_url="https://www.linuxfromscratch.org/patches/blfs/12.4/docbook-xsl-nons-1.79.2-stack_fix-1.patch"
+    if [ ! -f "docbook-xsl-nons-1.79.2-stack_fix-1.patch" ]; then
+        log_info "Downloading docbook-xsl patch..."
+        if ! download_with_retry "$docbookxsl_patch_url" "docbook-xsl-nons-1.79.2-stack_fix-1.patch"; then
+            additional_failed+=("$docbookxsl_patch_url (docbook-xsl-nons-1.79.2-stack_fix-1.patch)")
+        fi
+    else
+        log_info "[SKIP] docbook-xsl-nons-1.79.2-stack_fix-1.patch (already exists)"
+    fi
+
+    # PyCairo-1.28.0 (Python Cairo bindings - required by PyGObject)
+    local pycairo_url="https://github.com/pygobject/pycairo/releases/download/v1.28.0/pycairo-1.28.0.tar.gz"
+    if [ ! -f "pycairo-1.28.0.tar.gz" ]; then
+        log_info "Downloading PyCairo..."
+        if ! download_with_retry "$pycairo_url" "pycairo-1.28.0.tar.gz"; then
+            additional_failed+=("$pycairo_url (pycairo-1.28.0.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] pycairo-1.28.0.tar.gz (already exists)"
+    fi
+
+    # PyGObject-3.52.3 (Python GObject bindings)
+    local pygobject_url="https://download.gnome.org/sources/pygobject/3.52/pygobject-3.52.3.tar.gz"
+    if [ ! -f "pygobject-3.52.3.tar.gz" ]; then
+        log_info "Downloading PyGObject..."
+        if ! download_with_retry "$pygobject_url" "pygobject-3.52.3.tar.gz"; then
+            additional_failed+=("$pygobject_url (pygobject-3.52.3.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] pygobject-3.52.3.tar.gz (already exists)"
+    fi
+
+    # ========================================
+    # Python Test Dependencies (for PyGObject tests)
+    # ========================================
+
+    # Setuptools_scm-8.3.1 (no required dependencies)
+    local setuptools_scm_url="https://files.pythonhosted.org/packages/source/s/setuptools_scm/setuptools_scm-8.3.1.tar.gz"
+    if [ ! -f "setuptools_scm-8.3.1.tar.gz" ]; then
+        log_info "Downloading Setuptools_scm..."
+        if ! download_with_retry "$setuptools_scm_url" "setuptools_scm-8.3.1.tar.gz"; then
+            additional_failed+=("$setuptools_scm_url (setuptools_scm-8.3.1.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] setuptools_scm-8.3.1.tar.gz (already exists)"
+    fi
+
+    # Editables-0.5 (required by hatchling)
+    local editables_url="https://files.pythonhosted.org/packages/source/e/editables/editables-0.5.tar.gz"
+    if [ ! -f "editables-0.5.tar.gz" ]; then
+        log_info "Downloading Editables..."
+        if ! download_with_retry "$editables_url" "editables-0.5.tar.gz"; then
+            additional_failed+=("$editables_url (editables-0.5.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] editables-0.5.tar.gz (already exists)"
+    fi
+
+    # Pathspec-0.12.1 (required by hatchling)
+    local pathspec_url="https://files.pythonhosted.org/packages/source/p/pathspec/pathspec-0.12.1.tar.gz"
+    if [ ! -f "pathspec-0.12.1.tar.gz" ]; then
+        log_info "Downloading Pathspec..."
+        if ! download_with_retry "$pathspec_url" "pathspec-0.12.1.tar.gz"; then
+            additional_failed+=("$pathspec_url (pathspec-0.12.1.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] pathspec-0.12.1.tar.gz (already exists)"
+    fi
+
+    # Trove-Classifiers-2025.8.6.13 (required by hatchling)
+    local trove_classifiers_url="https://files.pythonhosted.org/packages/source/t/trove_classifiers/trove_classifiers-2025.8.6.13.tar.gz"
+    if [ ! -f "trove_classifiers-2025.8.6.13.tar.gz" ]; then
+        log_info "Downloading Trove-Classifiers..."
+        if ! download_with_retry "$trove_classifiers_url" "trove_classifiers-2025.8.6.13.tar.gz"; then
+            additional_failed+=("$trove_classifiers_url (trove_classifiers-2025.8.6.13.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] trove_classifiers-2025.8.6.13.tar.gz (already exists)"
+    fi
+
+    # Pluggy-1.6.0 (required by pytest)
+    local pluggy_url="https://files.pythonhosted.org/packages/source/p/pluggy/pluggy-1.6.0.tar.gz"
+    if [ ! -f "pluggy-1.6.0.tar.gz" ]; then
+        log_info "Downloading Pluggy..."
+        if ! download_with_retry "$pluggy_url" "pluggy-1.6.0.tar.gz"; then
+            additional_failed+=("$pluggy_url (pluggy-1.6.0.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] pluggy-1.6.0.tar.gz (already exists)"
+    fi
+
+    # Hatchling-1.27.0 (required by hatch_vcs)
+    local hatchling_url="https://files.pythonhosted.org/packages/source/h/hatchling/hatchling-1.27.0.tar.gz"
+    if [ ! -f "hatchling-1.27.0.tar.gz" ]; then
+        log_info "Downloading Hatchling..."
+        if ! download_with_retry "$hatchling_url" "hatchling-1.27.0.tar.gz"; then
+            additional_failed+=("$hatchling_url (hatchling-1.27.0.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] hatchling-1.27.0.tar.gz (already exists)"
+    fi
+
+    # Hatch_vcs-0.5.0 (required by iniconfig)
+    local hatch_vcs_url="https://files.pythonhosted.org/packages/source/h/hatch-vcs/hatch_vcs-0.5.0.tar.gz"
+    if [ ! -f "hatch_vcs-0.5.0.tar.gz" ]; then
+        log_info "Downloading Hatch_vcs..."
+        if ! download_with_retry "$hatch_vcs_url" "hatch_vcs-0.5.0.tar.gz"; then
+            additional_failed+=("$hatch_vcs_url (hatch_vcs-0.5.0.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] hatch_vcs-0.5.0.tar.gz (already exists)"
+    fi
+
+    # Iniconfig-2.1.0 (required by pytest)
+    local iniconfig_url="https://files.pythonhosted.org/packages/source/i/iniconfig/iniconfig-2.1.0.tar.gz"
+    if [ ! -f "iniconfig-2.1.0.tar.gz" ]; then
+        log_info "Downloading Iniconfig..."
+        if ! download_with_retry "$iniconfig_url" "iniconfig-2.1.0.tar.gz"; then
+            additional_failed+=("$iniconfig_url (iniconfig-2.1.0.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] iniconfig-2.1.0.tar.gz (already exists)"
+    fi
+
+    # Pygments-2.19.2 (syntax highlighter - required by pytest)
+    local pygments_url="https://files.pythonhosted.org/packages/source/P/Pygments/pygments-2.19.2.tar.gz"
+    if [ ! -f "pygments-2.19.2.tar.gz" ]; then
+        log_info "Downloading Pygments..."
+        if ! download_with_retry "$pygments_url" "pygments-2.19.2.tar.gz"; then
+            additional_failed+=("$pygments_url (pygments-2.19.2.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] pygments-2.19.2.tar.gz (already exists)"
+    fi
+
+    # Pytest-8.4.1 (test framework - optional for PyGObject tests)
+    local pytest_url="https://files.pythonhosted.org/packages/source/p/pytest/pytest-8.4.1.tar.gz"
+    if [ ! -f "pytest-8.4.1.tar.gz" ]; then
+        log_info "Downloading Pytest..."
+        if ! download_with_retry "$pytest_url" "pytest-8.4.1.tar.gz"; then
+            additional_failed+=("$pytest_url (pytest-8.4.1.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] pytest-8.4.1.tar.gz (already exists)"
+    fi
+
+    # shaderc-2025.3 (Shader compiler for Vulkan)
+    local shaderc_url="https://github.com/google/shaderc/archive/v2025.3/shaderc-2025.3.tar.gz"
+    if [ ! -f "shaderc-2025.3.tar.gz" ]; then
+        log_info "Downloading shaderc..."
+        if ! download_with_retry "$shaderc_url" "shaderc-2025.3.tar.gz"; then
+            additional_failed+=("$shaderc_url (shaderc-2025.3.tar.gz)")
+        fi
+    else
+        log_info "[SKIP] shaderc-2025.3.tar.gz (already exists)"
+    fi
+
+    # GTK-3.24.50 (GTK+ toolkit version 3)
+    local gtk3_url="https://download.gnome.org/sources/gtk/3.24/gtk-3.24.50.tar.xz"
+    if [ ! -f "gtk-3.24.50.tar.xz" ]; then
+        log_info "Downloading GTK-3..."
+        if ! download_with_retry "$gtk3_url" "gtk-3.24.50.tar.xz"; then
+            additional_failed+=("$gtk3_url (gtk-3.24.50.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] gtk-3.24.50.tar.xz (already exists)"
+    fi
+
+    # GTK-4.18.6 (GTK toolkit version 4)
+    local gtk4_url="https://download.gnome.org/sources/gtk/4.18/gtk-4.18.6.tar.xz"
+    if [ ! -f "gtk-4.18.6.tar.xz" ]; then
+        log_info "Downloading GTK-4..."
+        if ! download_with_retry "$gtk4_url" "gtk-4.18.6.tar.xz"; then
+            additional_failed+=("$gtk4_url (gtk-4.18.6.tar.xz)")
+        fi
+    else
+        log_info "[SKIP] gtk-4.18.6.tar.xz (already exists)"
+    fi
+
     # Check for additional package failures
     if [ ${#additional_failed[@]} -gt 0 ]; then
         log_error "========================================="
