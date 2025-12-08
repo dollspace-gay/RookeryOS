@@ -4125,6 +4125,46 @@ log_info "Building Tier 5: GTK Stack"
 log_info "=========================================="
 log_info ""
 
+# Brotli-1.1.0 (Compression library - required by FreeType for WOFF2 fonts)
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/brotli.html
+build_brotli() {
+    should_skip_package "brotli" && { log_info "Skipping Brotli"; return 0; }
+    log_step "Building Brotli-1.1.0..."
+    cd "$BUILD_DIR" && rm -rf brotli-* && tar -xf /sources/brotli-1.1.0.tar.gz && cd brotli-*
+
+    mkdir build && cd build
+    cmake -D CMAKE_INSTALL_PREFIX=/usr \
+          -D CMAKE_BUILD_TYPE=Release \
+          ..
+    make
+    make install
+
+    # Create pkg-config files per BLFS
+    cd ..
+    sed -e "s,@PREFIX@,/usr," \
+        -e "s,@EXEC_PREFIX@,/usr," \
+        -e "s,@LIBDIR@,/usr/lib," \
+        -e "s,@INCLUDEDIR@,/usr/include," \
+        -e "s,@PACKAGE_VERSION@,1.1.0," \
+        scripts/libbrotlicommon.pc.in > /usr/lib/pkgconfig/libbrotlicommon.pc
+
+    sed -e "s,@PREFIX@,/usr," \
+        -e "s,@EXEC_PREFIX@,/usr," \
+        -e "s,@LIBDIR@,/usr/lib," \
+        -e "s,@INCLUDEDIR@,/usr/include," \
+        -e "s,@PACKAGE_VERSION@,1.1.0," \
+        scripts/libbrotlidec.pc.in > /usr/lib/pkgconfig/libbrotlidec.pc
+
+    sed -e "s,@PREFIX@,/usr," \
+        -e "s,@EXEC_PREFIX@,/usr," \
+        -e "s,@LIBDIR@,/usr/lib," \
+        -e "s,@INCLUDEDIR@,/usr/include," \
+        -e "s,@PACKAGE_VERSION@,1.1.0," \
+        scripts/libbrotlienc.pc.in > /usr/lib/pkgconfig/libbrotlienc.pc
+
+    create_checkpoint "brotli"
+}
+
 # Graphite2-1.3.14 (TrueType font rendering engine - dependency for HarfBuzz)
 build_graphite2() {
     should_skip_package "graphite2" && { log_info "Skipping Graphite2"; return 0; }
@@ -4447,6 +4487,27 @@ rebuild_harfbuzz() {
     create_checkpoint "harfbuzz-rebuild"
 }
 
+# Rebuild Fontconfig-2.17.1 after FreeType+HarfBuzz rebuild
+# This ensures Fontconfig can use the full font rendering capabilities
+rebuild_fontconfig() {
+    should_skip_package "fontconfig-rebuild" && { log_info "Skipping Fontconfig rebuild"; return 0; }
+    log_step "Rebuilding Fontconfig-2.17.1 with FreeType+HarfBuzz..."
+    cd "$BUILD_DIR" && rm -rf fontconfig-* && tar -xf /sources/fontconfig-2.17.1.tar.xz && cd fontconfig-*
+
+    ./configure --prefix=/usr \
+                --sysconfdir=/etc \
+                --localstatedir=/var \
+                --disable-docs \
+                --docdir=/usr/share/doc/fontconfig-2.17.1
+    make
+    make install
+
+    # Update font cache
+    fc-cache -f
+
+    create_checkpoint "fontconfig-rebuild"
+}
+
 # FriBidi-1.0.16 (Unicode Bidirectional Algorithm)
 build_fribidi() {
     should_skip_package "fribidi" && { log_info "Skipping FriBidi"; return 0; }
@@ -4699,7 +4760,138 @@ build_gsettings_desktop_schemas() {
     create_checkpoint "gsettings-desktop-schemas"
 }
 
+# docbook-xml-4.5 (DocBook XML DTDs - required by docbook-xsl)
+# https://www.linuxfromscratch.org/blfs/view/12.4/pst/docbook.html
+build_docbook_xml() {
+    should_skip_package "docbook-xml" && { log_info "Skipping docbook-xml"; return 0; }
+    log_step "Installing docbook-xml-4.5..."
+    cd "$BUILD_DIR"
+
+    # Create directory structure
+    install -v -d -m755 /usr/share/xml/docbook/xml-dtd-4.5
+    install -v -d -m755 /etc/xml
+
+    # Extract and install
+    cd /usr/share/xml/docbook/xml-dtd-4.5
+    unzip -q /sources/docbook-xml-4.5.zip
+
+    # Create XML catalog if it doesn't exist
+    if [ ! -f /etc/xml/docbook ]; then
+        xmlcatalog --noout --create /etc/xml/docbook
+    fi
+
+    # Add entries to docbook catalog
+    xmlcatalog --noout --add "public" \
+        "-//OASIS//DTD DocBook XML V4.5//EN" \
+        "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" \
+        /etc/xml/docbook
+
+    xmlcatalog --noout --add "public" \
+        "-//OASIS//DTD DocBook XML CALS Table Model V4.5//EN" \
+        "file:///usr/share/xml/docbook/xml-dtd-4.5/calstblx.dtd" \
+        /etc/xml/docbook
+
+    xmlcatalog --noout --add "public" \
+        "-//OASIS//DTD XML Exchange Table Model 19990315//EN" \
+        "file:///usr/share/xml/docbook/xml-dtd-4.5/soextblx.dtd" \
+        /etc/xml/docbook
+
+    xmlcatalog --noout --add "public" \
+        "-//OASIS//ELEMENTS DocBook XML Information Pool V4.5//EN" \
+        "file:///usr/share/xml/docbook/xml-dtd-4.5/dbpoolx.mod" \
+        /etc/xml/docbook
+
+    xmlcatalog --noout --add "public" \
+        "-//OASIS//ELEMENTS DocBook XML Document Hierarchy V4.5//EN" \
+        "file:///usr/share/xml/docbook/xml-dtd-4.5/dbhierx.mod" \
+        /etc/xml/docbook
+
+    xmlcatalog --noout --add "public" \
+        "-//OASIS//ELEMENTS DocBook XML HTML Tables V4.5//EN" \
+        "file:///usr/share/xml/docbook/xml-dtd-4.5/htmltblx.mod" \
+        /etc/xml/docbook
+
+    xmlcatalog --noout --add "public" \
+        "-//OASIS//ENTITIES DocBook XML Notations V4.5//EN" \
+        "file:///usr/share/xml/docbook/xml-dtd-4.5/dbnotnx.mod" \
+        /etc/xml/docbook
+
+    xmlcatalog --noout --add "public" \
+        "-//OASIS//ENTITIES DocBook XML Character Entities V4.5//EN" \
+        "file:///usr/share/xml/docbook/xml-dtd-4.5/dbcentx.mod" \
+        /etc/xml/docbook
+
+    xmlcatalog --noout --add "public" \
+        "-//OASIS//ENTITIES DocBook XML Additional General Entities V4.5//EN" \
+        "file:///usr/share/xml/docbook/xml-dtd-4.5/dbgenent.mod" \
+        /etc/xml/docbook
+
+    xmlcatalog --noout --add "rewriteSystem" \
+        "http://www.oasis-open.org/docbook/xml/4.5" \
+        "file:///usr/share/xml/docbook/xml-dtd-4.5" \
+        /etc/xml/docbook
+
+    xmlcatalog --noout --add "rewriteURI" \
+        "http://www.oasis-open.org/docbook/xml/4.5" \
+        "file:///usr/share/xml/docbook/xml-dtd-4.5" \
+        /etc/xml/docbook
+
+    # Create main XML catalog if it doesn't exist
+    if [ ! -f /etc/xml/catalog ]; then
+        xmlcatalog --noout --create /etc/xml/catalog
+    fi
+
+    # Add docbook catalog to main catalog
+    xmlcatalog --noout --add "delegatePublic" \
+        "-//OASIS//ENTITIES DocBook XML" \
+        "file:///etc/xml/docbook" \
+        /etc/xml/catalog
+
+    xmlcatalog --noout --add "delegatePublic" \
+        "-//OASIS//DTD DocBook XML" \
+        "file:///etc/xml/docbook" \
+        /etc/xml/catalog
+
+    xmlcatalog --noout --add "delegateSystem" \
+        "http://www.oasis-open.org/docbook/" \
+        "file:///etc/xml/docbook" \
+        /etc/xml/catalog
+
+    xmlcatalog --noout --add "delegateURI" \
+        "http://www.oasis-open.org/docbook/" \
+        "file:///etc/xml/docbook" \
+        /etc/xml/catalog
+
+    # Add support for older DocBook versions (4.1.2 through 4.4)
+    for DTDVERSION in 4.1.2 4.2 4.3 4.4; do
+        xmlcatalog --noout --add "public" \
+            "-//OASIS//DTD DocBook XML V$DTDVERSION//EN" \
+            "http://www.oasis-open.org/docbook/xml/$DTDVERSION/docbookx.dtd" \
+            /etc/xml/docbook
+        xmlcatalog --noout --add "rewriteSystem" \
+            "http://www.oasis-open.org/docbook/xml/$DTDVERSION" \
+            "file:///usr/share/xml/docbook/xml-dtd-4.5" \
+            /etc/xml/docbook
+        xmlcatalog --noout --add "rewriteURI" \
+            "http://www.oasis-open.org/docbook/xml/$DTDVERSION" \
+            "file:///usr/share/xml/docbook/xml-dtd-4.5" \
+            /etc/xml/docbook
+        xmlcatalog --noout --add "delegateSystem" \
+            "http://www.oasis-open.org/docbook/xml/$DTDVERSION/" \
+            "file:///etc/xml/docbook" \
+            /etc/xml/catalog
+        xmlcatalog --noout --add "delegateURI" \
+            "http://www.oasis-open.org/docbook/xml/$DTDVERSION/" \
+            "file:///etc/xml/docbook" \
+            /etc/xml/catalog
+    done
+
+    create_checkpoint "docbook-xml"
+}
+
 # docbook-xsl-nons-1.79.2 (DocBook XSLT stylesheets)
+# https://www.linuxfromscratch.org/blfs/view/12.4/pst/docbook-xsl.html
+# Requires: docbook-xml, libxml2
 build_docbook_xsl() {
     should_skip_package "docbook-xsl" && { log_info "Skipping docbook-xsl"; return 0; }
     log_step "Building docbook-xsl-nons-1.79.2..."
@@ -4979,12 +5171,14 @@ build_gtk4() {
 log_info "Phase 1: Foundation Libraries (FreeType-HarfBuzz circular dependency resolution)"
 log_info "  Step 1: FreeType without HarfBuzz was built earlier in Tier 3"
 log_info "  Step 2: Building HarfBuzz with FreeType support"
-log_info "  Step 3: Rebuilding FreeType with HarfBuzz support"
+log_info "  Step 3: Rebuilding FreeType with HarfBuzz + Brotli support"
+build_brotli            # Needed for FreeType WOFF2 support
 build_graphite2
 build_llvm
 build_rust
 build_harfbuzz          # Step 2: Build HarfBuzz with FreeType
-rebuild_freetype        # Step 3: Rebuild FreeType with HarfBuzz
+rebuild_freetype        # Step 3: Rebuild FreeType with HarfBuzz + Brotli
+rebuild_fontconfig      # Step 4: Rebuild Fontconfig with new FreeType
 build_fribidi
 build_pixman
 build_fontconfig
@@ -5009,6 +5203,7 @@ build_hicolor_icon_theme
 build_gsettings_desktop_schemas
 
 log_info "Phase 4: Documentation & Test Infrastructure"
+build_docbook_xml     # Required by docbook-xsl
 build_docbook_xsl
 build_shaderc
 
@@ -5035,12 +5230,12 @@ build_pygobject
 
 log_info ""
 log_info "Tier 5 GTK Stack completed!"
-log_info "  - Foundation: Graphite2, Rust-1.84.0, HarfBuzz (with FreeType), FreeType (rebuilt with HarfBuzz), FriBidi, Pixman, Fontconfig, Graphene, libxkbcommon"
+log_info "  - Foundation: Brotli, Graphite2, Rust-1.89.0, HarfBuzz (with FreeType), FreeType (rebuilt with HarfBuzz+Brotli), Fontconfig (rebuilt), FriBidi, Pixman, Graphene, libxkbcommon"
 log_info "  - Graphics: Cairo, HarfBuzz (rebuilt with Cairo), Pango, at-spi2-core"
 log_info "  - Images: libjpeg-turbo, libtiff, gdk-pixbuf, librsvg, shared-mime-info"
 log_info "  - Icons: ISO Codes, hicolor-icon-theme, adwaita-icon-theme"
 log_info "  - Schemas: gsettings-desktop-schemas"
-log_info "  - Tooling: cargo-c, docbook-xsl, PyGObject, shaderc"
+log_info "  - Tooling: cargo-c, docbook-xml, docbook-xsl, PyGObject, shaderc"
 log_info "  - GTK: GTK-3.24.50, GTK-4.18.6"
 log_info ""
 
