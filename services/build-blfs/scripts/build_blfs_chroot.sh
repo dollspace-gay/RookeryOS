@@ -4015,8 +4015,8 @@ build_libva() {
     log_step "Building libva-2.22.0..."
     cd "$BUILD_DIR" && rm -rf libva-* && tar -xf /sources/libva-2.22.0.tar.bz2 && cd libva-*
 
-    cd build
-    meson setup --prefix=$XORG_PREFIX --buildtype=release
+    mkdir -p build && cd build
+    meson setup --prefix=$XORG_PREFIX --buildtype=release ..
     ninja
     ninja install
     create_checkpoint "libva"
