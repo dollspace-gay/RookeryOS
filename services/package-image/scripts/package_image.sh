@@ -10,7 +10,7 @@ set -euo pipefail
 
 export LFS="${LFS:-/lfs}"
 export IMAGE_NAME="${IMAGE_NAME:-rookery-os-1.0}"
-export IMAGE_SIZE="${IMAGE_SIZE:-204800}"  # Size in MB (200GB for full BLFS system)
+export IMAGE_SIZE="${IMAGE_SIZE:-25600}"  # Size in MB (25GB for full BLFS system)
 
 DIST_DIR="/dist"
 
@@ -55,8 +55,8 @@ create_disk_image() {
 
     local image_file="$DIST_DIR/${IMAGE_NAME}.img"
 
-    log_step "Creating disk image file (${IMAGE_SIZE}MB)..."
-    dd if=/dev/zero of="$image_file" bs=1M count=$IMAGE_SIZE status=progress
+    log_step "Creating sparse disk image file (${IMAGE_SIZE}MB)..."
+    truncate -s "${IMAGE_SIZE}M" "$image_file"
 
     log_step "Partitioning disk image..."
 
@@ -92,6 +92,15 @@ create_disk_image() {
     mkdir -p "$mount_point"
     mount -o loop,offset=$partition_offset "$image_file" "$mount_point"
 
+    # Strip debug symbols from binaries to reduce size (~1-2GB savings)
+    log_step "Stripping debug symbols from binaries..."
+    find "$LFS/usr/bin" "$LFS/usr/sbin" "$LFS/usr/libexec" -type f -executable 2>/dev/null | \
+        xargs -r strip --strip-unneeded 2>/dev/null || true
+    find "$LFS/usr/lib" "$LFS/lib" -name "*.so*" -type f 2>/dev/null | \
+        xargs -r strip --strip-unneeded 2>/dev/null || true
+    find "$LFS/opt" -type f -executable 2>/dev/null | \
+        xargs -r strip --strip-unneeded 2>/dev/null || true
+
     # Copy LFS system
     log_step "Copying LFS system to image..."
     rsync -aAX \
@@ -107,7 +116,16 @@ create_disk_image() {
         --exclude='*.log' \
         --exclude='*.a' \
         --exclude=/usr/share/doc/* \
-        --exclude=/usr/share/man/man3/* \
+        --exclude=/usr/share/man/* \
+        --exclude=/usr/share/info/* \
+        --exclude=/usr/share/locale/* \
+        --exclude=/usr/share/gtk-doc/* \
+        --exclude=/opt/rustc-*-src/* \
+        --exclude=/opt/rustc-*/share/doc/* \
+        --exclude='*.la' \
+        --exclude='__pycache__' \
+        --exclude='*.pyc' \
+        --exclude='*.pyo' \
         "$LFS/" "$mount_point/"
 
     # Create essential directories
@@ -304,10 +322,10 @@ EOF
     log_info "Disk image created: $image_file"
     log_info "Image size: $(du -h $image_file | cut -f1)"
 
-    # Compress image
-    log_step "Compressing image..."
-    gzip -c "$image_file" > "${image_file}.gz"
-    log_info "Compressed image: ${image_file}.gz ($(du -h ${image_file}.gz | cut -f1))"
+    # Compress image with xz (better compression than gzip, ~20% smaller)
+    log_step "Compressing image with xz (this may take a while)..."
+    xz -T0 -6 -c "$image_file" > "${image_file}.xz"
+    log_info "Compressed image: ${image_file}.xz ($(du -h ${image_file}.xz | cut -f1))"
 }
 
 # Create simple tarball (alternative method)
@@ -865,12 +883,12 @@ INITEOF
     log_step "Including disk image for installation..."
     mkdir -p "$iso_root/images"
     local img_file="$DIST_DIR/${IMAGE_NAME}.img"
-    if [ -f "$img_file" ]; then
-        gzip -c "$img_file" > "$iso_root/images/${IMAGE_NAME}.img.gz"
-        log_info "Included compressed disk image in ISO"
-    elif [ -f "${img_file}.gz" ]; then
-        cp "${img_file}.gz" "$iso_root/images/"
-        log_info "Included compressed disk image in ISO"
+    if [ -f "${img_file}.xz" ]; then
+        cp "${img_file}.xz" "$iso_root/images/"
+        log_info "Included xz-compressed disk image in ISO"
+    elif [ -f "$img_file" ]; then
+        xz -T0 -6 -c "$img_file" > "$iso_root/images/${IMAGE_NAME}.img.xz"
+        log_info "Included xz-compressed disk image in ISO"
     fi
 
     # =========================================================================
@@ -916,36 +934,13 @@ menuentry "Boot from first hard disk" {
 EOF
 
     # =========================================================================
-    # Step 9: Build the ISO image
+    # Step 9: Build the ISO image (using ISOLINUX like major distros)
     # =========================================================================
-    log_step "Building hybrid ISO image..."
+    log_step "Building hybrid ISO image with ISOLINUX..."
 
-    # Create GRUB directory structure
-    mkdir -p "$iso_root/boot/grub/i386-pc"
-
-    # Copy GRUB modules from the Docker container
-    if [ -d "/usr/lib/grub/i386-pc" ]; then
-        cp -a /usr/lib/grub/i386-pc/* "$iso_root/boot/grub/i386-pc/"
-        log_info "Copied GRUB i386-pc modules"
-    else
-        log_error "GRUB i386-pc modules not found at /usr/lib/grub/i386-pc"
-        return 1
-    fi
-
-    # Use grub-mkrescue if available (handles EFI+BIOS hybrid properly)
-    if command -v grub-mkrescue &>/dev/null; then
-        log_info "Using grub-mkrescue for ISO creation..."
-
-        if ! grub-mkrescue -o "$iso_file" "$iso_root" -- -volid "ROOKERY_OS" 2>&1 | tee /tmp/grub-mkrescue.log; then
-            log_error "grub-mkrescue failed. Log:"
-            cat /tmp/grub-mkrescue.log
-            log_info "Falling back to xorriso..."
-            create_iso_xorriso "$iso_file" "$iso_root"
-        fi
-    else
-        # Fall back to xorriso directly
-        create_iso_xorriso "$iso_file" "$iso_root"
-    fi
+    # Use ISOLINUX directly - grub-mkrescue fails on files >4GB
+    # This is how Arch, Debian, Ubuntu, and Fedora create their ISOs
+    create_iso_xorriso "$iso_file" "$iso_root"
 
     # =========================================================================
     # Step 10: Verify and cleanup
@@ -970,42 +965,75 @@ EOF
     fi
 }
 
-# Helper function to create ISO with xorriso directly
+# Helper function to create ISO with xorriso directly (using ISOLINUX like major distros)
 create_iso_xorriso() {
     local iso_file="$1"
     local iso_root="$2"
 
-    log_info "Creating ISO with xorriso..."
+    log_info "Creating ISO with xorriso (ISOLINUX boot)..."
 
-    # Ensure we have the boot image
-    if [ ! -f "/usr/lib/grub/i386-pc/boot_hybrid.img" ]; then
-        log_error "Missing /usr/lib/grub/i386-pc/boot_hybrid.img"
-        log_error "Cannot create hybrid bootable ISO"
-        return 1
-    fi
+    # Set up ISOLINUX for BIOS boot (this is how major distros do it)
+    mkdir -p "$iso_root/boot/syslinux"
 
-    # Create embedded GRUB core image for BIOS boot
-    if command -v grub-mkimage &>/dev/null; then
-        log_info "Creating GRUB core image..."
-        grub-mkimage -O i386-pc -o "$iso_root/boot/grub/core.img" \
-            -p /boot/grub \
-            biosdisk iso9660 part_msdos ext2 linux normal search configfile \
-            || { log_error "grub-mkimage failed"; return 1; }
+    # Copy ISOLINUX files
+    if [ -f "/usr/lib/ISOLINUX/isolinux.bin" ]; then
+        cp /usr/lib/ISOLINUX/isolinux.bin "$iso_root/boot/syslinux/"
     else
-        log_error "grub-mkimage not found"
+        log_error "Missing /usr/lib/ISOLINUX/isolinux.bin"
         return 1
     fi
 
-    # Create the ISO with full error output
+    # Copy required syslinux modules
+    local syslinux_mods="/usr/lib/syslinux/modules/bios"
+    for mod in ldlinux.c32 menu.c32 libutil.c32 libcom32.c32; do
+        if [ -f "$syslinux_mods/$mod" ]; then
+            cp "$syslinux_mods/$mod" "$iso_root/boot/syslinux/"
+        else
+            log_warn "Optional syslinux module not found: $mod"
+        fi
+    done
+
+    # Create ISOLINUX config
+    cat > "$iso_root/boot/syslinux/syslinux.cfg" << 'SYSLINUX_CFG'
+DEFAULT linux
+TIMEOUT 50
+PROMPT 1
+
+SAY Rookery OS Live - Press ENTER to boot or wait 5 seconds...
+
+LABEL linux
+    KERNEL /boot/vmlinuz
+    INITRD /boot/initrd.img
+    APPEND root=live:LABEL=ROOKERY_OS rd.live.image rd.live.dir=/LiveOS console=tty0 console=ttyS0,115200n8
+SYSLINUX_CFG
+
+    log_info "ISOLINUX boot configured"
+
+    # Get the isohdpfx.bin for hybrid boot (USB/CD)
+    local isohdpfx=""
+    if [ -f "/usr/lib/ISOLINUX/isohdpfx.bin" ]; then
+        isohdpfx="/usr/lib/ISOLINUX/isohdpfx.bin"
+    elif [ -f "/usr/share/syslinux/isohdpfx.bin" ]; then
+        isohdpfx="/usr/share/syslinux/isohdpfx.bin"
+    else
+        log_error "Missing isohdpfx.bin for hybrid boot"
+        return 1
+    fi
+
+    # Create the ISO with xorriso (using ISOLINUX like Arch/Debian/Ubuntu)
+    # Use -iso-level 3 to support files larger than 4GB (squashfs rootfs.img)
     log_info "Running xorriso..."
     if ! xorriso -as mkisofs \
         -r -J -joliet-long \
+        -iso-level 3 \
+        -full-iso9660-filenames \
         -V "ROOKERY_OS" \
-        -b boot/grub/core.img \
+        -isohybrid-mbr "$isohdpfx" \
+        -eltorito-boot boot/syslinux/isolinux.bin \
+        -eltorito-catalog boot/syslinux/boot.cat \
         -no-emul-boot \
         -boot-load-size 4 \
         -boot-info-table \
-        -isohybrid-mbr /usr/lib/grub/i386-pc/boot_hybrid.img \
         -o "$iso_file" \
         "$iso_root" 2>&1 | tee /tmp/xorriso.log; then
 
@@ -1014,7 +1042,7 @@ create_iso_xorriso() {
         return 1
     fi
 
-    log_info "ISO created with xorriso"
+    log_info "ISO created with xorriso (ISOLINUX boot)"
 }
 
 # Main
@@ -1057,7 +1085,7 @@ A custom Linux distribution for the Friendly Society of Corvids
 Generated: $(date)
 
 Files:
-- ${IMAGE_NAME}.img.gz: Bootable disk image (gzip compressed)
+- ${IMAGE_NAME}.img.xz: Bootable disk image (xz compressed)
 - ${IMAGE_NAME}.iso: Bootable ISO image (hybrid - works on CD/DVD and USB)
 - ${IMAGE_NAME}.tar.gz: System tarball
 
@@ -1065,7 +1093,7 @@ Usage:
 
 == Disk Image (Recommended for VMs) ==
 1. Decompress the image:
-   gunzip ${IMAGE_NAME}.img.gz
+   unxz ${IMAGE_NAME}.img.xz
 
 2. Boot with QEMU (serial console):
    qemu-system-x86_64 -m 2G -smp 2 \\

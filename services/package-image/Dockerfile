@@ -8,6 +8,9 @@ RUN apt-get update && apt-get install -y \
     grub-efi-amd64-bin \
     grub-common \
     grub2-common \
+    isolinux \
+    syslinux \
+    syslinux-common \
     xorriso \
     mtools \
     dosfstools \
@@ -18,6 +21,7 @@ RUN apt-get update && apt-get install -y \
     udev \
     cpio \
     gzip \
+    xz-utils \
     binutils \
     file \
     findutils \
