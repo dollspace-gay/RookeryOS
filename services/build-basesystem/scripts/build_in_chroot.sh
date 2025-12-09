@@ -822,16 +822,6 @@ build_package "flex-*.tar.gz" "Flex" bash -c '
 '
 
 # =====================================================================
-# 8.32 Libtool-2.5.4
-# =====================================================================
-build_package "libtool-*.tar.xz" "Libtool" bash -c '
-    ./configure --prefix=/usr
-    make
-    make install
-    rm -fv /usr/lib/libltdl.a
-'
-
-# =====================================================================
 # 8.34 Bison-3.8.2 (Final)
 # =====================================================================
 # Skip if already built earlier
@@ -1729,8 +1719,8 @@ if [ "$CHECKPOINT_COUNT" -lt "$EXPECTED_PACKAGES" ]; then
     # Package build order (Chapter 8 - full LFS 12.4 systemd build)
     PACKAGE_ORDER=(
         "man-pages" "iana-etc" "glibc" "zlib" "bzip2" "xz" "lz4" "zstd"
-        "file" "libxcrypt" "readline" "m4" "bc" "binutils" "gmp" "mpfr" "mpc"
-        "attr" "acl" "gcc" "shadow" "gdbm" "gettext" "pkgconf" "flex" "libtool"
+        "file" "libxcrypt" "readline" "m4" "bc" "gettext" "libtool" "binutils"
+        "gmp" "mpfr" "mpc" "attr" "acl" "gcc" "shadow" "gdbm" "pkgconf" "flex"
         "bison" "ncurses" "sed" "grep" "bash" "autoconf" "automake" "openssl"
         "libffi" "perl" "expat" "XML-Parser" "gawk" "groff" "less" "libpipeline" "make"
         "patch" "man-db" "inetutils" "psmisc" "intltool" "nano" "elfutils"
