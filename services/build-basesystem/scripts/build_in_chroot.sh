@@ -625,6 +625,30 @@ build_package "bc-*.tar.xz" "Bc" bash -c '
 '
 
 # =====================================================================
+# 8.29 Gettext-0.26 (MOVED EARLIER - required by older attr versions)
+# Must be built before attr for packages that need msgfmt during build
+# =====================================================================
+build_package "gettext-*.tar.xz" "Gettext" bash -c '
+    ./configure --prefix=/usr \
+                --disable-static \
+                --docdir=/usr/share/doc/gettext-0.26
+    make
+    make install
+    chmod -v 0755 /usr/lib/preloadable_libintl.so
+'
+
+# =====================================================================
+# 8.32 Libtool-2.5.4 (MOVED EARLIER - required by older attr versions)
+# Must be built before attr for packages that need libtoolize during build
+# =====================================================================
+build_package "libtool-*.tar.xz" "Libtool" bash -c '
+    ./configure --prefix=/usr
+    make
+    make install
+    rm -fv /usr/lib/libltdl.a
+'
+
+# =====================================================================
 # 8.18 Binutils-2.45
 # =====================================================================
 build_package "binutils-*.tar.xz" "Binutils" bash -c '
@@ -769,18 +793,6 @@ build_package "gdbm-*.tar.gz" "GDBM" bash -c '
                 --enable-libgdbm-compat
     make
     make install
-'
-
-# =====================================================================
-# 8.29 Gettext-0.26
-# =====================================================================
-build_package "gettext-*.tar.xz" "Gettext" bash -c '
-    ./configure --prefix=/usr \
-                --disable-static \
-                --docdir=/usr/share/doc/gettext-0.26
-    make
-    make install
-    chmod -v 0755 /usr/lib/preloadable_libintl.so
 '
 
 # =====================================================================
