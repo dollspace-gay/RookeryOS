@@ -186,12 +186,25 @@ chmod -v 664  /var/log/lastlog
 chmod -v 600  /var/log/btmp
 
 # Gettext (temporary) - skip if tools already available from previous build
+# LFS 12.4 Chapter 7.7 - Need msgfmt, msgmerge, xgettext for packages like attr
 if ! command -v msgfmt >/dev/null 2>&1; then
-    log_step "Building minimal Gettext tools..."
-    # For bootstrap we only need msgfmt, msgmerge, xgettext
-    # Use pre-built binaries from host if available, or skip
-    log_warn "Gettext tools not found but required. Build may need existing gettext."
-    log_warn "Skipping Gettext temporary build - will use final Gettext in Chapter 8"
+    log_step "Building minimal Gettext tools (Chapter 7.7)..."
+    cd /build
+    gettext_tarball=$(ls /sources/gettext-*.tar.xz 2>/dev/null | head -1)
+    if [ -n "$gettext_tarball" ]; then
+        tar -xf "$gettext_tarball"
+        cd gettext-*
+        ./configure --disable-shared
+        make
+        # Install only the essential tools needed for bootstrap
+        cp -v gettext-tools/src/{msgfmt,msgmerge,xgettext} /usr/bin
+        cd /build
+        rm -rf gettext-*
+        log_info "Temporary Gettext tools installed"
+    else
+        log_error "gettext tarball not found in /sources - cannot build temporary tools"
+        exit 1
+    fi
 else
     log_info "Gettext tools already available, skipping temporary build"
 fi
@@ -644,9 +657,7 @@ build_package "gmp-*.tar.xz" "GMP" bash -c '
                 --disable-static \
                 --docdir=/usr/share/doc/gmp-6.3.0
     make
-    make html || true
     make install
-    make install-html || true
 '
 
 # =====================================================================
@@ -658,9 +669,7 @@ build_package "mpfr-*.tar.xz" "MPFR" bash -c '
                 --enable-thread-safe \
                 --docdir=/usr/share/doc/mpfr-4.2.2
     make
-    make html || true
     make install
-    make install-html || true
 '
 
 # =====================================================================
@@ -671,9 +680,7 @@ build_package "mpc-*.tar.gz" "MPC" bash -c '
                 --disable-static \
                 --docdir=/usr/share/doc/mpc-1.3.1
     make
-    make html || true
     make install
-    make install-html || true
 '
 
 # =====================================================================
