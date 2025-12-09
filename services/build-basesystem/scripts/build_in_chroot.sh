@@ -657,9 +657,7 @@ build_package "gmp-*.tar.xz" "GMP" bash -c '
                 --disable-static \
                 --docdir=/usr/share/doc/gmp-6.3.0
     make
-    make html || true
     make install
-    make install-html || true
 '
 
 # =====================================================================
@@ -671,9 +669,7 @@ build_package "mpfr-*.tar.xz" "MPFR" bash -c '
                 --enable-thread-safe \
                 --docdir=/usr/share/doc/mpfr-4.2.2
     make
-    make html || true
     make install
-    make install-html || true
 '
 
 # =====================================================================
@@ -684,9 +680,7 @@ build_package "mpc-*.tar.gz" "MPC" bash -c '
                 --disable-static \
                 --docdir=/usr/share/doc/mpc-1.3.1
     make
-    make html || true
     make install
-    make install-html || true
 '
 
 # =====================================================================
