@@ -625,6 +625,30 @@ build_package "bc-*.tar.xz" "Bc" bash -c '
 '
 
 # =====================================================================
+# 8.29 Gettext-0.26 (MOVED EARLIER - required by older attr versions)
+# Must be built before attr for packages that need msgfmt during build
+# =====================================================================
+build_package "gettext-*.tar.xz" "Gettext" bash -c '
+    ./configure --prefix=/usr \
+                --disable-static \
+                --docdir=/usr/share/doc/gettext-0.26
+    make
+    make install
+    chmod -v 0755 /usr/lib/preloadable_libintl.so
+'
+
+# =====================================================================
+# 8.32 Libtool-2.5.4 (MOVED EARLIER - required by older attr versions)
+# Must be built before attr for packages that need libtoolize during build
+# =====================================================================
+build_package "libtool-*.tar.xz" "Libtool" bash -c '
+    ./configure --prefix=/usr
+    make
+    make install
+    rm -fv /usr/lib/libltdl.a
+'
+
+# =====================================================================
 # 8.18 Binutils-2.45
 # =====================================================================
 build_package "binutils-*.tar.xz" "Binutils" bash -c '
@@ -772,18 +796,6 @@ build_package "gdbm-*.tar.gz" "GDBM" bash -c '
 '
 
 # =====================================================================
-# 8.29 Gettext-0.26
-# =====================================================================
-build_package "gettext-*.tar.xz" "Gettext" bash -c '
-    ./configure --prefix=/usr \
-                --disable-static \
-                --docdir=/usr/share/doc/gettext-0.26
-    make
-    make install
-    chmod -v 0755 /usr/lib/preloadable_libintl.so
-'
-
-# =====================================================================
 # 8.17 Pkgconf-2.5.1 (Required by Kbd and many other packages)
 # =====================================================================
 build_package "pkgconf-*.tar.xz" "Pkgconf" bash -c '
@@ -807,16 +819,6 @@ build_package "flex-*.tar.gz" "Flex" bash -c '
     make install
     ln -sv flex /usr/bin/lex
     ln -sv flex.1 /usr/share/man/man1/lex.1
-'
-
-# =====================================================================
-# 8.32 Libtool-2.5.4
-# =====================================================================
-build_package "libtool-*.tar.xz" "Libtool" bash -c '
-    ./configure --prefix=/usr
-    make
-    make install
-    rm -fv /usr/lib/libltdl.a
 '
 
 # =====================================================================
@@ -1717,8 +1719,8 @@ if [ "$CHECKPOINT_COUNT" -lt "$EXPECTED_PACKAGES" ]; then
     # Package build order (Chapter 8 - full LFS 12.4 systemd build)
     PACKAGE_ORDER=(
         "man-pages" "iana-etc" "glibc" "zlib" "bzip2" "xz" "lz4" "zstd"
-        "file" "libxcrypt" "readline" "m4" "bc" "binutils" "gmp" "mpfr" "mpc"
-        "attr" "acl" "gcc" "shadow" "gdbm" "gettext" "pkgconf" "flex" "libtool"
+        "file" "libxcrypt" "readline" "m4" "bc" "gettext" "libtool" "binutils"
+        "gmp" "mpfr" "mpc" "attr" "acl" "gcc" "shadow" "gdbm" "pkgconf" "flex"
         "bison" "ncurses" "sed" "grep" "bash" "autoconf" "automake" "openssl"
         "libffi" "perl" "expat" "XML-Parser" "gawk" "groff" "less" "libpipeline" "make"
         "patch" "man-db" "inetutils" "psmisc" "intltool" "nano" "elfutils"
