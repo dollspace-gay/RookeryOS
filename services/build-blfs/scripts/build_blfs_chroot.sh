@@ -5239,6 +5239,324 @@ log_info "  - Tooling: cargo-c, docbook-xml, docbook-xsl, PyGObject, shaderc"
 log_info "  - GTK: GTK-3.24.50, GTK-4.18.6"
 log_info ""
 
+# #####################################################################
+# TIER 6: Additional Libraries for KDE Plasma
+# #####################################################################
+
+# =====================================================================
+# double-conversion-3.3.1 (IEEE double conversion library)
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/double-conversion.html
+# Required Dependency: CMake
+# =====================================================================
+should_skip_package "double-conversion" && { log_info "Skipping double-conversion (already built)"; } || {
+log_step "Building double-conversion-3.3.1..."
+
+if [ ! -f /sources/double-conversion-3.3.1.tar.gz ]; then
+    log_error "double-conversion-3.3.1.tar.gz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf double-conversion-*
+tar -xf /sources/double-conversion-3.3.1.tar.gz
+cd double-conversion-*
+
+mkdir build && cd build
+
+cmake -D CMAKE_INSTALL_PREFIX=/usr        \
+      -D CMAKE_POLICY_VERSION_MINIMUM=3.5 \
+      -D BUILD_SHARED_LIBS=ON             \
+      -D BUILD_TESTING=ON                 \
+      ..
+
+make
+
+log_info "Running double-conversion tests..."
+make test || log_warn "Some tests failed"
+
+log_info "Installing double-conversion..."
+make install
+
+cd "$BUILD_DIR"
+rm -rf double-conversion-*
+
+log_info "double-conversion-3.3.1 installed successfully"
+create_checkpoint "double-conversion"
+}
+
+# =====================================================================
+# Little CMS-2.17 (lcms2) - Color management library
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/lcms2.html
+# Optional Dependencies: libjpeg-turbo, libtiff
+# =====================================================================
+should_skip_package "lcms2" && { log_info "Skipping lcms2 (already built)"; } || {
+log_step "Building lcms2-2.17..."
+
+if [ ! -f /sources/lcms2-2.17.tar.gz ]; then
+    log_error "lcms2-2.17.tar.gz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf lcms2-*
+tar -xf /sources/lcms2-2.17.tar.gz
+cd lcms2-*
+
+./configure --prefix=/usr --disable-static
+
+make
+
+log_info "Running lcms2 tests..."
+make check || log_warn "Some tests failed"
+
+log_info "Installing lcms2..."
+make install
+
+cd "$BUILD_DIR"
+rm -rf lcms2-*
+
+log_info "lcms2-2.17 installed successfully"
+create_checkpoint "lcms2"
+}
+
+# =====================================================================
+# jasper-4.2.8 (JPEG-2000 codec)
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/jasper.html
+# Required Dependency: CMake
+# Recommended Dependency: libjpeg-turbo
+# =====================================================================
+should_skip_package "jasper" && { log_info "Skipping jasper (already built)"; } || {
+log_step "Building jasper-4.2.8..."
+
+if [ ! -f /sources/jasper-version-4.2.8.tar.gz ]; then
+    log_error "jasper-version-4.2.8.tar.gz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf jasper-*
+tar -xf /sources/jasper-version-4.2.8.tar.gz
+cd jasper-*
+
+mkdir BUILD && cd BUILD
+
+cmake -D CMAKE_INSTALL_PREFIX=/usr    \
+      -D CMAKE_BUILD_TYPE=Release     \
+      -D CMAKE_SKIP_INSTALL_RPATH=ON  \
+      -D JAS_ENABLE_DOC=NO            \
+      -D ALLOW_IN_SOURCE_BUILD=YES    \
+      -D CMAKE_INSTALL_DOCDIR=/usr/share/doc/jasper-4.2.8 \
+      ..
+
+make
+
+log_info "Running jasper tests..."
+make test || log_warn "Some tests failed"
+
+log_info "Installing jasper..."
+make install
+
+cd "$BUILD_DIR"
+rm -rf jasper-*
+
+log_info "jasper-4.2.8 installed successfully"
+create_checkpoint "jasper"
+}
+
+# =====================================================================
+# Boost-1.89.0 (C++ libraries)
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/boost.html
+# Recommended Dependency: which (should be available from base system)
+# =====================================================================
+should_skip_package "boost" && { log_info "Skipping boost (already built)"; } || {
+log_step "Building Boost-1.89.0..."
+
+if [ ! -f /sources/boost-1.89.0-b2-nodocs.tar.xz ]; then
+    log_error "boost-1.89.0-b2-nodocs.tar.xz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf boost-*
+tar -xf /sources/boost-1.89.0-b2-nodocs.tar.xz
+cd boost-*
+
+# Apply i686 fix if needed (per BLFS book)
+case $(uname -m) in
+   i?86)
+      sed -e "s/defined(__MINGW32__)/& || defined(__i386__)/" \
+          -i ./libs/stacktrace/src/exception_headers.h ;;
+esac
+
+./bootstrap.sh --prefix=/usr --with-python=python3
+
+./b2 stage -j$(nproc) threading=multi link=shared
+
+log_info "Cleaning old Boost cmake directories..."
+rm -rf /usr/lib/cmake/[Bb]oost*
+
+log_info "Installing Boost..."
+./b2 install threading=multi link=shared
+
+cd "$BUILD_DIR"
+rm -rf boost-*
+
+log_info "Boost-1.89.0 installed successfully"
+create_checkpoint "boost"
+}
+
+# =====================================================================
+# NSPR-4.37 (Netscape Portable Runtime)
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/nspr.html
+# Required for NSS (Network Security Services)
+# =====================================================================
+should_skip_package "nspr" && { log_info "Skipping nspr (already built)"; } || {
+log_step "Building NSPR-4.37..."
+
+if [ ! -f /sources/nspr-4.37.tar.gz ]; then
+    log_error "nspr-4.37.tar.gz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf nspr-*
+tar -xf /sources/nspr-4.37.tar.gz
+cd nspr-*
+
+cd nspr
+
+# Apply sed commands from BLFS book
+sed -i '/^RELEASE/s|^|#|' pr/src/misc/Makefile.in
+sed -i 's|$(LIBRARY) ||'  config/rules.mk
+
+./configure --prefix=/usr   \
+            --with-mozilla  \
+            --with-pthreads \
+            $([ $(uname -m) = x86_64 ] && echo --enable-64bit)
+
+make
+
+log_info "Installing NSPR..."
+make install
+
+cd "$BUILD_DIR"
+rm -rf nspr-*
+
+log_info "NSPR-4.37 installed successfully"
+create_checkpoint "nspr"
+}
+
+# =====================================================================
+# liba52-0.8.0 (AC-3 decoder library)
+# https://www.linuxfromscratch.org/blfs/view/12.4/multimedia/liba52.html
+# Required for VLC multimedia codec support
+# =====================================================================
+should_skip_package "liba52" && { log_info "Skipping liba52 (already built)"; } || {
+log_step "Building liba52-0.8.0..."
+
+if [ ! -f /sources/a52dec-0.8.0.tar.gz ]; then
+    log_error "a52dec-0.8.0.tar.gz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf a52dec-*
+tar -xf /sources/a52dec-0.8.0.tar.gz
+cd a52dec-*
+
+./configure --prefix=/usr           \
+            --mandir=/usr/share/man \
+            --enable-shared         \
+            --disable-static        \
+            CFLAGS="${CFLAGS:--g -O3} -fPIC"
+
+make
+
+log_info "Running liba52 tests..."
+make check || log_warn "Some tests failed"
+
+log_info "Installing liba52..."
+make install
+cp liba52/a52_internal.h /usr/include/a52dec
+install -v -m644 -D doc/liba52.txt \
+    /usr/share/doc/liba52-0.8.0/liba52.txt
+
+cd "$BUILD_DIR"
+rm -rf a52dec-*
+
+log_info "liba52-0.8.0 installed successfully"
+create_checkpoint "liba52"
+}
+
+# =====================================================================
+# libmad-0.15.1b (MPEG audio decoder)
+# https://www.linuxfromscratch.org/blfs/view/12.4/multimedia/libmad.html
+# Required patch from BLFS
+# =====================================================================
+should_skip_package "libmad" && { log_info "Skipping libmad (already built)"; } || {
+log_step "Building libmad-0.15.1b..."
+
+if [ ! -f /sources/libmad-0.15.1b.tar.gz ]; then
+    log_error "libmad-0.15.1b.tar.gz not found in /sources"
+    exit 1
+fi
+
+if [ ! -f /sources/libmad-0.15.1b-fixes-1.patch ]; then
+    log_error "libmad-0.15.1b-fixes-1.patch not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf libmad-*
+tar -xf /sources/libmad-0.15.1b.tar.gz
+cd libmad-*
+
+# Apply BLFS patch and fixes
+patch -Np1 -i /sources/libmad-0.15.1b-fixes-1.patch
+sed "s@AM_CONFIG_HEADER@AC_CONFIG_HEADERS@g" -i configure.ac
+touch NEWS AUTHORS ChangeLog
+autoreconf -fi
+
+./configure --prefix=/usr --disable-static
+
+make
+
+log_info "Installing libmad..."
+make install
+
+# Create pkg-config file (per BLFS instructions)
+cat > /usr/lib/pkgconfig/mad.pc << "EOF"
+prefix=/usr
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: mad
+Description: MPEG audio decoder
+Requires:
+Version: 0.15.1b
+Libs: -L${libdir} -lmad
+Cflags: -I${includedir}
+EOF
+
+cd "$BUILD_DIR"
+rm -rf libmad-*
+
+log_info "libmad-0.15.1b installed successfully"
+create_checkpoint "libmad"
+}
+
+log_info ""
+log_info "Tier 6 Additional Libraries completed!"
+log_info "  - double-conversion-3.3.1: IEEE double conversion"
+log_info "  - lcms2-2.17: Color management"
+log_info "  - jasper-4.2.8: JPEG-2000 codec"
+log_info "  - Boost-1.89.0: C++ libraries"
+log_info "  - NSPR-4.37: Netscape Portable Runtime"
+log_info "  - liba52-0.8.0: AC-3 decoder"
+log_info "  - libmad-0.15.1b: MPEG audio decoder"
+log_info ""
+
 # =====================================================================
 # Summary
 # =====================================================================
