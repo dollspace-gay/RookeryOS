@@ -2437,7 +2437,7 @@ build_spirv_headers() {
     log_step "Building SPIRV-Headers-1.4.321.0"
     cd "$BUILD_DIR"
 
-    tar -xf /sources/SPIRV-Headers-1.4.321.0.tar.gz
+    tar -xf /sources/SPIRV-Headers-vulkan-sdk-1.4.321.0.tar.gz
     cd SPIRV-Headers-vulkan-sdk-1.4.321.0
 
     mkdir build && cd build
@@ -2466,7 +2466,7 @@ build_spirv_tools() {
     log_step "Building SPIRV-Tools-1.4.321.0"
     cd "$BUILD_DIR"
 
-    tar -xf /sources/SPIRV-Tools-1.4.321.0.tar.gz
+    tar -xf /sources/SPIRV-Tools-vulkan-sdk-1.4.321.0.tar.gz
     cd SPIRV-Tools-vulkan-sdk-1.4.321.0
 
     mkdir build && cd build
