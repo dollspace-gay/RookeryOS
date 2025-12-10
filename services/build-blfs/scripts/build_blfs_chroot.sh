@@ -3843,7 +3843,7 @@ EOF
 build_pipewire() {
     should_skip_package "pipewire" && { log_info "Skipping PipeWire"; return 0; }
     log_step "Building PipeWire-1.4.7..."
-    cd "$BUILD_DIR" && rm -rf pipewire-* && tar -xf /sources/pipewire-1.4.7.tar.gz && cd pipewire-*
+    cd "$BUILD_DIR" && rm -rf pipewire-* && tar -xf /sources/pipewire-1.4.7.tar.bz2 && cd pipewire-*
     mkdir build && cd build
     meson setup --prefix=/usr --buildtype=release -Dsession-managers=[]
     ninja
