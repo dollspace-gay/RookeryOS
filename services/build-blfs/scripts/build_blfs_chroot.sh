@@ -3863,6 +3863,17 @@ build_wireplumber() {
     create_checkpoint "wireplumber"
 }
 
+# Perl XML::Parser (required for PulseAudio man pages)
+build_perl_xml_parser() {
+    should_skip_package "perl-xml-parser" && { log_info "Skipping Perl XML::Parser"; return 0; }
+    log_step "Building Perl XML::Parser-2.47..."
+    cd "$BUILD_DIR" && rm -rf XML-Parser-* && tar -xf /sources/XML-Parser-2.47.tar.gz && cd XML-Parser-*
+    perl Makefile.PL
+    make
+    make install
+    create_checkpoint "perl-xml-parser"
+}
+
 build_pulseaudio() {
     should_skip_package "pulseaudio" && { log_info "Skipping PulseAudio"; return 0; }
     log_step "Building PulseAudio-17.0..."
@@ -4087,6 +4098,7 @@ build_gstreamer
 build_gst_plugins_base
 
 # Phase 4: Audio Servers (PulseAudio before PipeWire per BLFS recommendations)
+build_perl_xml_parser
 build_pulseaudio
 build_pipewire
 build_wireplumber

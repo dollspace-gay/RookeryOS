@@ -36,7 +36,8 @@
       "Bash(sqlite3:*)",
       "Bash(echo:*)",
       "Bash(python:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(bash -n:*)"
     ],
     "deny": [],
     "ask": []
