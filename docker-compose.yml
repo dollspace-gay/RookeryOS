@@ -162,7 +162,7 @@ services:
       - SERVICE_NAME=build-kernel
     restart: "no"
     depends_on:
-      configure-system:
+      build-blfs:
         condition: service_completed_successfully
 
   # ============================================================================
