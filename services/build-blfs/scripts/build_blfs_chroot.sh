@@ -3480,21 +3480,29 @@ build_xorg_libraries() {
 
         # Handle GitLab tarballs which have different directory names
         # GitLab format: libxtrans-xtrans-1.6.0, libfs-libFS-1.0.10, etc.
+        # But xorg.freedesktop.org tarballs extract to simple names (xtrans-1.6.0)
         local actual_dir=""
-        case $packagedir in
-            xtrans-* )
-                actual_dir="libxtrans-$packagedir"
-                ;;
-            libFS-* )
-                actual_dir="libfs-$packagedir"
-                ;;
-            libXpresent-* )
-                actual_dir="libxpresent-$packagedir"
-                ;;
-            * )
-                actual_dir="$packagedir"
-                ;;
-        esac
+
+        # First check if the simple directory name exists (xorg.freedesktop.org format)
+        if [ -d "$packagedir" ]; then
+            actual_dir="$packagedir"
+        else
+            # Try GitLab format
+            case $packagedir in
+                xtrans-* )
+                    actual_dir="libxtrans-$packagedir"
+                    ;;
+                libFS-* )
+                    actual_dir="libfs-$packagedir"
+                    ;;
+                libXpresent-* )
+                    actual_dir="libxpresent-$packagedir"
+                    ;;
+                * )
+                    actual_dir="$packagedir"
+                    ;;
+            esac
+        fi
 
         if [ ! -d "$actual_dir" ]; then
             log_error "Directory $actual_dir not found after extraction"
