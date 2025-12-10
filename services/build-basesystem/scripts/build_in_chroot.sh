@@ -717,8 +717,9 @@ build_package "attr-*.tar.gz" "Attr" bash -c '
                 --docdir=/usr/share/doc/attr-2.5.2
     make
     make install
-    # Install development headers required by ACL
+    # Install development headers and libraries required by ACL
     make install-dev
+    make install-lib
 '
 
 # =====================================================================
