@@ -3370,12 +3370,12 @@ build_freetype() {
     sed -r "s:.*(#.*SUBPIXEL_RENDERING) .*:\1:" \
         -i include/freetype/config/ftoption.h
 
-    # Build WITHOUT HarfBuzz (--without-harfbuzz) - HarfBuzz doesn't exist yet
-    # FreeType will be rebuilt with HarfBuzz support after HarfBuzz is installed
+    # Build WITHOUT HarfBuzz and WITHOUT PNG (neither exist yet)
+    # FreeType will be rebuilt with HarfBuzz + PNG support after they are installed
     ./configure --prefix=/usr          \
                 --enable-freetype-config \
                 --disable-static       \
-                --with-png             \
+                --without-png          \
                 --without-harfbuzz
 
     make
