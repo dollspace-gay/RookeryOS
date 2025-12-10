@@ -717,9 +717,6 @@ build_package "attr-*.tar.gz" "Attr" bash -c '
                 --docdir=/usr/share/doc/attr-2.5.2
     make
     make install
-    # Install development headers and libraries required by ACL
-    make install-dev
-    make install-lib
 '
 
 # =====================================================================
@@ -1137,13 +1134,15 @@ build_package "nano-*.tar.xz" "Nano" bash -c '
 # Elfutils-0.193 (Required by some packages)
 # =====================================================================
 build_package "elfutils-*.tar.bz2" "Elfutils" bash -c '
+    # Disable -Werror to avoid compilation failures with newer GCC
     ./configure --prefix=/usr \
                 --disable-debuginfod \
-                --enable-libdebuginfod=dummy
+                --enable-libdebuginfod=dummy \
+                --disable-werror
     make
     make -C libelf install
     install -vm644 config/libelf.pc /usr/lib/pkgconfig
-    rm /usr/lib/libelf.a
+    rm -f /usr/lib/libelf.a
 '
 
 fi  # End of if [ "$BUILD_STAGE" = "remaining" ] || [ "$BUILD_STAGE" = "all" ]

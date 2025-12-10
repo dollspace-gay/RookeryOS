@@ -31,7 +31,8 @@
       "Bash(wsl bash -c \"cd /mnt/c/Users/texas/rookery/RookeryOS && docker-compose build --no-cache build-blfs\")",
       "Bash(wsl bash -c \"cd /mnt/c/Users/texas/rookery/RookeryOS && docker run --rm -v easylfs_lfs-rootfs:/lfs ubuntu:22.04 sh -c ''rm -f /lfs/.checkpoints/blfs-complete.checkpoint && ls /lfs/.checkpoints/ | grep blfs-complete || echo Checkpoint removed''\")",
       "Bash(wsl bash:*)",
-      "Bash(wsl git:*)"
+      "Bash(wsl git:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []
