@@ -4467,9 +4467,6 @@ rebuild_freetype() {
     # Enable Subpixel Rendering
     sed -r "s:.*(#.*SUBPIXEL_RENDERING) .*:\1:" -i include/freetype/config/ftoption.h
 
-    # Clean any stale libtool configuration
-    rm -f builds/unix/libtool config.cache
-
     # NOW we can enable HarfBuzz support since HarfBuzz is installed
     ./configure --prefix=/usr          \
                 --libdir=/usr/lib      \
@@ -4479,7 +4476,10 @@ rebuild_freetype() {
                 --with-harfbuzz        \
                 --with-brotli          \
                 --with-bzip2
-    make clean || true
+
+    # Fix libtool @libdir@ corruption issue
+    sed -i 's|@libdir@|/usr/lib|g' builds/unix/libtool
+
     make
     make install
     create_checkpoint "freetype-rebuild"
