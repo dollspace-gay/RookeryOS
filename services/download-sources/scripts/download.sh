@@ -236,6 +236,48 @@ main() {
     # Download from BLFS mirror
     download_from_mirror "$BLFS_MIRROR" "BLFS"
 
+    # =============================================================================
+    # Download packages not on mirror (Tier 7: Qt6 and Pre-KDE dependencies)
+    # These packages are required for Qt6/KDE but aren't on the corvidae mirror yet
+    # =============================================================================
+    log_info "========================================="
+    log_info "Downloading additional Tier 7 packages..."
+    log_info "========================================="
+
+    # libuv-1.51.0 (required by Node.js)
+    if [ ! -f "$SOURCES_DIR/libuv-v1.51.0.tar.gz" ]; then
+        download_with_retry "https://dist.libuv.org/dist/v1.51.0/libuv-v1.51.0.tar.gz" \
+            "$SOURCES_DIR/libuv-v1.51.0.tar.gz"
+    else
+        log_info "[SKIP] libuv-v1.51.0.tar.gz (already exists)"
+    fi
+
+    # nghttp2-1.66.0 (required by Node.js with --shared-nghttp2)
+    if [ ! -f "$SOURCES_DIR/nghttp2-1.66.0.tar.xz" ]; then
+        download_with_retry "https://github.com/nghttp2/nghttp2/releases/download/v1.66.0/nghttp2-1.66.0.tar.xz" \
+            "$SOURCES_DIR/nghttp2-1.66.0.tar.xz"
+    else
+        log_info "[SKIP] nghttp2-1.66.0.tar.xz (already exists)"
+    fi
+
+    # Node.js v22.18.0 (required by QtWebEngine)
+    if [ ! -f "$SOURCES_DIR/node-v22.18.0.tar.xz" ]; then
+        download_with_retry "https://nodejs.org/dist/v22.18.0/node-v22.18.0.tar.xz" \
+            "$SOURCES_DIR/node-v22.18.0.tar.xz"
+    else
+        log_info "[SKIP] node-v22.18.0.tar.xz (already exists)"
+    fi
+
+    # CUPS 2.4.12 (printing support)
+    if [ ! -f "$SOURCES_DIR/cups-2.4.12-source.tar.gz" ]; then
+        download_with_retry "https://github.com/OpenPrinting/cups/releases/download/v2.4.12/cups-2.4.12-source.tar.gz" \
+            "$SOURCES_DIR/cups-2.4.12-source.tar.gz"
+    else
+        log_info "[SKIP] cups-2.4.12-source.tar.gz (already exists)"
+    fi
+
+    log_info "Tier 7 additional downloads complete"
+
     # Check for any failures
     if [ -s "$FAILED_DOWNLOADS_FILE" ]; then
         log_error "========================================="

@@ -5963,6 +5963,44 @@ create_checkpoint "libmng"
 }
 
 # =====================================================================
+# SQLite-3.50.4 (SQL database engine)
+# https://www.linuxfromscratch.org/blfs/view/12.4/server/sqlite.html
+# Required for Qt6 with -system-sqlite
+# =====================================================================
+build_sqlite() {
+should_skip_package "sqlite" && { log_info "Skipping SQLite (already built)"; return 0; }
+log_step "Building SQLite-3.50.4..."
+
+if [ ! -f /sources/sqlite-autoconf-3500400.tar.gz ]; then
+    log_error "sqlite-autoconf-3500400.tar.gz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf sqlite-autoconf-*
+tar -xf /sources/sqlite-autoconf-3500400.tar.gz
+cd sqlite-autoconf-*
+
+./configure --prefix=/usr     \
+            --disable-static  \
+            --enable-fts4     \
+            --enable-fts5     \
+            CPPFLAGS="-DSQLITE_ENABLE_COLUMN_METADATA=1 \
+                      -DSQLITE_ENABLE_UNLOCK_NOTIFY=1   \
+                      -DSQLITE_ENABLE_DBSTAT_VTAB=1     \
+                      -DSQLITE_SECURE_DELETE=1"
+
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf sqlite-autoconf-*
+
+log_info "SQLite-3.50.4 installed successfully"
+create_checkpoint "sqlite"
+}
+
+# =====================================================================
 # Qt-6.9.2 (Qt6 cross-platform framework)
 # https://www.linuxfromscratch.org/blfs/view/12.4/x/qt6.html
 # =====================================================================
@@ -6157,7 +6195,9 @@ sed -e '/PACKAGE_INIT/i set(SAVE_PACKAGE_PREFIX_DIR "${PACKAGE_PREFIX_DIR}")' \
 mkdir build
 cd    build
 
-cmake -D CMAKE_INSTALL_PREFIX=/usr -D BUILD_WITH_QT6=ON ..
+cmake -DCMAKE_INSTALL_PREFIX=/usr \
+      -DCMAKE_PREFIX_PATH=/opt/qt6 \
+      -DBUILD_WITH_QT6=ON ..
 make
 make install
 
@@ -6195,11 +6235,20 @@ sed -i 's@cert.pem@certs/ca-bundle.crt@' CMakeLists.txt
 mkdir build
 cd    build
 
-cmake -D CMAKE_INSTALL_PREFIX=$QT6PREFIX            \
-      -D CMAKE_BUILD_TYPE=Release                \
-      -D QT6=ON                                  \
-      -D QCA_INSTALL_IN_QT_PREFIX=ON             \
-      -D QCA_MAN_INSTALL_DIR:PATH=/usr/share/man \
+# Use hardcoded paths to avoid any variable expansion issues with newlines
+cmake -DCMAKE_INSTALL_PREFIX=/opt/qt6 \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DQT6=ON \
+      -DQCA_INSTALL_IN_QT_PREFIX=ON \
+      -DQCA_MAN_INSTALL_DIR=/usr/share/man \
+      -DQCA_PLUGINS_INSTALL_DIR=/opt/qt6/lib/qca-qt6 \
+      -DQCA_BINARY_INSTALL_DIR=/opt/qt6/bin \
+      -DQCA_LIBRARY_INSTALL_DIR=/opt/qt6/lib \
+      -DQCA_INCLUDE_INSTALL_DIR=/opt/qt6/include/Qca-qt6 \
+      -DQCA_PRIVATE_INCLUDE_INSTALL_DIR=/opt/qt6/include/Qca-qt6/QtCrypto/private \
+      -DQCA_DOC_INSTALL_DIR=/opt/qt6/share/doc/qca \
+      -DQCA_PREFIX_INSTALL_DIR=/opt/qt6 \
+      -DBUILD_WITH_QT6=ON \
       ..
 
 make
@@ -6274,10 +6323,12 @@ cd phonon-*
 mkdir build
 cd    build
 
-cmake -D CMAKE_INSTALL_PREFIX=/usr \
-      -D CMAKE_BUILD_TYPE=Release  \
-      -D PHONON_BUILD_QT5=OFF      \
-      -W no-dev ..
+cmake -DCMAKE_INSTALL_PREFIX=/usr \
+      -DCMAKE_PREFIX_PATH=/opt/qt6 \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DPHONON_BUILD_QT5=OFF \
+      -DPHONON_BUILD_QT6=ON \
+      -Wno-dev ..
 
 make
 make install
@@ -6364,9 +6415,11 @@ cd phonon-backend-vlc-*
 mkdir build
 cd    build
 
-cmake -D CMAKE_INSTALL_PREFIX=/usr \
-      -D CMAKE_BUILD_TYPE=Release  \
-      -D PHONON_BUILD_QT5=OFF      \
+cmake -DCMAKE_INSTALL_PREFIX=/usr \
+      -DCMAKE_PREFIX_PATH=/opt/qt6 \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DPHONON_BUILD_QT5=OFF \
+      -DPHONON_BUILD_QT6=ON \
       ..
 
 make
@@ -6400,10 +6453,11 @@ cd polkit-qt-*
 mkdir build
 cd    build
 
-cmake -D CMAKE_INSTALL_PREFIX=/usr \
-      -D CMAKE_BUILD_TYPE=Release  \
-      -D QT_MAJOR_VERSION=6        \
-      -W no-dev ..
+cmake -DCMAKE_INSTALL_PREFIX=/usr \
+      -DCMAKE_PREFIX_PATH=/opt/qt6 \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DQT_MAJOR_VERSION=6 \
+      -Wno-dev ..
 
 make
 make install
@@ -6448,6 +6502,47 @@ create_checkpoint "plasma-wayland-protocols"
 }
 
 # =====================================================================
+# Ninja NINJAJOBS patch (rebuild ninja to support NINJAJOBS env var)
+# https://www.linuxfromscratch.org/lfs/view/12.4-systemd/chapter08/ninja.html
+# Required for QtWebEngine to respect parallel job limits
+# =====================================================================
+rebuild_ninja_with_ninjajobs() {
+should_skip_package "ninja-ninjajobs" && { log_info "Skipping ninja rebuild (already patched)"; return 0; }
+log_step "Rebuilding Ninja with NINJAJOBS support..."
+
+if [ ! -f /sources/ninja-1.13.1.tar.gz ]; then
+    log_error "ninja-1.13.1.tar.gz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf ninja-*
+tar -xf /sources/ninja-1.13.1.tar.gz
+cd ninja-*
+
+# Apply the NINJAJOBS patch from LFS book
+# This adds support for the NINJAJOBS environment variable
+sed -i '/int Guess/a \
+  int   j = 0;\
+  char* jobs = getenv( "NINJAJOBS" );\
+  if ( jobs != NULL ) j = atoi( jobs );\
+  if ( j > 0 ) return j;\
+' src/ninja.cc
+
+# Build ninja
+python3 configure.py --bootstrap --verbose
+
+# Install the patched ninja
+install -vm755 ninja /usr/bin/
+
+cd "$BUILD_DIR"
+rm -rf ninja-*
+
+log_info "Ninja rebuilt with NINJAJOBS support"
+create_checkpoint "ninja-ninjajobs"
+}
+
+# =====================================================================
 # QtWebEngine-6.9.2 (Chromium-based web engine for Qt)
 # https://www.linuxfromscratch.org/blfs/view/12.4/x/qtwebengine.html
 # =====================================================================
@@ -6464,26 +6559,56 @@ fi
 export QT6PREFIX=/opt/qt6
 
 cd "$BUILD_DIR"
-rm -rf qtwebengine-*
-tar -xf /sources/qtwebengine-everywhere-src-6.9.2.tar.xz
-cd qtwebengine-*
 
-mkdir build
-cd    build
+# Check if we can resume a previous build (don't wipe if ninja build dir exists)
+if [ -f "qtwebengine-everywhere-src-6.9.2/build/.ninja_log" ] || [ -d "qtwebengine-everywhere-src-6.9.2/build/src" ]; then
+    log_info "Resuming previous QtWebEngine build..."
+    cd qtwebengine-everywhere-src-6.9.2/build
+else
+    # Fresh build - extract and configure
+    log_info "Starting fresh QtWebEngine build..."
+    rm -rf qtwebengine-*
+    tar -xf /sources/qtwebengine-everywhere-src-6.9.2.tar.xz
+    cd qtwebengine-*
 
-cmake -D CMAKE_MESSAGE_LOG_LEVEL=STATUS             \
-      -D QT_FEATURE_webengine_system_ffmpeg=ON      \
-      -D QT_FEATURE_webengine_system_icu=ON         \
-      -D QT_FEATURE_webengine_system_libevent=ON    \
-      -D QT_FEATURE_webengine_proprietary_codecs=ON \
-      -D QT_FEATURE_webengine_webrtc_pipewire=ON    \
-      -D QT_BUILD_EXAMPLES_BY_DEFAULT=OFF           \
-      -D QT_GENERATE_SBOM=OFF                       \
-      -G Ninja ..
+    mkdir -p build
+    cd    build
 
-ninja
+    # QtWebEngine (Chromium) is extremely memory-intensive
+    # BLFS recommends ~1 core per 1.5GB RAM to avoid OOM
+    # Use NINJAJOBS env var which nested chromium ninja builds will respect
+    export NINJAJOBS=4
+    export NINJAFLAGS="-j4"
+    log_info "Building QtWebEngine with NINJAJOBS=$NINJAJOBS (memory-intensive Chromium build)"
 
-ninja install
+    cmake -DCMAKE_MESSAGE_LOG_LEVEL=STATUS \
+          -DCMAKE_PREFIX_PATH=/opt/qt6 \
+          -DQT_FEATURE_webengine_system_ffmpeg=OFF \
+          -DQT_FEATURE_webengine_system_icu=ON \
+          -DQT_FEATURE_webengine_system_libevent=ON \
+          -DQT_FEATURE_webengine_proprietary_codecs=ON \
+          -DQT_FEATURE_webengine_webrtc_pipewire=ON \
+          -DQT_BUILD_EXAMPLES_BY_DEFAULT=OFF \
+          -DQT_GENERATE_SBOM=OFF \
+          -G Ninja ..
+fi
+
+# Set NINJAJOBS for the actual build (both fresh and resumed)
+export NINJAJOBS=4
+export NINJAFLAGS="-j4"
+
+# Run with NINJAJOBS environment variable set for nested builds
+log_info "Running ninja build with NINJAJOBS=$NINJAJOBS..."
+if ! NINJAJOBS=4 ninja -j4; then
+    log_error "QtWebEngine ninja build failed - you can resume by re-running the build"
+    return 1
+fi
+
+log_info "Running ninja install..."
+if ! ninja install; then
+    log_error "QtWebEngine ninja install failed"
+    return 1
+fi
 
 cd "$BUILD_DIR"
 rm -rf qtwebengine-*
@@ -6526,6 +6651,8 @@ create_checkpoint "html5lib"
 log_info "Phase 1: Pre-Qt Dependencies"
 build_libwebp
 build_pciutils
+# SQLite must be built BEFORE NSS so NSS uses system SQLite (avoids symbol versioning issues)
+build_sqlite
 build_nss
 build_libmng
 build_desktop_file_utils
@@ -6551,6 +6678,7 @@ build_plasma_wayland_protocols
 log_info "Phase 5: Multimedia and Web Engine"
 build_vlc
 build_phonon_backend_vlc
+rebuild_ninja_with_ninjajobs  # Required for QtWebEngine to respect NINJAJOBS
 build_qtwebengine
 
 log_info ""
@@ -6564,6 +6692,7 @@ log_info "  - Node.js-22.18.0: JavaScript runtime"
 log_info "  - CUPS-2.4.12: Printing system"
 log_info "  - desktop-file-utils-0.28: Desktop file utilities"
 log_info "  - libmng-2.0.3: MNG image library"
+log_info "  - SQLite-3.50.4: SQL database engine"
 log_info "  - Qt-6.9.2: Qt6 framework"
 log_info "  - extra-cmake-modules-6.17.0: KDE CMake modules"
 log_info "  - qca-2.3.10: Qt Cryptographic Architecture"
