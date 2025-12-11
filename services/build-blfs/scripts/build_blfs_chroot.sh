@@ -3854,7 +3854,7 @@ build_pipewire() {
 build_wireplumber() {
     should_skip_package "wireplumber" && { log_info "Skipping WirePlumber"; return 0; }
     log_step "Building WirePlumber-0.5.10..."
-    cd "$BUILD_DIR" && rm -rf wireplumber-* && tar -xf /sources/wireplumber-0.5.10.tar.gz && cd wireplumber-*
+    cd "$BUILD_DIR" && rm -rf wireplumber-* && tar -xf /sources/wireplumber-0.5.10.tar.bz2 && cd wireplumber-*
     mkdir build && cd build
     meson setup --prefix=/usr --buildtype=release -D system-lua=true ..
     ninja
