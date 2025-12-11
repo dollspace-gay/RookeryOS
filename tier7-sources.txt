@@ -1,0 +1,61 @@
+# Tier 7: Qt6 and Pre-KDE Dependencies - Source URLs for Corvidae Mirror
+# All these sources are already present in the Docker volume
+# These URLs are from BLFS 12.4 documentation
+
+# libwebp-1.6.0
+wget https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.6.0.tar.gz
+
+# pciutils-3.14.0
+wget https://mj.ucw.cz/download/linux/pci/pciutils-3.14.0.tar.gz
+
+# NSS-3.115
+wget https://archive.mozilla.org/pub/security/nss/releases/NSS_3_115_RTM/src/nss-3.115.tar.gz
+wget https://www.linuxfromscratch.org/patches/blfs/12.4/nss-standalone-1.patch
+
+# Node.js-22.18.0
+wget https://nodejs.org/dist/v22.18.0/node-v22.18.0.tar.xz
+
+# CUPS-2.4.12
+wget https://github.com/OpenPrinting/cups/releases/download/v2.4.12/cups-2.4.12-source.tar.gz
+
+# desktop-file-utils-0.28
+wget https://www.freedesktop.org/software/desktop-file-utils/releases/desktop-file-utils-0.28.tar.xz
+
+# libmng-2.0.3
+wget https://sourceforge.net/projects/libmng/files/libmng-devel/2.0.3/libmng-2.0.3.tar.xz
+
+# Qt-6.9.2
+wget https://download.qt.io/official_releases/qt/6.9/6.9.2/single/qt-everywhere-src-6.9.2.tar.xz
+
+# extra-cmake-modules-6.17.0
+wget https://download.kde.org/stable/frameworks/6.17/extra-cmake-modules-6.17.0.tar.xz
+wget https://www.linuxfromscratch.org/patches/blfs/12.4/extra-cmake-modules-6.17.0-upstream_fix-1.patch
+
+# qca-2.3.10
+wget https://download.kde.org/stable/qca/2.3.10/qca-2.3.10.tar.xz
+
+# qcoro-0.12.0
+wget https://github.com/danvratil/qcoro/archive/v0.12.0/qcoro-0.12.0.tar.gz
+
+# Phonon-4.12.0
+wget https://download.kde.org/stable/phonon/4.12.0/phonon-4.12.0.tar.xz
+
+# VLC-3.0.21
+wget https://download.videolan.org/vlc/3.0.21/vlc-3.0.21.tar.xz
+wget https://www.linuxfromscratch.org/patches/blfs/12.4/vlc-3.0.21-taglib-1.patch
+wget https://www.linuxfromscratch.org/patches/blfs/12.4/vlc-3.0.21-fedora_ffmpeg7-1.patch
+
+# Phonon-backend-vlc-0.12.0
+wget https://download.kde.org/stable/phonon/phonon-backend-vlc/0.12.0/phonon-backend-vlc-0.12.0.tar.xz
+
+# Polkit-Qt-0.200.0
+wget https://download.kde.org/stable/polkit-qt-1/polkit-qt-1-0.200.0.tar.xz
+
+# plasma-wayland-protocols-1.18.0
+wget https://download.kde.org/stable/plasma-wayland-protocols/plasma-wayland-protocols-1.18.0.tar.xz
+
+# QtWebEngine-6.9.2
+wget https://download.qt.io/official_releases/qt/6.9/6.9.2/submodules/qtwebengine-everywhere-src-6.9.2.tar.xz
+
+# html5lib-1.1 (Python module for QtWebEngine build)
+wget https://files.pythonhosted.org/packages/source/h/html5lib/html5lib-1.1.tar.gz

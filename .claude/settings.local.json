@@ -37,7 +37,8 @@
       "Bash(echo:*)",
       "Bash(python:*)",
       "Bash(find:*)",
-      "Bash(bash -n:*)"
+      "Bash(bash -n:*)",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "ask": []

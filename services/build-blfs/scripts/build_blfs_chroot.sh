@@ -4159,27 +4159,27 @@ build_brotli() {
     make
     make install
 
-    # Create pkg-config files per BLFS
+    # Create pkg-config files - use lowercase variable names to match .pc.in files
     cd ..
-    sed -e "s,@PREFIX@,/usr," \
-        -e "s,@EXEC_PREFIX@,/usr," \
-        -e "s,@LIBDIR@,/usr/lib," \
-        -e "s,@INCLUDEDIR@,/usr/include," \
-        -e "s,@PACKAGE_VERSION@,1.1.0," \
+    sed -e "s|@prefix@|/usr|g" \
+        -e "s|@exec_prefix@|/usr|g" \
+        -e "s|@libdir@|/usr/lib|g" \
+        -e "s|@includedir@|/usr/include|g" \
+        -e "s|@PACKAGE_VERSION@|1.1.0|g" \
         scripts/libbrotlicommon.pc.in > /usr/lib/pkgconfig/libbrotlicommon.pc
 
-    sed -e "s,@PREFIX@,/usr," \
-        -e "s,@EXEC_PREFIX@,/usr," \
-        -e "s,@LIBDIR@,/usr/lib," \
-        -e "s,@INCLUDEDIR@,/usr/include," \
-        -e "s,@PACKAGE_VERSION@,1.1.0," \
+    sed -e "s|@prefix@|/usr|g" \
+        -e "s|@exec_prefix@|/usr|g" \
+        -e "s|@libdir@|/usr/lib|g" \
+        -e "s|@includedir@|/usr/include|g" \
+        -e "s|@PACKAGE_VERSION@|1.1.0|g" \
         scripts/libbrotlidec.pc.in > /usr/lib/pkgconfig/libbrotlidec.pc
 
-    sed -e "s,@PREFIX@,/usr," \
-        -e "s,@EXEC_PREFIX@,/usr," \
-        -e "s,@LIBDIR@,/usr/lib," \
-        -e "s,@INCLUDEDIR@,/usr/include," \
-        -e "s,@PACKAGE_VERSION@,1.1.0," \
+    sed -e "s|@prefix@|/usr|g" \
+        -e "s|@exec_prefix@|/usr|g" \
+        -e "s|@libdir@|/usr/lib|g" \
+        -e "s|@includedir@|/usr/include|g" \
+        -e "s|@PACKAGE_VERSION@|1.1.0|g" \
         scripts/libbrotlienc.pc.in > /usr/lib/pkgconfig/libbrotlienc.pc
 
     create_checkpoint "brotli"
@@ -4685,6 +4685,10 @@ build_gdk_pixbuf() {
 build_cargo_c() {
     should_skip_package "cargo-c" && { log_info "Skipping cargo-c"; return 0; }
     log_step "Building cargo-c-0.10.15..."
+
+    # Ensure Rust is in PATH (may have been skipped due to checkpoint)
+    export PATH=/opt/rustc/bin:$PATH
+
     cd "$BUILD_DIR" && rm -rf cargo-c-* && tar -xf /sources/cargo-c-0.10.15.tar.gz && cd cargo-c-*
 
     cargo build --release
@@ -4777,6 +4781,7 @@ build_gsettings_desktop_schemas() {
 
 # docbook-xml-4.5 (DocBook XML DTDs - required by docbook-xsl)
 # https://www.linuxfromscratch.org/blfs/view/12.4/pst/docbook.html
+# Using Debian's tar.gz instead of OASIS zip (avoids need for unzip)
 build_docbook_xml() {
     should_skip_package "docbook-xml" && { log_info "Skipping docbook-xml"; return 0; }
     log_step "Installing docbook-xml-4.5..."
@@ -4786,9 +4791,9 @@ build_docbook_xml() {
     install -v -d -m755 /usr/share/xml/docbook/xml-dtd-4.5
     install -v -d -m755 /etc/xml
 
-    # Extract and install
+    # Extract and install (using tar.gz from Debian instead of zip)
     cd /usr/share/xml/docbook/xml-dtd-4.5
-    unzip -q /sources/docbook-xml-4.5.zip
+    tar -xf /sources/docbook-xml_4.5.orig.tar.gz --strip-components=1
 
     # Create XML catalog if it doesn't exist
     if [ ! -f /etc/xml/docbook ]; then
@@ -5570,6 +5575,930 @@ log_info "  - Boost-1.89.0: C++ libraries"
 log_info "  - NSPR-4.37: Netscape Portable Runtime"
 log_info "  - liba52-0.8.0: AC-3 decoder"
 log_info "  - libmad-0.15.1b: MPEG audio decoder"
+log_info ""
+
+# =====================================================================
+# TIER 7: Qt6 and Pre-KDE Dependencies
+# =====================================================================
+log_info ""
+log_info "=========================================="
+log_info "Tier 7: Qt6 and Pre-KDE Dependencies"
+log_info "=========================================="
+log_info ""
+
+# =====================================================================
+# libwebp-1.6.0 (WebP image format library)
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/libwebp.html
+# =====================================================================
+build_libwebp() {
+should_skip_package "libwebp" && { log_info "Skipping libwebp (already built)"; return 0; }
+log_step "Building libwebp-1.6.0..."
+
+if [ ! -f /sources/libwebp-1.6.0.tar.gz ]; then
+    log_error "libwebp-1.6.0.tar.gz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf libwebp-*
+tar -xf /sources/libwebp-1.6.0.tar.gz
+cd libwebp-*
+
+./configure --prefix=/usr           \
+            --enable-libwebpmux     \
+            --enable-libwebpdemux   \
+            --enable-libwebpdecoder \
+            --enable-libwebpextras  \
+            --enable-swap-16bit-csp \
+            --disable-static
+
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf libwebp-*
+
+log_info "libwebp-1.6.0 installed successfully"
+create_checkpoint "libwebp"
+}
+
+# =====================================================================
+# pciutils-3.14.0 (PCI utilities)
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/pciutils.html
+# =====================================================================
+build_pciutils() {
+should_skip_package "pciutils" && { log_info "Skipping pciutils (already built)"; return 0; }
+log_step "Building pciutils-3.14.0..."
+
+if [ ! -f /sources/pciutils-3.14.0.tar.gz ]; then
+    log_error "pciutils-3.14.0.tar.gz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf pciutils-*
+tar -xf /sources/pciutils-3.14.0.tar.gz
+cd pciutils-*
+
+# Prevent installation of pci.ids to avoid conflict with hwdata
+sed -r '/INSTALL/{/PCI_IDS|update-pciids /d; s/update-pciids.8//}' \
+    -i Makefile
+
+make PREFIX=/usr                \
+     SHAREDIR=/usr/share/hwdata \
+     SHARED=yes
+
+make PREFIX=/usr                \
+     SHAREDIR=/usr/share/hwdata \
+     SHARED=yes                 \
+     install install-lib
+
+chmod -v 755 /usr/lib/libpci.so
+
+cd "$BUILD_DIR"
+rm -rf pciutils-*
+
+log_info "pciutils-3.14.0 installed successfully"
+create_checkpoint "pciutils"
+}
+
+# =====================================================================
+# NSS-3.115 (Network Security Services)
+# https://www.linuxfromscratch.org/blfs/view/12.4/postlfs/nss.html
+# Required patch: nss-standalone-1.patch
+# =====================================================================
+build_nss() {
+should_skip_package "nss" && { log_info "Skipping NSS (already built)"; return 0; }
+log_step "Building NSS-3.115..."
+
+if [ ! -f /sources/nss-3.115.tar.gz ]; then
+    log_error "nss-3.115.tar.gz not found in /sources"
+    return 1
+fi
+
+if [ ! -f /sources/nss-standalone-1.patch ]; then
+    log_error "nss-standalone-1.patch not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf nss-*
+tar -xf /sources/nss-3.115.tar.gz
+cd nss-*
+
+patch -Np1 -i /sources/nss-standalone-1.patch
+
+cd nss
+
+make BUILD_OPT=1                      \
+     NSPR_INCLUDE_DIR=/usr/include/nspr  \
+     USE_SYSTEM_ZLIB=1                   \
+     ZLIB_LIBS=-lz                       \
+     NSS_ENABLE_WERROR=0                 \
+     NSS_DISABLE_GTESTS=1                \
+     $([ $(uname -m) = x86_64 ] && echo USE_64=1) \
+     $([ -f /usr/include/sqlite3.h ] && echo NSS_USE_SYSTEM_SQLITE=1)
+
+cd ../dist
+
+install -v -m755 Linux*/lib/*.so              /usr/lib
+install -v -m644 Linux*/lib/{*.chk,libcrmf.a} /usr/lib
+
+install -v -m755 -d                           /usr/include/nss
+cp -v -RL {public,private}/nss/*              /usr/include/nss
+
+install -v -m755 Linux*/bin/{certutil,nss-config,pk12util} /usr/bin
+
+install -v -m644 Linux*/lib/pkgconfig/nss.pc  /usr/lib/pkgconfig
+
+# Link p11-kit trust module if p11-kit is installed
+if [ -f /usr/lib/pkcs11/p11-kit-trust.so ]; then
+    ln -sfv ./pkcs11/p11-kit-trust.so /usr/lib/libnssckbi.so
+fi
+
+cd "$BUILD_DIR"
+rm -rf nss-*
+
+log_info "NSS-3.115 installed successfully"
+create_checkpoint "nss"
+}
+
+# =====================================================================
+# Node.js-22.18.0 (JavaScript runtime)
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/nodejs.html
+# =====================================================================
+build_nodejs() {
+should_skip_package "nodejs" && { log_info "Skipping Node.js (already built)"; return 0; }
+log_step "Building Node.js-22.18.0..."
+
+if [ ! -f /sources/node-v22.18.0.tar.xz ]; then
+    log_error "node-v22.18.0.tar.xz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf node-*
+tar -xf /sources/node-v22.18.0.tar.xz
+cd node-*
+
+./configure --prefix=/usr          \
+            --shared-brotli        \
+            --shared-cares         \
+            --shared-libuv         \
+            --shared-openssl       \
+            --shared-nghttp2       \
+            --shared-zlib          \
+            --with-intl=system-icu
+
+make
+
+make install
+ln -sf node /usr/share/doc/node-22.18.0
+
+cd "$BUILD_DIR"
+rm -rf node-*
+
+log_info "Node.js-22.18.0 installed successfully"
+create_checkpoint "nodejs"
+}
+
+# =====================================================================
+# Cups-2.4.12 (Common Unix Printing System)
+# https://www.linuxfromscratch.org/blfs/view/12.4/pst/cups.html
+# =====================================================================
+build_cups() {
+should_skip_package "cups" && { log_info "Skipping CUPS (already built)"; return 0; }
+log_step "Building Cups-2.4.12..."
+
+if [ ! -f /sources/cups-2.4.12-source.tar.gz ]; then
+    log_error "cups-2.4.12-source.tar.gz not found in /sources"
+    return 1
+fi
+
+# Create lp user and lpadmin group if they don't exist
+if ! id lp >/dev/null 2>&1; then
+    useradd -c "Print Service User" -d /var/spool/cups -g lp -s /bin/false -u 9 lp || true
+fi
+if ! getent group lpadmin >/dev/null 2>&1; then
+    groupadd -g 19 lpadmin || true
+fi
+
+cd "$BUILD_DIR"
+rm -rf cups-*
+tar -xf /sources/cups-2.4.12-source.tar.gz
+cd cups-*
+
+./configure --libdir=/usr/lib            \
+            --with-rundir=/run/cups      \
+            --with-system-groups=lpadmin \
+            --with-docdir=/usr/share/cups/doc-2.4.12
+
+make
+make install
+ln -svnf ../cups/doc-2.4.12 /usr/share/doc/cups-2.4.12
+
+# Create basic client configuration
+echo "ServerName /run/cups/cups.sock" > /etc/cups/client.conf
+
+# Create PAM configuration for CUPS
+cat > /etc/pam.d/cups << "EOF"
+# Begin /etc/pam.d/cups
+
+auth    include system-auth
+account include system-account
+session include system-session
+
+# End /etc/pam.d/cups
+EOF
+
+cd "$BUILD_DIR"
+rm -rf cups-*
+
+log_info "Cups-2.4.12 installed successfully"
+create_checkpoint "cups"
+}
+
+# =====================================================================
+# desktop-file-utils-0.28 (Desktop Entry utilities)
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/desktop-file-utils.html
+# =====================================================================
+build_desktop_file_utils() {
+should_skip_package "desktop-file-utils" && { log_info "Skipping desktop-file-utils (already built)"; return 0; }
+log_step "Building desktop-file-utils-0.28..."
+
+if [ ! -f /sources/desktop-file-utils-0.28.tar.xz ]; then
+    log_error "desktop-file-utils-0.28.tar.xz not found in /sources"
+    return 1
+fi
+
+# Remove old symlink if upgrading
+rm -fv /usr/bin/desktop-file-edit 2>/dev/null || true
+
+cd "$BUILD_DIR"
+rm -rf desktop-file-utils-*
+tar -xf /sources/desktop-file-utils-0.28.tar.xz
+cd desktop-file-utils-*
+
+mkdir build
+cd    build
+
+meson setup --prefix=/usr --buildtype=release ..
+ninja
+
+ninja install
+
+# Create applications directory and update database
+install -vdm755 /usr/share/applications
+update-desktop-database /usr/share/applications 2>/dev/null || true
+
+cd "$BUILD_DIR"
+rm -rf desktop-file-utils-*
+
+log_info "desktop-file-utils-0.28 installed successfully"
+create_checkpoint "desktop-file-utils"
+}
+
+# =====================================================================
+# libmng-2.0.3 (Multiple-image Network Graphics library)
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/libmng.html
+# =====================================================================
+build_libmng() {
+should_skip_package "libmng" && { log_info "Skipping libmng (already built)"; return 0; }
+log_step "Building libmng-2.0.3..."
+
+if [ ! -f /sources/libmng-2.0.3.tar.xz ]; then
+    log_error "libmng-2.0.3.tar.xz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf libmng-*
+tar -xf /sources/libmng-2.0.3.tar.xz
+cd libmng-*
+
+./configure --prefix=/usr --disable-static
+make
+make install
+
+install -v -m755 -d        /usr/share/doc/libmng-2.0.3
+install -v -m644 doc/*.txt /usr/share/doc/libmng-2.0.3
+
+cd "$BUILD_DIR"
+rm -rf libmng-*
+
+log_info "libmng-2.0.3 installed successfully"
+create_checkpoint "libmng"
+}
+
+# =====================================================================
+# Qt-6.9.2 (Qt6 cross-platform framework)
+# https://www.linuxfromscratch.org/blfs/view/12.4/x/qt6.html
+# =====================================================================
+build_qt6() {
+should_skip_package "qt6" && { log_info "Skipping Qt6 (already built)"; return 0; }
+log_step "Building Qt-6.9.2..."
+
+if [ ! -f /sources/qt-everywhere-src-6.9.2.tar.xz ]; then
+    log_error "qt-everywhere-src-6.9.2.tar.xz not found in /sources"
+    return 1
+fi
+
+# Set Qt6 prefix
+export QT6PREFIX=/opt/qt6
+
+# Create versioned directory with symlink
+mkdir -pv /opt/qt-6.9.2
+ln -sfnv qt-6.9.2 /opt/qt6
+
+cd "$BUILD_DIR"
+rm -rf qt-everywhere-src-*
+tar -xf /sources/qt-everywhere-src-6.9.2.tar.xz
+cd qt-everywhere-src-*
+
+# Fix for i686 systems
+if [ "$(uname -m)" == "i686" ]; then
+    sed -e "/^#elif defined(Q_CC_GNU_ONLY)/s/.*/& \&\&\ 0/" \
+         -i qtbase/src/corelib/global/qtypes.h
+    export CXXFLAGS+="-DDISABLE_SIMD -DPFFFT_SIMD_DISABLE"
+fi
+
+./configure -prefix $QT6PREFIX      \
+            -sysconfdir /etc/xdg    \
+            -dbus-linked            \
+            -openssl-linked         \
+            -system-sqlite          \
+            -nomake examples        \
+            -no-rpath               \
+            -no-sbom                \
+            -journald               \
+            -skip qt3d              \
+            -skip qtquick3dphysics  \
+            -skip qtwebengine
+
+ninja
+
+ninja install
+
+# Remove build directory references from prl files
+find $QT6PREFIX/ -name \*.prl \
+   -exec sed -i -e '/^QMAKE_PRL_BUILD_DIR/d' {} \;
+
+# Install icons and desktop files
+pushd qttools/src
+
+install -v -Dm644 assistant/assistant/images/assistant-128.png       \
+                  /usr/share/pixmaps/assistant-qt6.png
+
+install -v -Dm644 designer/src/designer/images/designer.png          \
+                  /usr/share/pixmaps/designer-qt6.png
+
+install -v -Dm644 linguist/linguist/images/icons/linguist-128-32.png \
+                  /usr/share/pixmaps/linguist-qt6.png
+
+install -v -Dm644 qdbus/qdbusviewer/images/qdbusviewer-128.png       \
+                  /usr/share/pixmaps/qdbusviewer-qt6.png
+
+popd
+
+# Create desktop entries
+cat > /usr/share/applications/assistant-qt6.desktop << EOF
+[Desktop Entry]
+Name=Qt6 Assistant
+Comment=Shows Qt6 documentation and examples
+Exec=$QT6PREFIX/bin/assistant
+Icon=assistant-qt6.png
+Terminal=false
+Encoding=UTF-8
+Type=Application
+Categories=Qt;Development;Documentation;
+EOF
+
+cat > /usr/share/applications/designer-qt6.desktop << EOF
+[Desktop Entry]
+Name=Qt6 Designer
+GenericName=Interface Designer
+Comment=Design GUIs for Qt6 applications
+Exec=$QT6PREFIX/bin/designer
+Icon=designer-qt6.png
+MimeType=application/x-designer;
+Terminal=false
+Encoding=UTF-8
+Type=Application
+Categories=Qt;Development;
+EOF
+
+cat > /usr/share/applications/linguist-qt6.desktop << EOF
+[Desktop Entry]
+Name=Qt6 Linguist
+Comment=Add translations to Qt6 applications
+Exec=$QT6PREFIX/bin/linguist
+Icon=linguist-qt6.png
+MimeType=text/vnd.trolltech.linguist;application/x-linguist;
+Terminal=false
+Encoding=UTF-8
+Type=Application
+Categories=Qt;Development;
+EOF
+
+cat > /usr/share/applications/qdbusviewer-qt6.desktop << EOF
+[Desktop Entry]
+Name=Qt6 QDbusViewer
+GenericName=D-Bus Debugger
+Comment=Debug D-Bus applications
+Exec=$QT6PREFIX/bin/qdbusviewer
+Icon=qdbusviewer-qt6.png
+Terminal=false
+Encoding=UTF-8
+Type=Application
+Categories=Qt;Development;Debugger;
+EOF
+
+# Configure sudo to pass QT6DIR
+cat > /etc/sudoers.d/qt << "EOF"
+Defaults env_keep += QT6DIR
+EOF
+
+# Add Qt6 to ld.so.conf
+cat >> /etc/ld.so.conf << "EOF"
+# Begin Qt addition
+
+/opt/qt6/lib
+
+# End Qt addition
+EOF
+
+ldconfig
+
+# Create profile.d script for Qt6
+cat > /etc/profile.d/qt6.sh << "EOF"
+# Begin /etc/profile.d/qt6.sh
+
+QT6DIR=/opt/qt6
+
+pathappend $QT6DIR/bin           PATH
+pathappend $QT6DIR/lib/pkgconfig PKG_CONFIG_PATH
+
+export QT6DIR
+
+# End /etc/profile.d/qt6.sh
+EOF
+
+cd "$BUILD_DIR"
+rm -rf qt-everywhere-src-*
+
+log_info "Qt-6.9.2 installed successfully"
+create_checkpoint "qt6"
+}
+
+# =====================================================================
+# extra-cmake-modules-6.17.0 (Extra CMake modules for KDE)
+# https://www.linuxfromscratch.org/blfs/view/12.4/kde/extra-cmake-modules.html
+# Required patch: extra-cmake-modules-6.17.0-upstream_fix-1.patch
+# =====================================================================
+build_extra_cmake_modules() {
+should_skip_package "extra-cmake-modules" && { log_info "Skipping extra-cmake-modules (already built)"; return 0; }
+log_step "Building extra-cmake-modules-6.17.0..."
+
+if [ ! -f /sources/extra-cmake-modules-6.17.0.tar.xz ]; then
+    log_error "extra-cmake-modules-6.17.0.tar.xz not found in /sources"
+    return 1
+fi
+
+if [ ! -f /sources/extra-cmake-modules-6.17.0-upstream_fix-1.patch ]; then
+    log_error "extra-cmake-modules-6.17.0-upstream_fix-1.patch not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf extra-cmake-modules-*
+tar -xf /sources/extra-cmake-modules-6.17.0.tar.xz
+cd extra-cmake-modules-*
+
+patch -Np1 -i /sources/extra-cmake-modules-6.17.0-upstream_fix-1.patch
+
+sed -i '/"lib64"/s/64//' kde-modules/KDEInstallDirsCommon.cmake
+
+sed -e '/PACKAGE_INIT/i set(SAVE_PACKAGE_PREFIX_DIR "${PACKAGE_PREFIX_DIR}")' \
+    -e '/^include/a set(PACKAGE_PREFIX_DIR "${SAVE_PACKAGE_PREFIX_DIR}")' \
+    -i ECMConfig.cmake.in
+
+mkdir build
+cd    build
+
+cmake -D CMAKE_INSTALL_PREFIX=/usr -D BUILD_WITH_QT6=ON ..
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf extra-cmake-modules-*
+
+log_info "extra-cmake-modules-6.17.0 installed successfully"
+create_checkpoint "extra-cmake-modules"
+}
+
+# =====================================================================
+# qca-2.3.10 (Qt Cryptographic Architecture)
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/qca.html
+# =====================================================================
+build_qca() {
+should_skip_package "qca" && { log_info "Skipping qca (already built)"; return 0; }
+log_step "Building qca-2.3.10..."
+
+if [ ! -f /sources/qca-2.3.10.tar.xz ]; then
+    log_error "qca-2.3.10.tar.xz not found in /sources"
+    return 1
+fi
+
+# Ensure QT6PREFIX is set
+export QT6PREFIX=/opt/qt6
+
+cd "$BUILD_DIR"
+rm -rf qca-*
+tar -xf /sources/qca-2.3.10.tar.xz
+cd qca-*
+
+# Fix CA certificates location
+sed -i 's@cert.pem@certs/ca-bundle.crt@' CMakeLists.txt
+
+mkdir build
+cd    build
+
+cmake -D CMAKE_INSTALL_PREFIX=$QT6PREFIX            \
+      -D CMAKE_BUILD_TYPE=Release                \
+      -D QT6=ON                                  \
+      -D QCA_INSTALL_IN_QT_PREFIX=ON             \
+      -D QCA_MAN_INSTALL_DIR:PATH=/usr/share/man \
+      ..
+
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf qca-*
+
+log_info "qca-2.3.10 installed successfully"
+create_checkpoint "qca"
+}
+
+# =====================================================================
+# qcoro-0.12.0 (C++20 coroutines for Qt)
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/qcoro.html
+# =====================================================================
+build_qcoro() {
+should_skip_package "qcoro" && { log_info "Skipping qcoro (already built)"; return 0; }
+log_step "Building qcoro-0.12.0..."
+
+if [ ! -f /sources/qcoro-0.12.0.tar.gz ]; then
+    log_error "qcoro-0.12.0.tar.gz not found in /sources"
+    return 1
+fi
+
+# Ensure QT6PREFIX is set
+export QT6PREFIX=/opt/qt6
+
+cd "$BUILD_DIR"
+rm -rf qcoro-*
+tar -xf /sources/qcoro-0.12.0.tar.gz
+cd qcoro-*
+
+mkdir build
+cd    build
+
+cmake -D CMAKE_INSTALL_PREFIX=$QT6PREFIX \
+      -D CMAKE_BUILD_TYPE=Release     \
+      -D BUILD_TESTING=OFF            \
+      -D QCORO_BUILD_EXAMPLES=OFF     \
+      -D BUILD_SHARED_LIBS=ON         \
+       ..
+
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf qcoro-*
+
+log_info "qcoro-0.12.0 installed successfully"
+create_checkpoint "qcoro"
+}
+
+# =====================================================================
+# Phonon-4.12.0 (KDE multimedia API)
+# https://www.linuxfromscratch.org/blfs/view/12.4/kde/phonon.html
+# =====================================================================
+build_phonon() {
+should_skip_package "phonon" && { log_info "Skipping Phonon (already built)"; return 0; }
+log_step "Building Phonon-4.12.0..."
+
+if [ ! -f /sources/phonon-4.12.0.tar.xz ]; then
+    log_error "phonon-4.12.0.tar.xz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf phonon-*
+tar -xf /sources/phonon-4.12.0.tar.xz
+cd phonon-*
+
+mkdir build
+cd    build
+
+cmake -D CMAKE_INSTALL_PREFIX=/usr \
+      -D CMAKE_BUILD_TYPE=Release  \
+      -D PHONON_BUILD_QT5=OFF      \
+      -W no-dev ..
+
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf phonon-*
+
+log_info "Phonon-4.12.0 installed successfully"
+create_checkpoint "phonon"
+}
+
+# =====================================================================
+# VLC-3.0.21 (Media player)
+# https://www.linuxfromscratch.org/blfs/view/12.4/multimedia/vlc.html
+# Required patches: vlc-3.0.21-taglib-1.patch, vlc-3.0.21-fedora_ffmpeg7-1.patch
+# =====================================================================
+build_vlc() {
+should_skip_package "vlc" && { log_info "Skipping VLC (already built)"; return 0; }
+log_step "Building VLC-3.0.21..."
+
+if [ ! -f /sources/vlc-3.0.21.tar.xz ]; then
+    log_error "vlc-3.0.21.tar.xz not found in /sources"
+    return 1
+fi
+
+if [ ! -f /sources/vlc-3.0.21-taglib-1.patch ]; then
+    log_error "vlc-3.0.21-taglib-1.patch not found in /sources"
+    return 1
+fi
+
+if [ ! -f /sources/vlc-3.0.21-fedora_ffmpeg7-1.patch ]; then
+    log_error "vlc-3.0.21-fedora_ffmpeg7-1.patch not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf vlc-*
+tar -xf /sources/vlc-3.0.21.tar.xz
+cd vlc-*
+
+# Apply required patches
+patch -Np1 -i /sources/vlc-3.0.21-taglib-1.patch
+patch -Np1 -i /sources/vlc-3.0.21-fedora_ffmpeg7-1.patch
+
+BUILDCC=gcc ./configure --prefix=/usr --disable-libplacebo
+
+make
+
+make docdir=/usr/share/doc/vlc-3.0.21 install
+
+# Update icon and desktop caches if GTK is available
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -qtf /usr/share/icons/hicolor 2>/dev/null || true
+fi
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database -q 2>/dev/null || true
+fi
+
+cd "$BUILD_DIR"
+rm -rf vlc-*
+
+log_info "VLC-3.0.21 installed successfully"
+create_checkpoint "vlc"
+}
+
+# =====================================================================
+# Phonon-backend-vlc-0.12.0 (VLC backend for Phonon)
+# https://www.linuxfromscratch.org/blfs/view/12.4/kde/phonon-backend-vlc.html
+# =====================================================================
+build_phonon_backend_vlc() {
+should_skip_package "phonon-backend-vlc" && { log_info "Skipping Phonon-backend-vlc (already built)"; return 0; }
+log_step "Building Phonon-backend-vlc-0.12.0..."
+
+if [ ! -f /sources/phonon-backend-vlc-0.12.0.tar.xz ]; then
+    log_error "phonon-backend-vlc-0.12.0.tar.xz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf phonon-backend-vlc-*
+tar -xf /sources/phonon-backend-vlc-0.12.0.tar.xz
+cd phonon-backend-vlc-*
+
+mkdir build
+cd    build
+
+cmake -D CMAKE_INSTALL_PREFIX=/usr \
+      -D CMAKE_BUILD_TYPE=Release  \
+      -D PHONON_BUILD_QT5=OFF      \
+      ..
+
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf phonon-backend-vlc-*
+
+log_info "Phonon-backend-vlc-0.12.0 installed successfully"
+create_checkpoint "phonon-backend-vlc"
+}
+
+# =====================================================================
+# Polkit-Qt-0.200.0 (PolicyKit Qt bindings)
+# https://www.linuxfromscratch.org/blfs/view/12.4/kde/polkit-qt.html
+# =====================================================================
+build_polkit_qt() {
+should_skip_package "polkit-qt" && { log_info "Skipping Polkit-Qt (already built)"; return 0; }
+log_step "Building Polkit-Qt-0.200.0..."
+
+if [ ! -f /sources/polkit-qt-1-0.200.0.tar.xz ]; then
+    log_error "polkit-qt-1-0.200.0.tar.xz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf polkit-qt-*
+tar -xf /sources/polkit-qt-1-0.200.0.tar.xz
+cd polkit-qt-*
+
+mkdir build
+cd    build
+
+cmake -D CMAKE_INSTALL_PREFIX=/usr \
+      -D CMAKE_BUILD_TYPE=Release  \
+      -D QT_MAJOR_VERSION=6        \
+      -W no-dev ..
+
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf polkit-qt-*
+
+log_info "Polkit-Qt-0.200.0 installed successfully"
+create_checkpoint "polkit-qt"
+}
+
+# =====================================================================
+# plasma-wayland-protocols-1.18.0 (KDE Wayland protocols)
+# https://www.linuxfromscratch.org/blfs/view/12.4/kde/plasma-wayland-protocols.html
+# =====================================================================
+build_plasma_wayland_protocols() {
+should_skip_package "plasma-wayland-protocols" && { log_info "Skipping plasma-wayland-protocols (already built)"; return 0; }
+log_step "Building plasma-wayland-protocols-1.18.0..."
+
+if [ ! -f /sources/plasma-wayland-protocols-1.18.0.tar.xz ]; then
+    log_error "plasma-wayland-protocols-1.18.0.tar.xz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf plasma-wayland-protocols-*
+tar -xf /sources/plasma-wayland-protocols-1.18.0.tar.xz
+cd plasma-wayland-protocols-*
+
+mkdir build
+cd    build
+
+cmake -D CMAKE_INSTALL_PREFIX=/usr ..
+
+make install
+
+cd "$BUILD_DIR"
+rm -rf plasma-wayland-protocols-*
+
+log_info "plasma-wayland-protocols-1.18.0 installed successfully"
+create_checkpoint "plasma-wayland-protocols"
+}
+
+# =====================================================================
+# QtWebEngine-6.9.2 (Chromium-based web engine for Qt)
+# https://www.linuxfromscratch.org/blfs/view/12.4/x/qtwebengine.html
+# =====================================================================
+build_qtwebengine() {
+should_skip_package "qtwebengine" && { log_info "Skipping QtWebEngine (already built)"; return 0; }
+log_step "Building QtWebEngine-6.9.2..."
+
+if [ ! -f /sources/qtwebengine-everywhere-src-6.9.2.tar.xz ]; then
+    log_error "qtwebengine-everywhere-src-6.9.2.tar.xz not found in /sources"
+    return 1
+fi
+
+# Ensure QT6PREFIX is set
+export QT6PREFIX=/opt/qt6
+
+cd "$BUILD_DIR"
+rm -rf qtwebengine-*
+tar -xf /sources/qtwebengine-everywhere-src-6.9.2.tar.xz
+cd qtwebengine-*
+
+mkdir build
+cd    build
+
+cmake -D CMAKE_MESSAGE_LOG_LEVEL=STATUS             \
+      -D QT_FEATURE_webengine_system_ffmpeg=ON      \
+      -D QT_FEATURE_webengine_system_icu=ON         \
+      -D QT_FEATURE_webengine_system_libevent=ON    \
+      -D QT_FEATURE_webengine_proprietary_codecs=ON \
+      -D QT_FEATURE_webengine_webrtc_pipewire=ON    \
+      -D QT_BUILD_EXAMPLES_BY_DEFAULT=OFF           \
+      -D QT_GENERATE_SBOM=OFF                       \
+      -G Ninja ..
+
+ninja
+
+ninja install
+
+cd "$BUILD_DIR"
+rm -rf qtwebengine-*
+
+log_info "QtWebEngine-6.9.2 installed successfully"
+create_checkpoint "qtwebengine"
+}
+
+# =====================================================================
+# html5lib-1.1 (Python HTML5 parser - required for QtWebEngine)
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/python-modules.html#html5lib
+# =====================================================================
+build_html5lib() {
+should_skip_package "html5lib" && { log_info "Skipping html5lib (already built)"; return 0; }
+log_step "Building html5lib-1.1..."
+
+if [ ! -f /sources/html5lib-1.1.tar.gz ]; then
+    log_error "html5lib-1.1.tar.gz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf html5lib-*
+tar -xf /sources/html5lib-1.1.tar.gz
+cd html5lib-*
+
+pip3 install --no-build-isolation .
+
+cd "$BUILD_DIR"
+rm -rf html5lib-*
+
+log_info "html5lib-1.1 installed successfully"
+create_checkpoint "html5lib"
+}
+
+# =====================================================================
+# Execute Tier 7 builds
+# =====================================================================
+
+log_info "Phase 1: Pre-Qt Dependencies"
+build_libwebp
+build_pciutils
+build_nss
+build_libmng
+build_desktop_file_utils
+build_html5lib
+
+log_info "Phase 2: Node.js and CUPS"
+build_nodejs
+build_cups
+
+log_info "Phase 3: Qt6 Framework"
+build_qt6
+
+log_info "Phase 4: KDE Foundation Libraries"
+build_extra_cmake_modules
+build_qca
+build_qcoro
+build_phonon
+build_polkit_qt
+build_plasma_wayland_protocols
+
+log_info "Phase 5: Multimedia and Web Engine"
+build_vlc
+build_phonon_backend_vlc
+build_qtwebengine
+
+log_info ""
+log_info "Tier 7: Qt6 and Pre-KDE Dependencies completed!"
+log_info "  - libwebp-1.6.0: WebP image format"
+log_info "  - pciutils-3.14.0: PCI utilities"
+log_info "  - NSS-3.115: Network Security Services"
+log_info "  - Node.js-22.18.0: JavaScript runtime"
+log_info "  - CUPS-2.4.12: Printing system"
+log_info "  - desktop-file-utils-0.28: Desktop file utilities"
+log_info "  - libmng-2.0.3: MNG image library"
+log_info "  - Qt-6.9.2: Qt6 framework"
+log_info "  - extra-cmake-modules-6.17.0: KDE CMake modules"
+log_info "  - qca-2.3.10: Qt Cryptographic Architecture"
+log_info "  - qcoro-0.12.0: C++20 coroutines for Qt"
+log_info "  - Phonon-4.12.0: KDE multimedia API"
+log_info "  - VLC-3.0.21: Media player"
+log_info "  - Phonon-backend-vlc-0.12.0: VLC backend for Phonon"
+log_info "  - Polkit-Qt-0.200.0: PolicyKit Qt bindings"
+log_info "  - plasma-wayland-protocols-1.18.0: KDE Wayland protocols"
+log_info "  - QtWebEngine-6.9.2: Web engine for Qt"
+log_info "  - html5lib-1.1: HTML5 parser for Python"
 log_info ""
 
 # =====================================================================
