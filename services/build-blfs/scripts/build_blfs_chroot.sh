@@ -4056,7 +4056,7 @@ build_libva() {
 build_libvdpau() {
     should_skip_package "libvdpau" && { log_info "Skipping libvdpau"; return 0; }
     log_step "Building libvdpau-1.5..."
-    cd "$BUILD_DIR" && rm -rf libvdpau-* && tar -xf /sources/libvdpau-1.5.tar.gz && cd libvdpau-*
+    cd "$BUILD_DIR" && rm -rf libvdpau-* && tar -xf /sources/libvdpau-1.5.tar.bz2 && cd libvdpau-*
 
     mkdir build && cd build
     meson setup --prefix=$XORG_PREFIX ..
