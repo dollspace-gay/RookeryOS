@@ -4044,7 +4044,7 @@ build_libaom() {
 build_libva() {
     should_skip_package "libva" && { log_info "Skipping libva"; return 0; }
     log_step "Building libva-2.22.0..."
-    cd "$BUILD_DIR" && rm -rf libva-* && tar -xf /sources/libva-2.22.0.tar.bz2 && cd libva-*
+    cd "$BUILD_DIR" && rm -rf libva-* && tar -xf /sources/libva-2.22.0.tar.gz && cd libva-*
 
     mkdir -p build && cd build
     meson setup --prefix=$XORG_PREFIX --buildtype=release ..
