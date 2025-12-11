@@ -5724,6 +5724,78 @@ create_checkpoint "nss"
 }
 
 # =====================================================================
+# libuv-1.51.0 (Asynchronous I/O library)
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/libuv.html
+# Required by Node.js when using --shared-libuv
+# =====================================================================
+build_libuv() {
+should_skip_package "libuv" && { log_info "Skipping libuv (already built)"; return 0; }
+log_step "Building libuv-1.51.0..."
+
+if [ ! -f /sources/libuv-v1.51.0.tar.gz ]; then
+    log_error "libuv-v1.51.0.tar.gz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf libuv-*
+tar -xf /sources/libuv-v1.51.0.tar.gz
+cd libuv-*
+
+# Unset ACLOCAL if set (conflicts with autogen.sh per BLFS)
+unset ACLOCAL
+
+sh autogen.sh
+
+./configure --prefix=/usr --disable-static
+
+make
+
+make install
+
+cd "$BUILD_DIR"
+rm -rf libuv-*
+
+log_info "libuv-1.51.0 installed successfully"
+create_checkpoint "libuv"
+}
+
+# =====================================================================
+# nghttp2-1.66.0 (HTTP/2 C Library)
+# https://www.linuxfromscratch.org/blfs/view/12.4/basicnet/nghttp2.html
+# Required by Node.js when using --shared-nghttp2
+# =====================================================================
+build_nghttp2() {
+should_skip_package "nghttp2" && { log_info "Skipping nghttp2 (already built)"; return 0; }
+log_step "Building nghttp2-1.66.0..."
+
+if [ ! -f /sources/nghttp2-1.66.0.tar.xz ]; then
+    log_error "nghttp2-1.66.0.tar.xz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf nghttp2-*
+tar -xf /sources/nghttp2-1.66.0.tar.xz
+cd nghttp2-*
+
+./configure --prefix=/usr     \
+            --disable-static  \
+            --enable-lib-only \
+            --docdir=/usr/share/doc/nghttp2-1.66.0
+
+make
+
+make install
+
+cd "$BUILD_DIR"
+rm -rf nghttp2-*
+
+log_info "nghttp2-1.66.0 installed successfully"
+create_checkpoint "nghttp2"
+}
+
+# =====================================================================
 # Node.js-22.18.0 (JavaScript runtime)
 # https://www.linuxfromscratch.org/blfs/view/12.4/general/nodejs.html
 # =====================================================================
@@ -6459,7 +6531,9 @@ build_libmng
 build_desktop_file_utils
 build_html5lib
 
-log_info "Phase 2: Node.js and CUPS"
+log_info "Phase 2: libuv, nghttp2, Node.js and CUPS"
+build_libuv
+build_nghttp2
 build_nodejs
 build_cups
 
@@ -6484,6 +6558,8 @@ log_info "Tier 7: Qt6 and Pre-KDE Dependencies completed!"
 log_info "  - libwebp-1.6.0: WebP image format"
 log_info "  - pciutils-3.14.0: PCI utilities"
 log_info "  - NSS-3.115: Network Security Services"
+log_info "  - libuv-1.51.0: Asynchronous I/O library"
+log_info "  - nghttp2-1.66.0: HTTP/2 C library"
 log_info "  - Node.js-22.18.0: JavaScript runtime"
 log_info "  - CUPS-2.4.12: Printing system"
 log_info "  - desktop-file-utils-0.28: Desktop file utilities"
