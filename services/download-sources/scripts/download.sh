@@ -572,6 +572,106 @@ main() {
 
     log_info "Tier 8: KDE Frameworks 6 Dependencies complete"
 
+    # =========================================================================
+    # zxing-cpp (barcode/QR code library - needed for KF6 Prison)
+    # =========================================================================
+
+    # zxing-cpp-2.3.0
+    if [ ! -f "$SOURCES_DIR/zxing-cpp-2.3.0.tar.gz" ]; then
+        download_with_retry "https://github.com/zxing-cpp/zxing-cpp/archive/v2.3.0/zxing-cpp-2.3.0.tar.gz" \
+            "$SOURCES_DIR/zxing-cpp-2.3.0.tar.gz"
+    else
+        log_info "[SKIP] zxing-cpp-2.3.0.tar.gz (already exists)"
+    fi
+
+    # =========================================================================
+    # Perl modules required for KDE Frameworks
+    # =========================================================================
+
+    # MIME-Base32-1.303 (dependency of URI)
+    if [ ! -f "$SOURCES_DIR/MIME-Base32-1.303.tar.gz" ]; then
+        download_with_retry "https://cpan.metacpan.org/authors/id/R/RE/REHSACK/MIME-Base32-1.303.tar.gz" \
+            "$SOURCES_DIR/MIME-Base32-1.303.tar.gz"
+    else
+        log_info "[SKIP] MIME-Base32-1.303.tar.gz (already exists)"
+    fi
+
+    # URI-5.32 (required for KDE Frameworks)
+    if [ ! -f "$SOURCES_DIR/URI-5.32.tar.gz" ]; then
+        download_with_retry "https://www.cpan.org/authors/id/O/OA/OALDERS/URI-5.32.tar.gz" \
+            "$SOURCES_DIR/URI-5.32.tar.gz"
+    else
+        log_info "[SKIP] URI-5.32.tar.gz (already exists)"
+    fi
+
+    log_info "Perl modules for KDE complete"
+
+    # =========================================================================
+    # KDE Frameworks 6.17.0 (49 packages)
+    # https://www.linuxfromscratch.org/blfs/view/12.4/kde/frameworks6.html
+    # =========================================================================
+
+    log_info "Downloading KDE Frameworks 6.17.0..."
+    local KF6_URL="https://download.kde.org/stable/frameworks/6.17"
+
+    # Tier 1: Foundation Frameworks (no KF6 dependencies)
+    for pkg in attica kapidox karchive kcodecs kconfig kcoreaddons kdbusaddons \
+               kdnssd kguiaddons ki18n kidletime kimageformats kitemmodels \
+               kitemviews kplotting kwidgetsaddons kwindowsystem networkmanager-qt \
+               solid sonnet threadweaver; do
+        if [ ! -f "$SOURCES_DIR/${pkg}-6.17.0.tar.xz" ]; then
+            download_with_retry "${KF6_URL}/${pkg}-6.17.0.tar.xz" \
+                "$SOURCES_DIR/${pkg}-6.17.0.tar.xz"
+        else
+            log_info "[SKIP] ${pkg}-6.17.0.tar.xz (already exists)"
+        fi
+    done
+
+    log_info "KF6 Tier 1 downloads complete"
+
+    # Tier 2: Core Frameworks (depend on Tier 1)
+    for pkg in kauth kcompletion kcrash kdoctools kpty kunitconversion \
+               kcolorscheme kconfigwidgets kservice kglobalaccel kpackage \
+               kdesu kiconthemes knotifications kjobwidgets ktextwidgets \
+               kxmlgui kbookmarks kwallet kded kio kdeclarative kcmutils; do
+        if [ ! -f "$SOURCES_DIR/${pkg}-6.17.0.tar.xz" ]; then
+            download_with_retry "${KF6_URL}/${pkg}-6.17.0.tar.xz" \
+                "$SOURCES_DIR/${pkg}-6.17.0.tar.xz"
+        else
+            log_info "[SKIP] ${pkg}-6.17.0.tar.xz (already exists)"
+        fi
+    done
+
+    log_info "KF6 Tier 2 downloads complete"
+
+    # Tier 3: Integration Frameworks (depend on Tier 2)
+    for pkg in kirigami syndication knewstuff frameworkintegration kparts \
+               syntax-highlighting ktexteditor modemmanager-qt kcontacts kpeople; do
+        if [ ! -f "$SOURCES_DIR/${pkg}-6.17.0.tar.xz" ]; then
+            download_with_retry "${KF6_URL}/${pkg}-6.17.0.tar.xz" \
+                "$SOURCES_DIR/${pkg}-6.17.0.tar.xz"
+        else
+            log_info "[SKIP] ${pkg}-6.17.0.tar.xz (already exists)"
+        fi
+    done
+
+    log_info "KF6 Tier 3 downloads complete"
+
+    # Tier 4: Extended Frameworks (depend on Tier 3)
+    for pkg in bluez-qt kfilemetadata baloo krunner prison qqc2-desktop-style \
+               kholidays purpose kcalendarcore kquickcharts knotifyconfig kdav \
+               kstatusnotifieritem ksvg ktexttemplate kuserfeedback; do
+        if [ ! -f "$SOURCES_DIR/${pkg}-6.17.0.tar.xz" ]; then
+            download_with_retry "${KF6_URL}/${pkg}-6.17.0.tar.xz" \
+                "$SOURCES_DIR/${pkg}-6.17.0.tar.xz"
+        else
+            log_info "[SKIP] ${pkg}-6.17.0.tar.xz (already exists)"
+        fi
+    done
+
+    log_info "KF6 Tier 4 downloads complete"
+    log_info "KDE Frameworks 6.17.0 downloads complete (49 packages)"
+
     # Check for any failures
     if [ -s "$FAILED_DOWNLOADS_FILE" ]; then
         log_error "========================================="

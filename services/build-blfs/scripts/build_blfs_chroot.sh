@@ -7790,6 +7790,224 @@ create_checkpoint "gpgmepp"
 }
 
 # =====================================================================
+# zxing-cpp-2.3.0 (barcode/QR code processing library)
+# Required for: KDE Prison framework
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/zxing-cpp.html
+# =====================================================================
+build_zxing_cpp() {
+should_skip_package "zxing-cpp" && { log_info "Skipping zxing-cpp (already built)"; return 0; }
+log_step "Building zxing-cpp-2.3.0..."
+
+if [ ! -f /sources/zxing-cpp-2.3.0.tar.gz ]; then
+    log_error "zxing-cpp-2.3.0.tar.gz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf zxing-cpp-*
+tar -xf /sources/zxing-cpp-2.3.0.tar.gz
+cd zxing-cpp-*
+
+mkdir build
+cd build
+cmake -D CMAKE_INSTALL_PREFIX=/usr \
+      -D CMAKE_BUILD_TYPE=Release \
+      -D ZXING_EXAMPLES=OFF \
+      -W no-dev .. &&
+make $MAKEFLAGS &&
+make install
+
+cd "$BUILD_DIR"
+rm -rf zxing-cpp-*
+
+log_info "zxing-cpp-2.3.0 installed successfully"
+create_checkpoint "zxing-cpp"
+}
+
+# =====================================================================
+# Perl Modules for KDE Frameworks
+# =====================================================================
+
+# MIME-Base32-1.303 (dependency of URI)
+build_mime_base32() {
+should_skip_package "mime-base32" && { log_info "Skipping MIME-Base32 (already built)"; return 0; }
+log_step "Building MIME-Base32-1.303..."
+
+if [ ! -f /sources/MIME-Base32-1.303.tar.gz ]; then
+    log_error "MIME-Base32-1.303.tar.gz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf MIME-Base32-*
+tar -xf /sources/MIME-Base32-1.303.tar.gz
+cd MIME-Base32-*
+
+perl Makefile.PL &&
+make $MAKEFLAGS &&
+make install
+
+cd "$BUILD_DIR"
+rm -rf MIME-Base32-*
+
+log_info "MIME-Base32-1.303 installed successfully"
+create_checkpoint "mime-base32"
+}
+
+# URI-5.32 (required for KDE Frameworks)
+build_uri_perl() {
+should_skip_package "uri-perl" && { log_info "Skipping URI Perl module (already built)"; return 0; }
+log_step "Building URI-5.32..."
+
+if [ ! -f /sources/URI-5.32.tar.gz ]; then
+    log_error "URI-5.32.tar.gz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf URI-*
+tar -xf /sources/URI-5.32.tar.gz
+cd URI-*
+
+perl Makefile.PL &&
+make $MAKEFLAGS &&
+make install
+
+cd "$BUILD_DIR"
+rm -rf URI-*
+
+log_info "URI-5.32 installed successfully"
+create_checkpoint "uri-perl"
+}
+
+# =====================================================================
+# KDE Frameworks 6.17.0 - Generic build function
+# =====================================================================
+
+# Generic KF6 build function - handles standard CMake-based KF6 packages
+build_kf6_package() {
+    local pkg_name="$1"
+    local pkg_version="${2:-6.17.0}"
+    local extra_cmake_args="${3:-}"
+
+    local checkpoint_name="kf6-${pkg_name}"
+
+    should_skip_package "$checkpoint_name" && { log_info "Skipping ${pkg_name} (already built)"; return 0; }
+    log_step "Building ${pkg_name}-${pkg_version}..."
+
+    local tarball="/sources/${pkg_name}-${pkg_version}.tar.xz"
+    if [ ! -f "$tarball" ]; then
+        log_error "${pkg_name}-${pkg_version}.tar.xz not found in /sources"
+        exit 1
+    fi
+
+    cd "$BUILD_DIR"
+    rm -rf ${pkg_name}-*
+    tar -xf "$tarball"
+    cd ${pkg_name}-*
+
+    mkdir build
+    cd build
+
+    cmake -D CMAKE_INSTALL_PREFIX=/usr \
+          -D CMAKE_INSTALL_LIBEXECDIR=libexec \
+          -D CMAKE_PREFIX_PATH=/usr \
+          -D CMAKE_SKIP_INSTALL_RPATH=ON \
+          -D CMAKE_BUILD_TYPE=Release \
+          -D BUILD_TESTING=OFF \
+          -D BUILD_PYTHON_BINDINGS=OFF \
+          -W no-dev \
+          $extra_cmake_args .. &&
+    make $MAKEFLAGS &&
+    make install
+
+    cd "$BUILD_DIR"
+    rm -rf ${pkg_name}-*
+    ldconfig
+
+    log_info "${pkg_name}-${pkg_version} installed successfully"
+    create_checkpoint "$checkpoint_name"
+}
+
+# Special handler for kapidox (Python module, not CMake)
+# NOTE: kapidox is for documentation generation only, requires doxypypy, doxyqml, requests
+# Making this optional since it's not needed for runtime
+build_kapidox() {
+should_skip_package "kf6-kapidox" && { log_info "Skipping kapidox (already built)"; return 0; }
+log_step "Building kapidox-6.17.0 (optional - doc generation only)..."
+
+if [ ! -f /sources/kapidox-6.17.0.tar.xz ]; then
+    log_info "kapidox-6.17.0.tar.xz not found - skipping (optional package)"
+    create_checkpoint "kf6-kapidox"
+    return 0
+fi
+
+cd "$BUILD_DIR"
+rm -rf kapidox-*
+tar -xf /sources/kapidox-6.17.0.tar.xz
+cd kapidox-*
+
+# kapidox requires doxypypy and other Python dependencies we don't have
+# Skip it since it's only for documentation generation
+log_info "Skipping kapidox installation (requires doxypypy for doc generation)"
+log_info "KDE Frameworks will build without API documentation support"
+
+cd "$BUILD_DIR"
+rm -rf kapidox-*
+
+create_checkpoint "kf6-kapidox"
+}
+
+# =====================================================================
+# KDE Frameworks 6 Environment Setup
+# =====================================================================
+
+setup_kf6_environment() {
+log_step "Setting up KDE Frameworks 6 environment..."
+
+# Create KF6 profile script for /usr installation
+cat > /etc/profile.d/kf6.sh << "KFEOF"
+# Begin /etc/profile.d/kf6.sh
+export KF6_PREFIX=/usr
+# End /etc/profile.d/kf6.sh
+KFEOF
+
+# Extend qt6.sh for KF6
+cat >> /etc/profile.d/qt6.sh << "QTEOF"
+
+# Begin kf6 extension for /etc/profile.d/qt6.sh
+pathappend /usr/lib/plugins        QT_PLUGIN_PATH
+pathappend /usr/lib/qt6/plugins    QT_PLUGIN_PATH
+
+pathappend /usr/lib/qt6/qml        QML2_IMPORT_PATH
+# End extension for /etc/profile.d/qt6.sh
+QTEOF
+
+# Add to sudoers if not already present
+if [ -d /etc/sudoers.d ]; then
+    if ! grep -q "QT_PLUGIN_PATH" /etc/sudoers.d/qt 2>/dev/null; then
+        cat >> /etc/sudoers.d/qt << "SUDOEOF"
+Defaults env_keep += QT_PLUGIN_PATH
+Defaults env_keep += QML2_IMPORT_PATH
+SUDOEOF
+    fi
+
+    if ! grep -q "KF6_PREFIX" /etc/sudoers.d/kde 2>/dev/null; then
+        cat > /etc/sudoers.d/kde << "SUDOEOF"
+Defaults env_keep += KF6_PREFIX
+SUDOEOF
+    fi
+fi
+
+# Source the environment
+export KF6_PREFIX=/usr
+export QT_PLUGIN_PATH="/usr/lib/plugins:/usr/lib/qt6/plugins"
+export QML2_IMPORT_PATH="/usr/lib/qt6/qml"
+
+log_info "KDE Frameworks 6 environment configured"
+}
+
+# =====================================================================
 # Execute Tier 7 builds
 # =====================================================================
 
@@ -7876,6 +8094,9 @@ build_gnupg
 build_gpgme
 build_gpgmepp
 
+# zxing-cpp (barcode/QR library for KDE Prison)
+build_zxing_cpp
+
 log_info ""
 log_info "Tier 8: KDE Frameworks 6 Dependencies completed!"
 log_info "  - intltool-0.51.0: Internationalization utilities"
@@ -7912,6 +8133,126 @@ log_info "  - pinentry-1.3.2: PIN entry dialog"
 log_info "  - GnuPG-2.4.8: GNU Privacy Guard"
 log_info "  - gpgme-2.0.0: GnuPG Made Easy"
 log_info "  - gpgmepp-2.0.0: C++ bindings for GPGME"
+log_info "  - zxing-cpp-2.3.0: Barcode/QR code library"
+log_info ""
+
+# =====================================================================
+# Tier 9: KDE Frameworks 6.17.0
+# =====================================================================
+
+log_info ""
+log_info "#####################################################################"
+log_info "# TIER 9: KDE Frameworks 6.17.0"
+log_info "#####################################################################"
+log_info ""
+
+# Setup KF6 environment first
+setup_kf6_environment
+
+# Perl modules required for KF6
+log_info "Phase 1: Perl modules for KDE Frameworks"
+build_mime_base32
+build_uri_perl
+
+# KF6 Tier 1: Foundation Frameworks (21 packages, no KF6 dependencies)
+log_info "Phase 2: KF6 Tier 1 - Foundation Frameworks (21 packages)"
+build_kf6_package "attica"
+build_kapidox
+build_kf6_package "karchive"
+build_kf6_package "kcodecs"
+build_kf6_package "kconfig"
+build_kf6_package "kcoreaddons"
+build_kf6_package "kdbusaddons"
+build_kf6_package "kdnssd"
+build_kf6_package "kguiaddons"
+build_kf6_package "ki18n"
+build_kf6_package "kidletime"
+build_kf6_package "kimageformats"
+build_kf6_package "kitemmodels"
+build_kf6_package "kitemviews"
+build_kf6_package "kplotting"
+build_kf6_package "kwidgetsaddons"
+build_kf6_package "kwindowsystem"
+build_kf6_package "networkmanager-qt"
+build_kf6_package "solid"
+build_kf6_package "sonnet"
+build_kf6_package "threadweaver"
+
+log_info "KF6 Tier 1 complete (21 packages)"
+
+# KF6 Tier 2: Core Frameworks (22 packages, depend on Tier 1)
+log_info "Phase 3: KF6 Tier 2 - Core Frameworks (22 packages)"
+build_kf6_package "kauth"
+build_kf6_package "kcompletion"
+build_kf6_package "kcrash"
+build_kf6_package "kdoctools"
+build_kf6_package "kpty"
+build_kf6_package "kunitconversion"
+build_kf6_package "kcolorscheme"
+build_kf6_package "kconfigwidgets"
+build_kf6_package "kservice"
+build_kf6_package "kglobalaccel"
+build_kf6_package "kpackage"
+build_kf6_package "kdesu"
+build_kf6_package "kiconthemes"
+build_kf6_package "knotifications"
+build_kf6_package "kjobwidgets"
+build_kf6_package "ktextwidgets"
+build_kf6_package "kxmlgui"
+build_kf6_package "kbookmarks"
+build_kf6_package "kwallet"
+build_kf6_package "kded"
+build_kf6_package "kio"
+build_kf6_package "kdeclarative"
+build_kf6_package "kcmutils"
+
+log_info "KF6 Tier 2 complete (22 packages)"
+
+# KF6 Tier 3: Integration Frameworks (10 packages)
+log_info "Phase 4: KF6 Tier 3 - Integration Frameworks (10 packages)"
+build_kf6_package "kirigami"
+build_kf6_package "syndication"
+build_kf6_package "knewstuff"
+build_kf6_package "frameworkintegration"
+build_kf6_package "kparts"
+build_kf6_package "syntax-highlighting"
+build_kf6_package "ktexteditor"
+build_kf6_package "modemmanager-qt"
+build_kf6_package "kcontacts"
+build_kf6_package "kpeople"
+
+log_info "KF6 Tier 3 complete (10 packages)"
+
+# KF6 Tier 4: Extended Frameworks (16 packages)
+log_info "Phase 5: KF6 Tier 4 - Extended Frameworks (16 packages)"
+build_kf6_package "bluez-qt"
+build_kf6_package "kfilemetadata"
+build_kf6_package "baloo"
+build_kf6_package "krunner"
+build_kf6_package "prison"
+build_kf6_package "qqc2-desktop-style"
+build_kf6_package "kholidays"
+build_kf6_package "purpose"
+build_kf6_package "kcalendarcore"
+build_kf6_package "kquickcharts"
+build_kf6_package "knotifyconfig"
+build_kf6_package "kdav"
+build_kf6_package "kstatusnotifieritem"
+build_kf6_package "ksvg"
+build_kf6_package "ktexttemplate"
+build_kf6_package "kuserfeedback"
+
+log_info "KF6 Tier 4 complete (16 packages)"
+
+log_info ""
+log_info "=========================================="
+log_info "KDE Frameworks 6.17.0 Build Complete!"
+log_info "=========================================="
+log_info "Total: 69 packages + 2 Perl modules"
+log_info "  - Tier 1 Foundation: 21 packages"
+log_info "  - Tier 2 Core: 22 packages"
+log_info "  - Tier 3 Integration: 10 packages"
+log_info "  - Tier 4 Extended: 16 packages"
 log_info ""
 
 # =====================================================================
