@@ -2,7 +2,7 @@
 set -e
 
 # Configuration
-IMAGE_NAME="${IMAGE_NAME:-lfs-12.4-sysv}"
+IMAGE_NAME="${IMAGE_NAME:-rookery-os-1.0}"
 IMAGE_PATH="/lfs-dist/${IMAGE_NAME}.img"
 PORT="${WEB_TERMINAL_PORT:-7681}"
 
@@ -46,12 +46,12 @@ cat > /tmp/run-lfs.sh << 'EOF'
 #!/bin/bash
 set -e
 
-IMAGE_NAME="${IMAGE_NAME:-lfs-12.4-sysv}"
+IMAGE_NAME="${IMAGE_NAME:-rookery-os-1.0}"
 IMAGE_PATH="/lfs-dist/${IMAGE_NAME}.img"
 
 cat << EOF
 ╔════════════════════════════════════════════════════════════════╗
-║            EasyLFS - Linux From Scratch (SysVinit)             ║
+║                 Rookery OS - Linux From Scratch                ║
 ║                    Web Terminal Interface                      ║
 ╚════════════════════════════════════════════════════════════════╝
 

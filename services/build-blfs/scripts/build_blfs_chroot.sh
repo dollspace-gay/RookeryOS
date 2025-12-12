@@ -498,23 +498,23 @@ create_checkpoint "systemd-pam"
 }
 
 # =====================================================================
-# BLFS 9.2 libgpg-error-1.55
+# BLFS 9.2 libgpg-error-1.58
 # https://www.linuxfromscratch.org/blfs/view/12.4/general/libgpg-error.html
 # Required by: libgcrypt (and subsequently by many GNOME/KDE components)
 # =====================================================================
 should_skip_package "libgpg-error" && { log_info "Skipping libgpg-error (already built)"; } || {
-log_step "Building libgpg-error-1.55..."
+log_step "Building libgpg-error-1.58..."
 
 # Check if source exists
-if [ ! -f /sources/libgpg-error-1.55.tar.bz2 ]; then
-    log_error "libgpg-error-1.55.tar.bz2 not found in /sources"
+if [ ! -f /sources/libgpg-error-1.58.tar.bz2 ]; then
+    log_error "libgpg-error-1.58.tar.bz2 not found in /sources"
     log_error "Please download it first"
     exit 1
 fi
 
 cd "$BUILD_DIR"
 rm -rf libgpg-error-*
-tar -xf /sources/libgpg-error-1.55.tar.bz2
+tar -xf /sources/libgpg-error-1.58.tar.bz2
 cd libgpg-error-*
 
 # Configure
@@ -532,13 +532,13 @@ log_info "Installing libgpg-error..."
 make install
 
 # Install documentation
-install -v -m644 -D README /usr/share/doc/libgpg-error-1.55/README
+install -v -m644 -D README /usr/share/doc/libgpg-error-1.58/README
 
 # Clean up
 cd "$BUILD_DIR"
 rm -rf libgpg-error-*
 
-log_info "libgpg-error-1.55 installed successfully"
+log_info "libgpg-error-1.58 installed successfully"
 create_checkpoint "libgpg-error"
 }
 
@@ -7716,22 +7716,23 @@ create_checkpoint "pinentry"
 }
 
 # =====================================================================
-# GnuPG-2.4.8 (GNU Privacy Guard)
+# GnuPG-2.5.14 (GNU Privacy Guard with Post-Quantum Cryptography)
 # Required by: gpgme
-# https://www.linuxfromscratch.org/blfs/view/svn/postlfs/gnupg.html
+# https://gnupg.org/
+# NOTE: Version 2.5.14 includes Kyber/ML-KEM post-quantum key exchange support
 # =====================================================================
 build_gnupg() {
 should_skip_package "gnupg" && { log_info "Skipping GnuPG (already built)"; return 0; }
-log_step "Building GnuPG-2.4.8..."
+log_step "Building GnuPG-2.5.14 (with Kyber/ML-KEM PQC support)..."
 
-if [ ! -f /sources/gnupg-2.4.8.tar.bz2 ]; then
-    log_error "gnupg-2.4.8.tar.bz2 not found in /sources"
+if [ ! -f /sources/gnupg-2.5.14.tar.bz2 ]; then
+    log_error "gnupg-2.5.14.tar.bz2 not found in /sources"
     return 1
 fi
 
 cd "$BUILD_DIR"
 rm -rf gnupg-*
-tar -xf /sources/gnupg-2.4.8.tar.bz2
+tar -xf /sources/gnupg-2.5.14.tar.bz2
 cd gnupg-*
 
 mkdir build && cd build
@@ -7739,7 +7740,7 @@ mkdir build && cd build
 ../configure --prefix=/usr            \
              --localstatedir=/var     \
              --sysconfdir=/etc        \
-             --docdir=/usr/share/doc/gnupg-2.4.8
+             --docdir=/usr/share/doc/gnupg-2.5.14
 
 make
 make install
@@ -7747,7 +7748,7 @@ make install
 cd "$BUILD_DIR"
 rm -rf gnupg-*
 
-log_info "GnuPG-2.4.8 installed successfully"
+log_info "GnuPG-2.5.14 installed successfully (Kyber/ML-KEM enabled)"
 create_checkpoint "gnupg"
 }
 
@@ -8203,7 +8204,7 @@ log_info "  - npth-1.8: Portable threading library"
 log_info "  - libassuan-3.0.2: IPC library for GnuPG"
 log_info "  - libksba-1.6.7: X.509 library for GnuPG"
 log_info "  - pinentry-1.3.2: PIN entry dialog"
-log_info "  - GnuPG-2.4.8: GNU Privacy Guard"
+log_info "  - GnuPG-2.5.14: GNU Privacy Guard (Kyber/ML-KEM PQC)"
 log_info "  - gpgme-2.0.0: GnuPG Made Easy"
 log_info "  - gpgmepp-2.0.0: C++ bindings for GPGME"
 log_info "  - zxing-cpp-2.3.0: Barcode/QR code library"

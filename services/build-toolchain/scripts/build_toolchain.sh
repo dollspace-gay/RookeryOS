@@ -672,7 +672,7 @@ main() {
     log_info "=========================================="
     log_info "EasyLFS Toolchain Build Starting"
     log_info "=========================================="
-    log_info "Target: LFS 12.4 (SysVinit)"
+    log_info "Target: LFS 12.4-systemd"
     log_info "Architecture: $LFS_TGT"
 
     # Initialize checkpoint system

@@ -512,7 +512,24 @@ main() {
 
     # =========================================================================
     # GnuPG Cryptography Stack (for gpgmepp -> KDE Frameworks)
+    # Post-Quantum Cryptography ready with Kyber/ML-KEM support
     # =========================================================================
+
+    # libgpg-error-1.58 (error handling library for GnuPG)
+    if [ ! -f "$SOURCES_DIR/libgpg-error-1.58.tar.bz2" ]; then
+        download_with_retry "https://www.gnupg.org/ftp/gcrypt/libgpg-error/libgpg-error-1.58.tar.bz2" \
+            "$SOURCES_DIR/libgpg-error-1.58.tar.bz2"
+    else
+        log_info "[SKIP] libgpg-error-1.58.tar.bz2 (already exists)"
+    fi
+
+    # libgcrypt-1.11.2 (cryptographic library with PQC support)
+    if [ ! -f "$SOURCES_DIR/libgcrypt-1.11.2.tar.bz2" ]; then
+        download_with_retry "https://www.gnupg.org/ftp/gcrypt/libgcrypt/libgcrypt-1.11.2.tar.bz2" \
+            "$SOURCES_DIR/libgcrypt-1.11.2.tar.bz2"
+    else
+        log_info "[SKIP] libgcrypt-1.11.2.tar.bz2 (already exists)"
+    fi
 
     # npth-1.8 (portable threading library for GnuPG)
     if [ ! -f "$SOURCES_DIR/npth-1.8.tar.bz2" ]; then
@@ -546,12 +563,12 @@ main() {
         log_info "[SKIP] pinentry-1.3.2.tar.bz2 (already exists)"
     fi
 
-    # gnupg-2.4.8 (GNU Privacy Guard)
-    if [ ! -f "$SOURCES_DIR/gnupg-2.4.8.tar.bz2" ]; then
-        download_with_retry "https://www.gnupg.org/ftp/gcrypt/gnupg/gnupg-2.4.8.tar.bz2" \
-            "$SOURCES_DIR/gnupg-2.4.8.tar.bz2"
+    # gnupg-2.5.14 (GNU Privacy Guard with Kyber/ML-KEM PQC support)
+    if [ ! -f "$SOURCES_DIR/gnupg-2.5.14.tar.bz2" ]; then
+        download_with_retry "https://www.gnupg.org/ftp/gcrypt/gnupg/gnupg-2.5.14.tar.bz2" \
+            "$SOURCES_DIR/gnupg-2.5.14.tar.bz2"
     else
-        log_info "[SKIP] gnupg-2.4.8.tar.bz2 (already exists)"
+        log_info "[SKIP] gnupg-2.5.14.tar.bz2 (already exists)"
     fi
 
     # gpgme-2.0.0 (GnuPG Made Easy)

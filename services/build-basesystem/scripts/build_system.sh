@@ -4,7 +4,7 @@ set -euo pipefail
 # =============================================================================
 # EasyLFS Build Base System Script - MINIMAL VERSION
 # Builds essential LFS system in chroot (LFS Chapters 7-8)
-# MINIMAL - ~20 essential packages for bootable SysV init system
+# MINIMAL - ~20 essential packages for bootable systemd init system
 # Duration: ~30 minutes (reduced from 6-12 hours)
 # =============================================================================
 

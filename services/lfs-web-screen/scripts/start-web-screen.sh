@@ -2,14 +2,14 @@
 set -e
 
 # Configuration
-IMAGE_NAME="${IMAGE_NAME:-lfs-12.4-sysv}"
+IMAGE_NAME="${IMAGE_NAME:-rookery-os-1.0}"
 IMAGE_PATH="/lfs-dist/${IMAGE_NAME}.img"
 VNC_PORT="${VNC_PORT:-5900}"
 WEB_PORT="${WEB_SCREEN_PORT:-6080}"
 DISPLAY=":0"
 
 echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║             EasyLFS - Linux From Scratch (SysVinit)               ║"
+echo "║                 Rookery OS - Linux From Scratch                   ║"
 echo "║                    Web Screen Interface                        ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
