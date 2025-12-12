@@ -992,18 +992,19 @@ build_package "expat-*.tar.xz" "Expat" bash -c '
 # =====================================================================
 should_skip_package "XML-Parser" "/sources" && { log_info "⊙ Skipping XML-Parser (already built, checkpoint valid)"; } || {
 log_step "Building XML::Parser-2.47..."
-if ls /sources/XML-Parser-*.tar.gz 1>/dev/null 2>&1; then
-    tar -xf /sources/XML-Parser-*.tar.gz
-    cd XML-Parser-*
+cd /build
+if [ -f /sources/XML-Parser-2.47.tar.gz ]; then
+    tar -xf /sources/XML-Parser-2.47.tar.gz
+    cd XML-Parser-2.47
     perl Makefile.PL
     make
     make install
     cd /build
-    rm -rf XML-Parser-*
+    rm -rf XML-Parser-2.47
     log_info "XML::Parser complete"
     create_checkpoint "XML-Parser" "/sources" "chapter8"
 else
-    log_warn "XML-Parser tarball not found - intltool may have limited functionality"
+    log_warn "XML-Parser-2.47.tar.gz not found - intltool may have limited functionality"
 fi
 }
 
