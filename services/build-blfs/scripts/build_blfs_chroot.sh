@@ -7568,6 +7568,228 @@ create_checkpoint "breeze-icons"
 }
 
 # =====================================================================
+# npth-1.8 (New Portable Threads Library)
+# Required by: GnuPG
+# https://www.linuxfromscratch.org/blfs/view/svn/general/npth.html
+# =====================================================================
+build_npth() {
+should_skip_package "npth" && { log_info "Skipping npth (already built)"; return 0; }
+log_step "Building npth-1.8..."
+
+if [ ! -f /sources/npth-1.8.tar.bz2 ]; then
+    log_error "npth-1.8.tar.bz2 not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf npth-*
+tar -xf /sources/npth-1.8.tar.bz2
+cd npth-*
+
+./configure --prefix=/usr
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf npth-*
+
+log_info "npth-1.8 installed successfully"
+create_checkpoint "npth"
+}
+
+# =====================================================================
+# libassuan-3.0.2 (IPC library for GnuPG)
+# Required by: GnuPG, pinentry, gpgme
+# https://www.linuxfromscratch.org/blfs/view/svn/general/libassuan.html
+# =====================================================================
+build_libassuan() {
+should_skip_package "libassuan" && { log_info "Skipping libassuan (already built)"; return 0; }
+log_step "Building libassuan-3.0.2..."
+
+if [ ! -f /sources/libassuan-3.0.2.tar.bz2 ]; then
+    log_error "libassuan-3.0.2.tar.bz2 not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf libassuan-*
+tar -xf /sources/libassuan-3.0.2.tar.bz2
+cd libassuan-*
+
+./configure --prefix=/usr
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf libassuan-*
+
+log_info "libassuan-3.0.2 installed successfully"
+create_checkpoint "libassuan"
+}
+
+# =====================================================================
+# libksba-1.6.7 (X.509 and CMS library)
+# Required by: GnuPG
+# https://www.linuxfromscratch.org/blfs/view/svn/general/libksba.html
+# =====================================================================
+build_libksba() {
+should_skip_package "libksba" && { log_info "Skipping libksba (already built)"; return 0; }
+log_step "Building libksba-1.6.7..."
+
+if [ ! -f /sources/libksba-1.6.7.tar.bz2 ]; then
+    log_error "libksba-1.6.7.tar.bz2 not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf libksba-*
+tar -xf /sources/libksba-1.6.7.tar.bz2
+cd libksba-*
+
+./configure --prefix=/usr
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf libksba-*
+
+log_info "libksba-1.6.7 installed successfully"
+create_checkpoint "libksba"
+}
+
+# =====================================================================
+# pinentry-1.3.2 (PIN entry dialogs for GnuPG)
+# Required by: GnuPG (recommended)
+# https://www.linuxfromscratch.org/blfs/view/svn/general/pinentry.html
+# =====================================================================
+build_pinentry() {
+should_skip_package "pinentry" && { log_info "Skipping pinentry (already built)"; return 0; }
+log_step "Building pinentry-1.3.2..."
+
+if [ ! -f /sources/pinentry-1.3.2.tar.bz2 ]; then
+    log_error "pinentry-1.3.2.tar.bz2 not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf pinentry-*
+tar -xf /sources/pinentry-1.3.2.tar.bz2
+cd pinentry-*
+
+./configure --prefix=/usr --enable-pinentry-tty
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf pinentry-*
+
+log_info "pinentry-1.3.2 installed successfully"
+create_checkpoint "pinentry"
+}
+
+# =====================================================================
+# GnuPG-2.4.8 (GNU Privacy Guard)
+# Required by: gpgme
+# https://www.linuxfromscratch.org/blfs/view/svn/postlfs/gnupg.html
+# =====================================================================
+build_gnupg() {
+should_skip_package "gnupg" && { log_info "Skipping GnuPG (already built)"; return 0; }
+log_step "Building GnuPG-2.4.8..."
+
+if [ ! -f /sources/gnupg-2.4.8.tar.bz2 ]; then
+    log_error "gnupg-2.4.8.tar.bz2 not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf gnupg-*
+tar -xf /sources/gnupg-2.4.8.tar.bz2
+cd gnupg-*
+
+mkdir build && cd build
+
+../configure --prefix=/usr            \
+             --localstatedir=/var     \
+             --sysconfdir=/etc        \
+             --docdir=/usr/share/doc/gnupg-2.4.8
+
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf gnupg-*
+
+log_info "GnuPG-2.4.8 installed successfully"
+create_checkpoint "gnupg"
+}
+
+# =====================================================================
+# gpgme-2.0.0 (GPGME library)
+# Required by: gpgmepp
+# https://www.linuxfromscratch.org/blfs/view/svn/postlfs/gpgme.html
+# =====================================================================
+build_gpgme() {
+should_skip_package "gpgme" && { log_info "Skipping gpgme (already built)"; return 0; }
+log_step "Building gpgme-2.0.0..."
+
+if [ ! -f /sources/gpgme-2.0.0.tar.bz2 ]; then
+    log_error "gpgme-2.0.0.tar.bz2 not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf gpgme-*
+tar -xf /sources/gpgme-2.0.0.tar.bz2
+cd gpgme-*
+
+mkdir build && cd build
+
+../configure --prefix=/usr --disable-static
+
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf gpgme-*
+
+log_info "gpgme-2.0.0 installed successfully"
+create_checkpoint "gpgme"
+}
+
+# =====================================================================
+# gpgmepp-2.0.0 (C++ bindings for GPGME)
+# Required by: KDE Frameworks (KWallet, etc.)
+# https://www.linuxfromscratch.org/blfs/view/svn/postlfs/gpgmepp.html
+# =====================================================================
+build_gpgmepp() {
+should_skip_package "gpgmepp" && { log_info "Skipping gpgmepp (already built)"; return 0; }
+log_step "Building gpgmepp-2.0.0..."
+
+if [ ! -f /sources/gpgmepp-2.0.0.tar.xz ]; then
+    log_error "gpgmepp-2.0.0.tar.xz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf gpgmepp-*
+tar -xf /sources/gpgmepp-2.0.0.tar.xz
+cd gpgmepp-*
+
+mkdir build && cd build
+
+cmake -D CMAKE_INSTALL_PREFIX=/usr ..
+
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf gpgmepp-*
+
+log_info "gpgmepp-2.0.0 installed successfully"
+create_checkpoint "gpgmepp"
+}
+
+# =====================================================================
 # Execute Tier 7 builds
 # =====================================================================
 
@@ -7645,6 +7867,15 @@ build_udisks
 
 build_breeze_icons
 
+# GnuPG cryptography stack (for gpgmepp -> KDE Frameworks)
+build_npth
+build_libassuan
+build_libksba
+build_pinentry
+build_gnupg
+build_gpgme
+build_gpgmepp
+
 log_info ""
 log_info "Tier 8: KDE Frameworks 6 Dependencies completed!"
 log_info "  - intltool-0.51.0: Internationalization utilities"
@@ -7674,6 +7905,13 @@ log_info "  - libnvme-1.15: NVMe device management"
 log_info "  - libblockdev-3.3.1: Block device library"
 log_info "  - UDisks-2.10.2: Disk management daemon"
 log_info "  - breeze-icons-6.17.0: KDE icon theme"
+log_info "  - npth-1.8: Portable threading library"
+log_info "  - libassuan-3.0.2: IPC library for GnuPG"
+log_info "  - libksba-1.6.7: X.509 library for GnuPG"
+log_info "  - pinentry-1.3.2: PIN entry dialog"
+log_info "  - GnuPG-2.4.8: GNU Privacy Guard"
+log_info "  - gpgme-2.0.0: GnuPG Made Easy"
+log_info "  - gpgmepp-2.0.0: C++ bindings for GPGME"
 log_info ""
 
 # =====================================================================

@@ -510,6 +510,66 @@ main() {
         log_info "[SKIP] udisks-2.10.2.tar.bz2 (already exists)"
     fi
 
+    # =========================================================================
+    # GnuPG Cryptography Stack (for gpgmepp -> KDE Frameworks)
+    # =========================================================================
+
+    # npth-1.8 (portable threading library for GnuPG)
+    if [ ! -f "$SOURCES_DIR/npth-1.8.tar.bz2" ]; then
+        download_with_retry "https://www.gnupg.org/ftp/gcrypt/npth/npth-1.8.tar.bz2" \
+            "$SOURCES_DIR/npth-1.8.tar.bz2"
+    else
+        log_info "[SKIP] npth-1.8.tar.bz2 (already exists)"
+    fi
+
+    # libassuan-3.0.2 (IPC library for GnuPG)
+    if [ ! -f "$SOURCES_DIR/libassuan-3.0.2.tar.bz2" ]; then
+        download_with_retry "https://www.gnupg.org/ftp/gcrypt/libassuan/libassuan-3.0.2.tar.bz2" \
+            "$SOURCES_DIR/libassuan-3.0.2.tar.bz2"
+    else
+        log_info "[SKIP] libassuan-3.0.2.tar.bz2 (already exists)"
+    fi
+
+    # libksba-1.6.7 (X.509 library for GnuPG)
+    if [ ! -f "$SOURCES_DIR/libksba-1.6.7.tar.bz2" ]; then
+        download_with_retry "https://www.gnupg.org/ftp/gcrypt/libksba/libksba-1.6.7.tar.bz2" \
+            "$SOURCES_DIR/libksba-1.6.7.tar.bz2"
+    else
+        log_info "[SKIP] libksba-1.6.7.tar.bz2 (already exists)"
+    fi
+
+    # pinentry-1.3.2 (PIN entry dialog)
+    if [ ! -f "$SOURCES_DIR/pinentry-1.3.2.tar.bz2" ]; then
+        download_with_retry "https://www.gnupg.org/ftp/gcrypt/pinentry/pinentry-1.3.2.tar.bz2" \
+            "$SOURCES_DIR/pinentry-1.3.2.tar.bz2"
+    else
+        log_info "[SKIP] pinentry-1.3.2.tar.bz2 (already exists)"
+    fi
+
+    # gnupg-2.4.8 (GNU Privacy Guard)
+    if [ ! -f "$SOURCES_DIR/gnupg-2.4.8.tar.bz2" ]; then
+        download_with_retry "https://www.gnupg.org/ftp/gcrypt/gnupg/gnupg-2.4.8.tar.bz2" \
+            "$SOURCES_DIR/gnupg-2.4.8.tar.bz2"
+    else
+        log_info "[SKIP] gnupg-2.4.8.tar.bz2 (already exists)"
+    fi
+
+    # gpgme-2.0.0 (GnuPG Made Easy)
+    if [ ! -f "$SOURCES_DIR/gpgme-2.0.0.tar.bz2" ]; then
+        download_with_retry "https://www.gnupg.org/ftp/gcrypt/gpgme/gpgme-2.0.0.tar.bz2" \
+            "$SOURCES_DIR/gpgme-2.0.0.tar.bz2"
+    else
+        log_info "[SKIP] gpgme-2.0.0.tar.bz2 (already exists)"
+    fi
+
+    # gpgmepp-2.0.0 (C++ bindings for GPGME - from KDE)
+    if [ ! -f "$SOURCES_DIR/gpgmepp-2.0.0.tar.xz" ]; then
+        download_with_retry "https://download.kde.org/stable/gpgmepp/gpgmepp-2.0.0.tar.xz" \
+            "$SOURCES_DIR/gpgmepp-2.0.0.tar.xz"
+    else
+        log_info "[SKIP] gpgmepp-2.0.0.tar.xz (already exists)"
+    fi
+
     log_info "Tier 8: KDE Frameworks 6 Dependencies complete"
 
     # Check for any failures
