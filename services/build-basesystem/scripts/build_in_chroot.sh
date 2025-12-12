@@ -435,13 +435,18 @@ all install subdir_lib others clean mostlyclean distclean:
 	@echo "Timezone utilities disabled - will be installed separately"
 TZSTUB
 
-    # Skip locale installation to avoid msgfmt dependency
-    touch ../SUPPORTED  # Prevent install from trying to install locales
-    make install LOCALES=""
+    # Fix Makefile to skip outdated sanity check
+    sed "/test-installation/s@\$(PERL)@echo not running@" -i ../Makefile
+
+    # Install Glibc (includes i18n locale source data in /usr/share/i18n/)
+    make install
     sed "/RTLDLIST=/s@/usr@@g" -i /usr/bin/ldd
+
+    # Create locale archive directory and generate essential locales
     mkdir -pv /usr/lib/locale
     localedef -i C -f UTF-8 C.UTF-8
     localedef -i en_US -f UTF-8 en_US.UTF-8
+    localedef -i en_GB -f UTF-8 en_GB.UTF-8
 '
 
 # Configure Glibc

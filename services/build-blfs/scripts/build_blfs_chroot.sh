@@ -9023,11 +9023,7 @@ systemctl enable sddm.service || true
 # Set graphical.target as the default so SDDM starts on boot
 systemctl set-default graphical.target || true
 
-# Configure UTF-8 locale (required for Qt6/SDDM)
-# Generate the en_US.UTF-8 locale
-localedef -i en_US -f UTF-8 en_US.UTF-8
-
-# Set system default locale
+# Set system default locale (locale data created in Glibc build)
 cat > /etc/locale.conf << "EOF"
 LANG=en_US.UTF-8
 EOF
