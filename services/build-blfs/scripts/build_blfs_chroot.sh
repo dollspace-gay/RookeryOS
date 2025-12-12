@@ -9020,6 +9020,18 @@ install -v -dm755 -o sddm -g sddm /var/lib/sddm
 # Enable sddm systemd service
 systemctl enable sddm.service || true
 
+# Set graphical.target as the default so SDDM starts on boot
+systemctl set-default graphical.target || true
+
+# Configure UTF-8 locale (required for Qt6/SDDM)
+# Generate the en_US.UTF-8 locale
+localedef -i en_US -f UTF-8 en_US.UTF-8
+
+# Set system default locale
+cat > /etc/locale.conf << "EOF"
+LANG=en_US.UTF-8
+EOF
+
 cd "$BUILD_DIR"
 rm -rf sddm-*
 ldconfig
