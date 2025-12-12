@@ -8884,6 +8884,149 @@ log_info "opencv-4.12.0 installed successfully"
 create_checkpoint "opencv"
 }
 
+
+
+# =====================================================================
+# SDDM - Simple Desktop Display Manager (TIER 12)
+# =====================================================================
+
+# sddm-0.21.0 (Display Manager for KDE Plasma)
+# https://www.linuxfromscratch.org/blfs/view/svn/x/sddm.html
+
+build_sddm() {
+should_skip_package "sddm" && { log_info "Skipping sddm (already built)"; return 0; }
+log_step "Building sddm-0.21.0..."
+
+if [ ! -f /sources/sddm-0.21.0.tar.gz ]; then
+    log_error "sddm-0.21.0.tar.gz not found in /sources"
+    exit 1
+fi
+
+# Create sddm user and group
+if ! getent group sddm > /dev/null 2>&1; then
+    groupadd -g 64 sddm
+fi
+
+if ! getent passwd sddm > /dev/null 2>&1; then
+    useradd -c "SDDM Daemon" \
+            -d /var/lib/sddm \
+            -u 64 \
+            -g sddm \
+            -s /bin/false \
+            sddm
+fi
+
+cd "$BUILD_DIR"
+rm -rf sddm-*
+tar -xf /sources/sddm-0.21.0.tar.gz
+cd sddm-*
+
+mkdir build
+cd build
+
+cmake -D CMAKE_INSTALL_PREFIX=/usr \
+      -D CMAKE_BUILD_TYPE=Release \
+      -D CMAKE_POLICY_VERSION_MINIMUM=3.5 \
+      -D BUILD_WITH_QT6=ON \
+      -D ENABLE_JOURNALD=ON \
+      -D BUILD_MAN_PAGES=OFF \
+      -D DATA_INSTALL_DIR=/usr/share/sddm \
+      -D DBUS_CONFIG_FILENAME=sddm_org.freedesktop.DisplayManager.conf \
+      -W no-dev \
+      ..
+
+make $MAKEFLAGS
+make install
+
+# Install PAM configuration
+cat > /etc/pam.d/sddm << "EOF"
+# Begin /etc/pam.d/sddm
+
+auth     requisite      pam_nologin.so
+auth     required       pam_env.so
+
+auth     required       pam_succeed_if.so uid >= 1000 quiet
+auth     include        system-auth
+
+account  include        system-account
+password include        system-password
+
+session  required       pam_limits.so
+session  include        system-session
+
+# End /etc/pam.d/sddm
+EOF
+
+cat > /etc/pam.d/sddm-autologin << "EOF"
+# Begin /etc/pam.d/sddm-autologin
+
+auth     requisite      pam_nologin.so
+auth     required       pam_env.so
+
+auth     required       pam_succeed_if.so uid >= 1000 quiet
+auth     required       pam_permit.so
+
+account  include        system-account
+
+password required       pam_deny.so
+
+session  required       pam_limits.so
+session  include        system-session
+
+# End /etc/pam.d/sddm-autologin
+EOF
+
+cat > /etc/pam.d/sddm-greeter << "EOF"
+# Begin /etc/pam.d/sddm-greeter
+
+auth     required       pam_env.so
+auth     required       pam_permit.so
+
+account  required       pam_permit.so
+password required       pam_deny.so
+
+session  required       pam_unix.so
+-session optional       pam_systemd.so
+
+# End /etc/pam.d/sddm-greeter
+EOF
+
+# Create sddm configuration directory
+install -v -dm755 /etc/sddm.conf.d
+
+# Set default session to plasma
+cat > /etc/sddm.conf.d/kde_settings.conf << "EOF"
+[Autologin]
+Relogin=false
+Session=
+User=
+
+[General]
+HaltCommand=/usr/bin/systemctl poweroff
+RebootCommand=/usr/bin/systemctl reboot
+
+[Theme]
+Current=breeze
+CursorTheme=breeze_cursors
+
+[Users]
+MaximumUid=60513
+MinimumUid=1000
+EOF
+
+# Create state directory
+install -v -dm755 -o sddm -g sddm /var/lib/sddm
+
+# Enable sddm systemd service
+systemctl enable sddm.service || true
+
+cd "$BUILD_DIR"
+rm -rf sddm-*
+ldconfig
+
+log_info "sddm-0.21.0 installed successfully"
+create_checkpoint "sddm"
+}
 # =====================================================================
 # KDE Plasma 6.4.4 - Generic build function
 # =====================================================================
@@ -9097,6 +9240,24 @@ log_info "=========================================="
 log_info "Tier 11: KDE Plasma 6.4.4 Complete!"
 log_info "=========================================="
 log_info "  56 Plasma packages built successfully"
+log_info "=========================================="
+
+
+# =====================================================================
+# TIER 12: Display Manager (SDDM)
+# =====================================================================
+log_info ""
+log_info "=========================================="
+log_info "Tier 12: Display Manager (SDDM)"
+log_info "=========================================="
+
+build_sddm
+
+log_info ""
+log_info "=========================================="
+log_info "Tier 12: SDDM Complete!"
+log_info "=========================================="
+log_info "  Display manager installed and enabled"
 log_info "=========================================="
 
 # =====================================================================
