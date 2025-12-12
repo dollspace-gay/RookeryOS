@@ -759,7 +759,95 @@ main() {
         log_info "[SKIP] kio-extras-25.08.0.tar.xz (already exists)"
     fi
 
+    # lm-sensors-3.6.2 (hardware monitoring - required by libksysguard)
+    if [ ! -f "$SOURCES_DIR/lm-sensors-3-6-2.tar.gz" ]; then
+        download_with_retry "https://github.com/hramrach/lm-sensors/archive/V3-6-2/lm-sensors-3-6-2.tar.gz" \
+            "$SOURCES_DIR/lm-sensors-3-6-2.tar.gz"
+    else
+        log_info "[SKIP] lm-sensors-3-6-2.tar.gz (already exists)"
+    fi
+
+    # libsass-3.6.6 (Sass CSS compiler library - required by sassc)
+    if [ ! -f "$SOURCES_DIR/libsass-3.6.6.tar.gz" ]; then
+        download_with_retry "https://github.com/sass/libsass/archive/3.6.6/libsass-3.6.6.tar.gz" \
+            "$SOURCES_DIR/libsass-3.6.6.tar.gz"
+    else
+        log_info "[SKIP] libsass-3.6.6.tar.gz (already exists)"
+    fi
+
+    # sassc-3.6.2 (Sass CSS compiler - required by breeze-gtk)
+    if [ ! -f "$SOURCES_DIR/sassc-3.6.2.tar.gz" ]; then
+        download_with_retry "https://github.com/sass/sassc/archive/3.6.2/sassc-3.6.2.tar.gz" \
+            "$SOURCES_DIR/sassc-3.6.2.tar.gz"
+    else
+        log_info "[SKIP] sassc-3.6.2.tar.gz (already exists)"
+    fi
+
+    # hwdata-0.398 (hardware identification database - required by libdisplay-info)
+    if [ ! -f "$SOURCES_DIR/hwdata-0.398.tar.gz" ]; then
+        download_with_retry "https://github.com/vcrhonek/hwdata/archive/v0.398/hwdata-0.398.tar.gz" \
+            "$SOURCES_DIR/hwdata-0.398.tar.gz"
+    else
+        log_info "[SKIP] hwdata-0.398.tar.gz (already exists)"
+    fi
+
+    # libdisplay-info-0.3.0 (EDID and DisplayID library - required by kwin)
+    if [ ! -f "$SOURCES_DIR/libdisplay-info-0.3.0.tar.xz" ]; then
+        download_with_retry "https://gitlab.freedesktop.org/emersion/libdisplay-info/-/releases/0.3.0/downloads/libdisplay-info-0.3.0.tar.xz" \
+            "$SOURCES_DIR/libdisplay-info-0.3.0.tar.xz"
+    else
+        log_info "[SKIP] libdisplay-info-0.3.0.tar.xz (already exists)"
+    fi
+
+    # pulseaudio-qt-1.7.0 (Qt bindings for PulseAudio - required by plasma-pa)
+    if [ ! -f "$SOURCES_DIR/pulseaudio-qt-1.7.0.tar.xz" ]; then
+        download_with_retry "https://download.kde.org/stable/pulseaudio-qt/pulseaudio-qt-1.7.0.tar.xz" \
+            "$SOURCES_DIR/pulseaudio-qt-1.7.0.tar.xz"
+    else
+        log_info "[SKIP] pulseaudio-qt-1.7.0.tar.xz (already exists)"
+    fi
+
+    # libwacom-2.17.0 (Wacom tablet library - required by plasma-desktop)
+    if [ ! -f "$SOURCES_DIR/libwacom-2.17.0.tar.xz" ]; then
+        download_with_retry "https://github.com/linuxwacom/libwacom/releases/download/libwacom-2.17.0/libwacom-2.17.0.tar.xz" \
+            "$SOURCES_DIR/libwacom-2.17.0.tar.xz"
+    else
+        log_info "[SKIP] libwacom-2.17.0.tar.xz (already exists)"
+    fi
+
     log_info "Tier 9: Plasma Prerequisites downloads complete"
+
+    # =========================================================================
+    # Tier 10: KDE Plasma 6.4.4 (56 packages)
+    # https://www.linuxfromscratch.org/blfs/view/12.4/kde/plasma-all.html
+    # =========================================================================
+    log_info "========================================="
+    log_info "Downloading Tier 10: KDE Plasma 6.4.4..."
+    log_info "========================================="
+
+    local PLASMA_URL="https://download.kde.org/stable/plasma/6.4.4"
+
+    # Download all Plasma 6.4.4 packages in build order
+    for pkg in kdecoration libkscreen libksysguard breeze breeze-gtk layer-shell-qt \
+               libplasma kscreenlocker kinfocenter kglobalacceld kwayland aurorae \
+               kwin plasma5support kpipewire plasma-workspace plasma-disks bluedevil \
+               kde-gtk-config kmenuedit kscreen kwallet-pam kwrited milou plasma-nm \
+               plasma-pa plasma-workspace-wallpapers polkit-kde-agent-1 powerdevil \
+               plasma-desktop kgamma ksshaskpass sddm-kcm kactivitymanagerd \
+               plasma-integration xdg-desktop-portal-kde drkonqi plasma-vault \
+               kde-cli-tools systemsettings plasma-thunderbolt plasma-firewall \
+               plasma-systemmonitor qqc2-breeze-style ksystemstats oxygen-sounds \
+               kdeplasma-addons plasma-welcome ocean-sound-theme print-manager \
+               wacomtablet oxygen spectacle; do
+        if [ ! -f "$SOURCES_DIR/${pkg}-6.4.4.tar.xz" ]; then
+            download_with_retry "${PLASMA_URL}/${pkg}-6.4.4.tar.xz" \
+                "$SOURCES_DIR/${pkg}-6.4.4.tar.xz"
+        else
+            log_info "[SKIP] ${pkg}-6.4.4.tar.xz (already exists)"
+        fi
+    done
+
+    log_info "KDE Plasma 6.4.4 downloads complete (56 packages)"
 
     # Check for any failures
     if [ -s "$FAILED_DOWNLOADS_FILE" ]; then

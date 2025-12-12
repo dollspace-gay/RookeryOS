@@ -8558,6 +8558,382 @@ log_info "kio-extras-25.08.0 installed successfully"
 create_checkpoint "blfs-kio-extras"
 }
 
+# =====================================================================
+# lm-sensors-3.6.2 (hardware monitoring - required by libksysguard)
+# https://www.linuxfromscratch.org/blfs/view/stable/general/lm-sensors.html
+# =====================================================================
+build_lm_sensors() {
+should_skip_package "lm-sensors" && { log_info "Skipping lm-sensors (already built)"; return 0; }
+log_step "Building lm-sensors-3.6.2..."
+
+if [ ! -f /sources/lm-sensors-3-6-2.tar.gz ]; then
+    log_error "lm-sensors-3-6-2.tar.gz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf lm-sensors-*
+tar -xf /sources/lm-sensors-3-6-2.tar.gz
+cd lm-sensors-*
+
+# Build lm-sensors with make (not cmake)
+make PREFIX=/usr        \
+     BUILD_STATIC_LIB=0 \
+     MANDIR=/usr/share/man
+
+make PREFIX=/usr        \
+     BUILD_STATIC_LIB=0 \
+     MANDIR=/usr/share/man install
+
+cd "$BUILD_DIR"
+rm -rf lm-sensors-*
+ldconfig
+
+log_info "lm-sensors-3.6.2 installed successfully"
+create_checkpoint "lm-sensors"
+}
+
+# =====================================================================
+# libsass-3.6.6 (Sass CSS compiler library - required by sassc)
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/sassc.html
+# =====================================================================
+build_libsass() {
+should_skip_package "libsass" && { log_info "Skipping libsass (already built)"; return 0; }
+log_step "Building libsass-3.6.6..."
+
+if [ ! -f /sources/libsass-3.6.6.tar.gz ]; then
+    log_error "libsass-3.6.6.tar.gz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf libsass-*
+tar -xf /sources/libsass-3.6.6.tar.gz
+cd libsass-*
+
+autoreconf -fi
+
+./configure --prefix=/usr --disable-static
+
+make $MAKEFLAGS
+make install
+
+cd "$BUILD_DIR"
+rm -rf libsass-*
+ldconfig
+
+log_info "libsass-3.6.6 installed successfully"
+create_checkpoint "libsass"
+}
+
+# =====================================================================
+# sassc-3.6.2 (Sass CSS compiler - required by breeze-gtk)
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/sassc.html
+# =====================================================================
+build_sassc() {
+should_skip_package "sassc" && { log_info "Skipping sassc (already built)"; return 0; }
+log_step "Building sassc-3.6.2..."
+
+if [ ! -f /sources/sassc-3.6.2.tar.gz ]; then
+    log_error "sassc-3.6.2.tar.gz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf sassc-*
+tar -xf /sources/sassc-3.6.2.tar.gz
+cd sassc-*
+
+autoreconf -fi
+
+./configure --prefix=/usr
+
+make $MAKEFLAGS
+make install
+
+cd "$BUILD_DIR"
+rm -rf sassc-*
+
+log_info "sassc-3.6.2 installed successfully"
+create_checkpoint "sassc"
+}
+
+# =====================================================================
+# hwdata-0.398 (hardware identification database - required by libdisplay-info)
+# https://www.linuxfromscratch.org/blfs/view/stable/general/hwdata.html
+# =====================================================================
+build_hwdata() {
+should_skip_package "hwdata" && { log_info "Skipping hwdata (already built)"; return 0; }
+log_step "Building hwdata-0.398..."
+
+if [ ! -f /sources/hwdata-0.398.tar.gz ]; then
+    log_error "hwdata-0.398.tar.gz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf hwdata-*
+tar -xf /sources/hwdata-0.398.tar.gz
+cd hwdata-*
+
+./configure --prefix=/usr --disable-blacklist
+
+make install
+
+cd "$BUILD_DIR"
+rm -rf hwdata-*
+
+log_info "hwdata-0.398 installed successfully"
+create_checkpoint "hwdata"
+}
+
+# =====================================================================
+# libdisplay-info-0.3.0 (EDID and DisplayID library - required by kwin)
+# https://www.linuxfromscratch.org/blfs/view/stable/general/libdisplay-info.html
+# =====================================================================
+build_libdisplay_info() {
+should_skip_package "libdisplay-info" && { log_info "Skipping libdisplay-info (already built)"; return 0; }
+log_step "Building libdisplay-info-0.3.0..."
+
+if [ ! -f /sources/libdisplay-info-0.3.0.tar.xz ]; then
+    log_error "libdisplay-info-0.3.0.tar.xz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf libdisplay-info-*
+tar -xf /sources/libdisplay-info-0.3.0.tar.xz
+cd libdisplay-info-*
+
+mkdir build
+cd build
+
+meson setup --prefix=/usr --buildtype=release ..
+ninja
+ninja install
+
+cd "$BUILD_DIR"
+rm -rf libdisplay-info-*
+ldconfig
+
+log_info "libdisplay-info-0.3.0 installed successfully"
+create_checkpoint "libdisplay-info"
+}
+
+# pulseaudio-qt-1.7.0 (Qt bindings for PulseAudio - required by plasma-pa)
+# https://www.linuxfromscratch.org/blfs/view/svn/kde/pulseaudio-qt.html
+
+build_pulseaudio_qt() {
+should_skip_package "pulseaudio-qt" && { log_info "Skipping pulseaudio-qt (already built)"; return 0; }
+log_step "Building pulseaudio-qt-1.7.0..."
+
+if [ ! -f /sources/pulseaudio-qt-1.7.0.tar.xz ]; then
+    log_error "pulseaudio-qt-1.7.0.tar.xz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf pulseaudio-qt-*
+tar -xf /sources/pulseaudio-qt-1.7.0.tar.xz
+cd pulseaudio-qt-*
+
+mkdir build
+cd build
+
+cmake -D CMAKE_INSTALL_PREFIX=/usr \
+      -D CMAKE_BUILD_TYPE=Release \
+      -D BUILD_TESTING=OFF \
+      -W no-dev \
+      ..
+
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf pulseaudio-qt-*
+ldconfig
+
+log_info "pulseaudio-qt-1.7.0 installed successfully"
+create_checkpoint "pulseaudio-qt"
+}
+
+# libwacom-2.16.1 (Wacom tablet library - required by plasma-desktop)
+# https://www.linuxfromscratch.org/blfs/view/svn/general/libwacom.html
+
+build_libwacom() {
+should_skip_package "libwacom" && { log_info "Skipping libwacom (already built)"; return 0; }
+log_step "Building libwacom-2.16.1..."
+
+if [ ! -f /sources/libwacom-2.16.1.tar.xz ]; then
+    log_error "libwacom-2.16.1.tar.xz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf libwacom-*
+tar -xf /sources/libwacom-2.16.1.tar.xz
+cd libwacom-*
+
+mkdir build
+cd build
+
+meson setup --prefix=/usr \
+            --buildtype=release \
+            -D tests=disabled \
+            ..
+
+ninja
+ninja install
+
+cd "$BUILD_DIR"
+rm -rf libwacom-*
+ldconfig
+
+log_info "libwacom-2.16.1 installed successfully"
+create_checkpoint "libwacom"
+}
+
+# xf86-input-wacom-1.2.3 (Xorg Wacom driver - required by wacomtablet)
+# https://www.linuxfromscratch.org/blfs/view/svn/x/x7driver.html
+
+build_xf86_input_wacom() {
+should_skip_package "xf86-input-wacom" && { log_info "Skipping xf86-input-wacom (already built)"; return 0; }
+log_step "Building xf86-input-wacom-1.2.3..."
+
+if [ ! -f /sources/xf86-input-wacom-1.2.3.tar.bz2 ]; then
+    log_error "xf86-input-wacom-1.2.3.tar.bz2 not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf xf86-input-wacom-*
+tar -xf /sources/xf86-input-wacom-1.2.3.tar.bz2
+cd xf86-input-wacom-*
+
+./configure --prefix=/usr \
+            --with-xorg-module-dir=/usr/lib/xorg/modules \
+            --with-sdkdir=/usr/include/xorg \
+            --with-systemd-unit-dir=/usr/lib/systemd/system \
+            --with-udev-rules-dir=/usr/lib/udev/rules.d
+
+make $MAKEFLAGS
+make install
+
+cd "$BUILD_DIR"
+rm -rf xf86-input-wacom-*
+ldconfig
+
+log_info "xf86-input-wacom-1.2.3 installed successfully"
+create_checkpoint "xf86-input-wacom"
+}
+
+# OpenCV-4.12.0 (Computer vision library - required by spectacle)
+# https://www.linuxfromscratch.org/blfs/view/svn/general/opencv.html
+
+build_opencv() {
+should_skip_package "opencv" && { log_info "Skipping opencv (already built)"; return 0; }
+log_step "Building opencv-4.12.0..."
+
+if [ ! -f /sources/opencv-4.12.0.tar.gz ]; then
+    log_error "opencv-4.12.0.tar.gz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf opencv-*
+tar -xf /sources/opencv-4.12.0.tar.gz
+cd opencv-*
+
+# Extract contrib modules if available
+if [ -f /sources/opencv_contrib-4.12.0.tar.gz ]; then
+    log_info "Extracting OpenCV contrib modules..."
+    tar -xf /sources/opencv_contrib-4.12.0.tar.gz -C ..
+fi
+
+mkdir build
+cd build
+
+cmake -D CMAKE_INSTALL_PREFIX=/usr \
+      -D CMAKE_BUILD_TYPE=Release \
+      -D ENABLE_CXX11=ON \
+      -D BUILD_PERF_TESTS=OFF \
+      -D BUILD_TESTS=OFF \
+      -D BUILD_EXAMPLES=OFF \
+      -D BUILD_opencv_java=OFF \
+      -D BUILD_opencv_python2=OFF \
+      -D BUILD_opencv_python3=OFF \
+      -D WITH_FFMPEG=ON \
+      -D WITH_GSTREAMER=OFF \
+      -D WITH_V4L=ON \
+      -D WITH_OPENGL=ON \
+      -D WITH_GTK=OFF \
+      -D WITH_QT=OFF \
+      -D OPENCV_EXTRA_MODULES_PATH=../../opencv_contrib-4.12.0/modules \
+      -W no-dev \
+      ..
+
+make $MAKEFLAGS
+make install
+
+cd "$BUILD_DIR"
+rm -rf opencv-*
+rm -rf opencv_contrib-*
+ldconfig
+
+log_info "opencv-4.12.0 installed successfully"
+create_checkpoint "opencv"
+}
+
+# =====================================================================
+# KDE Plasma 6.4.4 - Generic build function
+# =====================================================================
+
+# Generic Plasma build function - handles standard CMake-based Plasma packages
+build_plasma_package() {
+    local pkg_name="$1"
+    local pkg_version="${2:-6.4.4}"
+    local extra_cmake_args="${3:-}"
+
+    local checkpoint_name="plasma-${pkg_name}"
+
+    should_skip_package "$checkpoint_name" && { log_info "Skipping ${pkg_name} (already built)"; return 0; }
+    log_step "Building ${pkg_name}-${pkg_version}..."
+
+    local tarball="/sources/${pkg_name}-${pkg_version}.tar.xz"
+    if [ ! -f "$tarball" ]; then
+        log_error "${pkg_name}-${pkg_version}.tar.xz not found in /sources"
+        exit 1
+    fi
+
+    cd "$BUILD_DIR"
+    rm -rf ${pkg_name}-*
+    tar -xf "$tarball"
+    cd ${pkg_name}-*
+
+    mkdir build
+    cd build
+
+    cmake -D CMAKE_INSTALL_PREFIX=/usr \
+          -D CMAKE_INSTALL_LIBEXECDIR=libexec \
+          -D CMAKE_PREFIX_PATH="/usr;/opt/qt6" \
+          -D CMAKE_SKIP_INSTALL_RPATH=ON \
+          -D CMAKE_BUILD_TYPE=Release \
+          -D BUILD_QT5=OFF \
+          -D BUILD_TESTING=OFF \
+          -W no-dev \
+          $extra_cmake_args ..
+
+    make $MAKEFLAGS
+    make install
+
+    cd "$BUILD_DIR"
+    rm -rf ${pkg_name}-*
+    ldconfig
+
+    log_info "${pkg_name}-${pkg_version} installed successfully"
+    create_checkpoint "$checkpoint_name"
+}
+
 # Execute Tier 10 builds
 # NOTE: duktape and libproxy are already built in Tier 2, so we skip them here
 
@@ -8576,6 +8952,19 @@ build_plasma_activities_stats
 log_info "Phase 4: KIO Extensions"
 build_kio_extras
 
+log_info "Phase 5: Hardware Monitoring"
+build_lm_sensors
+
+log_info "Phase 6: Sass CSS Compiler"
+build_libsass
+build_sassc
+
+log_info "Phase 7: Hardware Identification Database"
+build_hwdata
+
+log_info "Phase 8: Display Information Library"
+build_libdisplay_info
+
 log_info ""
 log_info "=========================================="
 log_info "Tier 10: Plasma Prerequisites Complete!"
@@ -8588,7 +8977,127 @@ log_info "  - kirigami-addons-1.9.0: Kirigami UI addons"
 log_info "  - plasma-activities-6.4.4: KDE Activities"
 log_info "  - plasma-activities-stats-6.4.4: Activity statistics"
 log_info "  - kio-extras-25.08.0: Extra KIO protocols"
+log_info "  - lm-sensors-3.6.2: Hardware monitoring"
+log_info "  - libsass-3.6.6: Sass CSS compiler library"
+log_info "  - sassc-3.6.2: Sass CSS compiler"
+log_info "  - hwdata-0.398: Hardware identification database"
+log_info "  - libdisplay-info-0.3.0: EDID/DisplayID library"
 log_info ""
+
+# =====================================================================
+# Tier 11: KDE Plasma 6.4.4 (56 packages)
+# https://www.linuxfromscratch.org/blfs/view/12.4/kde/plasma-all.html
+# =====================================================================
+
+log_info ""
+log_info "#####################################################################"
+log_info "# TIER 11: KDE Plasma 6.4.4"
+log_info "#####################################################################"
+log_info ""
+
+# Phase 1: Core Libraries
+log_info "Phase 1: Plasma Core Libraries"
+build_plasma_package "kdecoration"
+build_plasma_package "libkscreen"
+build_plasma_package "libksysguard"
+build_plasma_package "breeze"
+build_plasma_package "breeze-gtk"
+build_plasma_package "layer-shell-qt"
+build_plasma_package "libplasma"
+
+log_info "Plasma Phase 1 complete (Core Libraries)"
+
+# Phase 2: System Services
+log_info "Phase 2: System Services"
+build_plasma_package "kscreenlocker"
+build_plasma_package "kinfocenter"
+build_plasma_package "kglobalacceld"
+build_plasma_package "kwayland"
+build_plasma_package "aurorae"
+build_plasma_package "kwin"
+build_plasma_package "plasma5support"
+
+log_info "Plasma Phase 2 complete (System Services)"
+
+# Phase 3: Media and Workspace
+log_info "Phase 3: Media and Workspace"
+build_plasma_package "kpipewire"
+build_plasma_package "plasma-workspace"
+build_plasma_package "plasma-disks"
+build_plasma_package "bluedevil"
+build_plasma_package "kde-gtk-config"
+build_plasma_package "kmenuedit"
+build_plasma_package "kscreen"
+build_plasma_package "kwallet-pam"
+build_plasma_package "kwrited"
+
+log_info "Plasma Phase 3 complete (Media and Workspace)"
+
+# Phase 4: Network and Audio
+log_info "Phase 4: Network and Audio"
+build_plasma_package "milou"
+build_plasma_package "plasma-nm"
+build_pulseaudio_qt
+build_plasma_package "plasma-pa"
+build_plasma_package "plasma-workspace-wallpapers"
+build_plasma_package "polkit-kde-agent-1"
+build_plasma_package "powerdevil"
+
+log_info "Plasma Phase 4 complete (Network and Audio)"
+
+# Phase 5: Desktop
+log_info "Phase 5: Desktop"
+build_libwacom
+build_plasma_package "plasma-desktop"
+build_plasma_package "kgamma"
+build_plasma_package "ksshaskpass"
+build_plasma_package "sddm-kcm"
+build_plasma_package "kactivitymanagerd"
+build_plasma_package "plasma-integration"
+build_plasma_package "xdg-desktop-portal-kde"
+
+log_info "Plasma Phase 5 complete (Desktop)"
+
+# Phase 6: System Tools
+log_info "Phase 6: System Tools"
+build_plasma_package "drkonqi"
+build_plasma_package "plasma-vault"
+build_plasma_package "kde-cli-tools"
+build_plasma_package "systemsettings"
+build_plasma_package "plasma-thunderbolt"
+build_plasma_package "plasma-firewall"
+build_plasma_package "plasma-systemmonitor"
+
+log_info "Plasma Phase 6 complete (System Tools)"
+
+# Phase 7: Styles and Stats
+log_info "Phase 7: Styles and Stats"
+build_plasma_package "qqc2-breeze-style"
+build_plasma_package "ksystemstats"
+build_plasma_package "oxygen-sounds"
+build_plasma_package "kdeplasma-addons"
+build_plasma_package "plasma-welcome"
+build_plasma_package "ocean-sound-theme"
+
+log_info "Plasma Phase 7 complete (Styles and Stats)"
+
+# Phase 8: Applications
+log_info "Phase 8: Applications"
+build_plasma_package "print-manager"
+build_xf86_input_wacom
+build_plasma_package "wacomtablet"
+build_plasma_package "oxygen"
+build_opencv
+build_plasma_package "spectacle"
+
+log_info "Plasma Phase 8 complete (Applications)"
+
+log_info ""
+log_info "=========================================="
+log_info "Tier 11: KDE Plasma 6.4.4 Complete!"
+log_info "=========================================="
+log_info "  56 Plasma packages built successfully"
+log_info "=========================================="
 
 # =====================================================================
 # Summary
@@ -8656,6 +9165,17 @@ log_info "  - sound-theme-freedesktop, libcanberra"
 log_info "  - libical, lmdb, libqrencode"
 log_info "  - Aspell, BlueZ, ModemManager, UPower"
 log_info "  - breeze-icons"
+log_info ""
+log_info "Tier 9 - KDE Frameworks 6.17.0 (69 packages)"
+log_info ""
+log_info "Tier 10 - Plasma Prerequisites:"
+log_info "  - kdsoap, oxygen-icons, kirigami-addons"
+log_info "  - plasma-activities, kio-extras"
+log_info ""
+log_info "Tier 11 - KDE Plasma 6.4.4 (56 packages):"
+log_info "  - Desktop shell, window manager, system settings"
+log_info "  - Network, Bluetooth, power management"
+log_info "  - System monitor, file manager integration"
 log_info "=========================================="
 
 exit 0
