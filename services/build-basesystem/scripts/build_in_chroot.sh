@@ -992,7 +992,7 @@ build_package "expat-*.tar.xz" "Expat" bash -c '
 # =====================================================================
 should_skip_package "XML-Parser" "/sources" && { log_info "⊙ Skipping XML-Parser (already built, checkpoint valid)"; } || {
 log_step "Building XML::Parser-2.47..."
-if [ -f /sources/XML-Parser-*.tar.gz ]; then
+if ls /sources/XML-Parser-*.tar.gz 1>/dev/null 2>&1; then
     tar -xf /sources/XML-Parser-*.tar.gz
     cd XML-Parser-*
     perl Makefile.PL
@@ -1423,8 +1423,8 @@ create_checkpoint "e2fsprogs" "/sources" "chapter8"
 # =====================================================================
 # 8.49 Python-3.13.7 (Final - with pip)
 # =====================================================================
-# Use custom checkpoint name to avoid conflict with temporary Python
-should_skip_package "Python-final" "/sources" && { log_info "⊙ Skipping Python-final (already built, checkpoint valid)"; } || {
+# Use global checkpoint (no source hash validation) to avoid conflict with temporary Python
+should_skip_global_checkpoint "Python-final" && { log_info "⊙ Skipping Python-final (already built)"; } || {
 log_step "Building Python-3.13.7 (final with pip)..."
 tar -xf /sources/Python-*.tar.xz
 cd Python-*
@@ -1436,7 +1436,7 @@ make install
 cd /build
 rm -rf Python-*
 log_info "Python (final) complete"
-create_checkpoint "Python-final" "/sources" "chapter8"
+create_global_checkpoint "Python-final" "chapter8"
 }
 
 # =====================================================================
