@@ -278,6 +278,112 @@ main() {
 
     log_info "Tier 7 additional downloads complete"
 
+    # =============================================================================
+    # Tier 8: KDE Frameworks 6 Dependencies
+    # These packages are required by KF6 but aren't on the corvidae mirror
+    # =============================================================================
+    log_info "========================================="
+    log_info "Downloading Tier 8: KDE Frameworks 6 Dependencies..."
+    log_info "========================================="
+
+    # libcanberra-0.30 (XDG Sound Theme implementation)
+    if [ ! -f "$SOURCES_DIR/libcanberra-0.30.tar.xz" ]; then
+        download_with_retry "https://0pointer.de/lennart/projects/libcanberra/libcanberra-0.30.tar.xz" \
+            "$SOURCES_DIR/libcanberra-0.30.tar.xz"
+    else
+        log_info "[SKIP] libcanberra-0.30.tar.xz (already exists)"
+    fi
+
+    # libcanberra wayland patch
+    if [ ! -f "$SOURCES_DIR/libcanberra-0.30-wayland-1.patch" ]; then
+        download_with_retry "https://www.linuxfromscratch.org/patches/blfs/12.4/libcanberra-0.30-wayland-1.patch" \
+            "$SOURCES_DIR/libcanberra-0.30-wayland-1.patch"
+    else
+        log_info "[SKIP] libcanberra-0.30-wayland-1.patch (already exists)"
+    fi
+
+    # libical-3.0.20 (iCalendar protocols)
+    if [ ! -f "$SOURCES_DIR/libical-3.0.20.tar.gz" ]; then
+        download_with_retry "https://github.com/libical/libical/releases/download/v3.0.20/libical-3.0.20.tar.gz" \
+            "$SOURCES_DIR/libical-3.0.20.tar.gz"
+    else
+        log_info "[SKIP] libical-3.0.20.tar.gz (already exists)"
+    fi
+
+    # lmdb-0.9.33 (Lightning Memory-Mapped Database)
+    if [ ! -f "$SOURCES_DIR/LMDB_0.9.33.tar.bz2" ]; then
+        download_with_retry "https://git.openldap.org/openldap/openldap/-/archive/LMDB_0.9.33.tar.bz2" \
+            "$SOURCES_DIR/LMDB_0.9.33.tar.bz2"
+    else
+        log_info "[SKIP] LMDB_0.9.33.tar.bz2 (already exists)"
+    fi
+
+    # libqrencode-4.1.1 (QR code library)
+    if [ ! -f "$SOURCES_DIR/libqrencode-4.1.1.tar.gz" ]; then
+        download_with_retry "https://github.com/fukuchi/libqrencode/archive/v4.1.1/libqrencode-4.1.1.tar.gz" \
+            "$SOURCES_DIR/libqrencode-4.1.1.tar.gz"
+    else
+        log_info "[SKIP] libqrencode-4.1.1.tar.gz (already exists)"
+    fi
+
+    # Aspell-0.60.8.1 (Spell checker)
+    if [ ! -f "$SOURCES_DIR/aspell-0.60.8.1.tar.gz" ]; then
+        download_with_retry "https://ftp.gnu.org/gnu/aspell/aspell-0.60.8.1.tar.gz" \
+            "$SOURCES_DIR/aspell-0.60.8.1.tar.gz"
+    else
+        log_info "[SKIP] aspell-0.60.8.1.tar.gz (already exists)"
+    fi
+
+    # Aspell English dictionary
+    if [ ! -f "$SOURCES_DIR/aspell6-en-2020.12.07-0.tar.bz2" ]; then
+        download_with_retry "https://ftp.gnu.org/gnu/aspell/dict/en/aspell6-en-2020.12.07-0.tar.bz2" \
+            "$SOURCES_DIR/aspell6-en-2020.12.07-0.tar.bz2"
+    else
+        log_info "[SKIP] aspell6-en-2020.12.07-0.tar.bz2 (already exists)"
+    fi
+
+    # BlueZ-5.83 (Bluetooth stack)
+    if [ ! -f "$SOURCES_DIR/bluez-5.83.tar.xz" ]; then
+        download_with_retry "https://www.kernel.org/pub/linux/bluetooth/bluez-5.83.tar.xz" \
+            "$SOURCES_DIR/bluez-5.83.tar.xz"
+    else
+        log_info "[SKIP] bluez-5.83.tar.xz (already exists)"
+    fi
+
+    # ModemManager-1.24.2 (Mobile broadband modem management)
+    if [ ! -f "$SOURCES_DIR/ModemManager-1.24.2.tar.gz" ]; then
+        download_with_retry "https://gitlab.freedesktop.org/mobile-broadband/ModemManager/-/archive/1.24.2/ModemManager-1.24.2.tar.gz" \
+            "$SOURCES_DIR/ModemManager-1.24.2.tar.gz"
+    else
+        log_info "[SKIP] ModemManager-1.24.2.tar.gz (already exists)"
+    fi
+
+    # UPower-1.90.9 (Power management)
+    if [ ! -f "$SOURCES_DIR/upower-v1.90.9.tar.bz2" ]; then
+        download_with_retry "https://gitlab.freedesktop.org/upower/upower/-/archive/v1.90.9/upower-v1.90.9.tar.bz2" \
+            "$SOURCES_DIR/upower-v1.90.9.tar.bz2"
+    else
+        log_info "[SKIP] upower-v1.90.9.tar.bz2 (already exists)"
+    fi
+
+    # sound-theme-freedesktop-0.8 (XDG sound theme)
+    if [ ! -f "$SOURCES_DIR/sound-theme-freedesktop-0.8.tar.bz2" ]; then
+        download_with_retry "https://people.freedesktop.org/~mccann/dist/sound-theme-freedesktop-0.8.tar.bz2" \
+            "$SOURCES_DIR/sound-theme-freedesktop-0.8.tar.bz2"
+    else
+        log_info "[SKIP] sound-theme-freedesktop-0.8.tar.bz2 (already exists)"
+    fi
+
+    # breeze-icons-6.17.0 (KDE icon theme)
+    if [ ! -f "$SOURCES_DIR/breeze-icons-6.17.0.tar.xz" ]; then
+        download_with_retry "https://download.kde.org/stable/frameworks/6.17/breeze-icons-6.17.0.tar.xz" \
+            "$SOURCES_DIR/breeze-icons-6.17.0.tar.xz"
+    else
+        log_info "[SKIP] breeze-icons-6.17.0.tar.xz (already exists)"
+    fi
+
+    log_info "Tier 8: KDE Frameworks 6 Dependencies complete"
+
     # Check for any failures
     if [ -s "$FAILED_DOWNLOADS_FILE" ]; then
         log_error "========================================="

@@ -6645,6 +6645,366 @@ create_checkpoint "html5lib"
 }
 
 # =====================================================================
+# Tier 8: KDE Frameworks 6 Dependencies
+# =====================================================================
+
+# =====================================================================
+# sound-theme-freedesktop-0.8 (XDG Sound Theme)
+# https://www.linuxfromscratch.org/blfs/view/12.4/multimedia/sound-theme-freedesktop.html
+# =====================================================================
+build_sound_theme_freedesktop() {
+should_skip_package "sound-theme-freedesktop" && { log_info "Skipping sound-theme-freedesktop (already built)"; return 0; }
+log_step "Building sound-theme-freedesktop-0.8..."
+
+if [ ! -f /sources/sound-theme-freedesktop-0.8.tar.bz2 ]; then
+    log_error "sound-theme-freedesktop-0.8.tar.bz2 not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf sound-theme-freedesktop-*
+tar -xf /sources/sound-theme-freedesktop-0.8.tar.bz2
+cd sound-theme-freedesktop-*
+
+./configure --prefix=/usr
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf sound-theme-freedesktop-*
+
+log_info "sound-theme-freedesktop-0.8 installed successfully"
+create_checkpoint "sound-theme-freedesktop"
+}
+
+# =====================================================================
+# libcanberra-0.30 (XDG Sound Theme Implementation)
+# https://www.linuxfromscratch.org/blfs/view/12.4/multimedia/libcanberra.html
+# =====================================================================
+build_libcanberra() {
+should_skip_package "libcanberra" && { log_info "Skipping libcanberra (already built)"; return 0; }
+log_step "Building libcanberra-0.30..."
+
+if [ ! -f /sources/libcanberra-0.30.tar.xz ]; then
+    log_error "libcanberra-0.30.tar.xz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf libcanberra-*
+tar -xf /sources/libcanberra-0.30.tar.xz
+cd libcanberra-*
+
+# Apply wayland patch
+if [ -f /sources/libcanberra-0.30-wayland-1.patch ]; then
+    patch -Np1 -i /sources/libcanberra-0.30-wayland-1.patch
+fi
+
+./configure --prefix=/usr --disable-oss
+make
+make docdir=/usr/share/doc/libcanberra-0.30 install
+
+cd "$BUILD_DIR"
+rm -rf libcanberra-*
+
+log_info "libcanberra-0.30 installed successfully"
+create_checkpoint "libcanberra"
+}
+
+# =====================================================================
+# libical-3.0.20 (iCalendar protocols implementation)
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/libical.html
+# =====================================================================
+build_libical() {
+should_skip_package "libical" && { log_info "Skipping libical (already built)"; return 0; }
+log_step "Building libical-3.0.20..."
+
+if [ ! -f /sources/libical-3.0.20.tar.gz ]; then
+    log_error "libical-3.0.20.tar.gz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf libical-*
+tar -xf /sources/libical-3.0.20.tar.gz
+cd libical-*
+
+mkdir build && cd build
+
+cmake -D CMAKE_INSTALL_PREFIX=/usr  \
+      -D CMAKE_BUILD_TYPE=Release   \
+      -D SHARED_ONLY=yes            \
+      -D ICAL_BUILD_DOCS=false      \
+      -D GOBJECT_INTROSPECTION=true \
+      -D ICAL_GLIB_VAPI=true        \
+      ..
+
+# Use -j1 as recommended by BLFS
+make -j1
+make install
+
+cd "$BUILD_DIR"
+rm -rf libical-*
+
+log_info "libical-3.0.20 installed successfully"
+create_checkpoint "libical"
+}
+
+# =====================================================================
+# lmdb-0.9.33 (Lightning Memory-Mapped Database)
+# https://www.linuxfromscratch.org/blfs/view/12.4/server/lmdb.html
+# =====================================================================
+build_lmdb() {
+should_skip_package "lmdb" && { log_info "Skipping lmdb (already built)"; return 0; }
+log_step "Building lmdb-0.9.33..."
+
+if [ ! -f /sources/LMDB_0.9.33.tar.bz2 ]; then
+    log_error "LMDB_0.9.33.tar.bz2 not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf openldap-*
+tar -xf /sources/LMDB_0.9.33.tar.bz2
+cd openldap-*/libraries/liblmdb
+
+make
+# Remove static library from install target
+sed -i 's| liblmdb.a||' Makefile
+make prefix=/usr install
+
+cd "$BUILD_DIR"
+rm -rf openldap-*
+
+log_info "lmdb-0.9.33 installed successfully"
+create_checkpoint "lmdb"
+}
+
+# =====================================================================
+# libqrencode-4.1.1 (QR code encoding library)
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/libqrencode.html
+# =====================================================================
+build_libqrencode() {
+should_skip_package "libqrencode" && { log_info "Skipping libqrencode (already built)"; return 0; }
+log_step "Building libqrencode-4.1.1..."
+
+if [ ! -f /sources/libqrencode-4.1.1.tar.gz ]; then
+    log_error "libqrencode-4.1.1.tar.gz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf libqrencode-*
+tar -xf /sources/libqrencode-4.1.1.tar.gz
+cd libqrencode-*
+
+sh autogen.sh
+./configure --prefix=/usr
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf libqrencode-*
+
+log_info "libqrencode-4.1.1 installed successfully"
+create_checkpoint "libqrencode"
+}
+
+# =====================================================================
+# Aspell-0.60.8.1 (Spell checker)
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/aspell.html
+# =====================================================================
+build_aspell() {
+should_skip_package "aspell" && { log_info "Skipping aspell (already built)"; return 0; }
+log_step "Building aspell-0.60.8.1..."
+
+if [ ! -f /sources/aspell-0.60.8.1.tar.gz ]; then
+    log_error "aspell-0.60.8.1.tar.gz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf aspell-*
+tar -xf /sources/aspell-0.60.8.1.tar.gz
+cd aspell-*
+
+# Fix for gcc-15
+sed -e 's/; i.*size)/, e = end(); i != e; ++i, ++size_)/' \
+    -i modules/speller/default/vector_hash-t.hpp
+
+./configure --prefix=/usr
+make
+make install
+ln -svfn aspell-0.60 /usr/lib/aspell
+
+# Install ispell and spell wrapper scripts
+install -v -m 755 scripts/ispell /usr/bin/
+install -v -m 755 scripts/spell /usr/bin/
+
+# Install English dictionary
+if [ -f /sources/aspell6-en-2020.12.07-0.tar.bz2 ]; then
+    cd "$BUILD_DIR"
+    tar -xf /sources/aspell6-en-2020.12.07-0.tar.bz2
+    cd aspell6-en-*
+    ./configure
+    make
+    make install
+fi
+
+cd "$BUILD_DIR"
+rm -rf aspell-* aspell6-*
+
+log_info "aspell-0.60.8.1 installed successfully"
+create_checkpoint "aspell"
+}
+
+# =====================================================================
+# BlueZ-5.83 (Bluetooth protocol stack)
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/bluez.html
+# =====================================================================
+build_bluez() {
+should_skip_package "bluez" && { log_info "Skipping bluez (already built)"; return 0; }
+log_step "Building BlueZ-5.83..."
+
+if [ ! -f /sources/bluez-5.83.tar.xz ]; then
+    log_error "bluez-5.83.tar.xz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf bluez-*
+tar -xf /sources/bluez-5.83.tar.xz
+cd bluez-*
+
+./configure --prefix=/usr         \
+            --sysconfdir=/etc     \
+            --localstatedir=/var  \
+            --disable-manpages    \
+            --enable-library
+
+make
+make install
+ln -svf ../libexec/bluetooth/bluetoothd /usr/sbin
+
+# Install main configuration file
+install -v -dm755 /etc/bluetooth
+install -v -m644 src/main.conf /etc/bluetooth/main.conf
+
+cd "$BUILD_DIR"
+rm -rf bluez-*
+
+log_info "BlueZ-5.83 installed successfully"
+create_checkpoint "bluez"
+}
+
+# =====================================================================
+# ModemManager-1.24.2 (Mobile broadband modem management)
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/ModemManager.html
+# =====================================================================
+build_modemmanager() {
+should_skip_package "modemmanager" && { log_info "Skipping ModemManager (already built)"; return 0; }
+log_step "Building ModemManager-1.24.2..."
+
+if [ ! -f /sources/ModemManager-1.24.2.tar.gz ]; then
+    log_error "ModemManager-1.24.2.tar.gz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf ModemManager-*
+tar -xf /sources/ModemManager-1.24.2.tar.gz
+cd ModemManager-*
+
+mkdir build && cd build
+
+meson setup ..                 \
+      --prefix=/usr            \
+      --buildtype=release      \
+      -D bash_completion=false \
+      -D qrtr=false
+
+ninja
+ninja install
+
+cd "$BUILD_DIR"
+rm -rf ModemManager-*
+
+log_info "ModemManager-1.24.2 installed successfully"
+create_checkpoint "modemmanager"
+}
+
+# =====================================================================
+# UPower-1.90.9 (Power management)
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/upower.html
+# =====================================================================
+build_upower() {
+should_skip_package "upower" && { log_info "Skipping UPower (already built)"; return 0; }
+log_step "Building UPower-1.90.9..."
+
+if [ ! -f /sources/upower-v1.90.9.tar.bz2 ]; then
+    log_error "upower-v1.90.9.tar.bz2 not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf upower-*
+tar -xf /sources/upower-v1.90.9.tar.bz2
+cd upower-*
+
+mkdir build && cd build
+
+meson setup ..            \
+      --prefix=/usr       \
+      --buildtype=release \
+      -D gtk-doc=false    \
+      -D man=false
+
+ninja
+ninja install
+
+cd "$BUILD_DIR"
+rm -rf upower-*
+
+log_info "UPower-1.90.9 installed successfully"
+create_checkpoint "upower"
+}
+
+# =====================================================================
+# breeze-icons-6.17.0 (KDE Breeze icon theme)
+# https://www.linuxfromscratch.org/blfs/view/12.4/kde/breeze-icons.html
+# =====================================================================
+build_breeze_icons() {
+should_skip_package "breeze-icons" && { log_info "Skipping breeze-icons (already built)"; return 0; }
+log_step "Building breeze-icons-6.17.0..."
+
+if [ ! -f /sources/breeze-icons-6.17.0.tar.xz ]; then
+    log_error "breeze-icons-6.17.0.tar.xz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf breeze-icons-*
+tar -xf /sources/breeze-icons-6.17.0.tar.xz
+cd breeze-icons-*
+
+mkdir build && cd build
+
+cmake -D CMAKE_INSTALL_PREFIX=/usr \
+      -D CMAKE_BUILD_TYPE=Release  \
+      -D BINARY_ICONS_RESOURCE=ON  \
+      ..
+
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf breeze-icons-*
+
+log_info "breeze-icons-6.17.0 installed successfully"
+create_checkpoint "breeze-icons"
+}
+
+# =====================================================================
 # Execute Tier 7 builds
 # =====================================================================
 
@@ -6683,27 +7043,35 @@ build_qtwebengine
 
 log_info ""
 log_info "Tier 7: Qt6 and Pre-KDE Dependencies completed!"
-log_info "  - libwebp-1.6.0: WebP image format"
-log_info "  - pciutils-3.14.0: PCI utilities"
-log_info "  - NSS-3.115: Network Security Services"
-log_info "  - libuv-1.51.0: Asynchronous I/O library"
-log_info "  - nghttp2-1.66.0: HTTP/2 C library"
-log_info "  - Node.js-22.18.0: JavaScript runtime"
-log_info "  - CUPS-2.4.12: Printing system"
-log_info "  - desktop-file-utils-0.28: Desktop file utilities"
-log_info "  - libmng-2.0.3: MNG image library"
-log_info "  - SQLite-3.50.4: SQL database engine"
-log_info "  - Qt-6.9.2: Qt6 framework"
-log_info "  - extra-cmake-modules-6.17.0: KDE CMake modules"
-log_info "  - qca-2.3.10: Qt Cryptographic Architecture"
-log_info "  - qcoro-0.12.0: C++20 coroutines for Qt"
-log_info "  - Phonon-4.12.0: KDE multimedia API"
-log_info "  - VLC-3.0.21: Media player"
-log_info "  - Phonon-backend-vlc-0.12.0: VLC backend for Phonon"
-log_info "  - Polkit-Qt-0.200.0: PolicyKit Qt bindings"
-log_info "  - plasma-wayland-protocols-1.18.0: KDE Wayland protocols"
-log_info "  - QtWebEngine-6.9.2: Web engine for Qt"
-log_info "  - html5lib-1.1: HTML5 parser for Python"
+
+# =====================================================================
+# Execute Tier 8 builds: KDE Frameworks 6 Dependencies
+# =====================================================================
+
+log_info "Phase 6: KDE Frameworks 6 Dependencies"
+build_sound_theme_freedesktop
+build_libcanberra
+build_libical
+build_lmdb
+build_libqrencode
+build_aspell
+build_bluez
+build_modemmanager
+build_upower
+build_breeze_icons
+
+log_info ""
+log_info "Tier 8: KDE Frameworks 6 Dependencies completed!"
+log_info "  - sound-theme-freedesktop-0.8: XDG sound theme"
+log_info "  - libcanberra-0.30: Sound theme implementation"
+log_info "  - libical-3.0.20: iCalendar library"
+log_info "  - lmdb-0.9.33: Lightning Memory-Mapped Database"
+log_info "  - libqrencode-4.1.1: QR code library"
+log_info "  - Aspell-0.60.8.1: Spell checker"
+log_info "  - BlueZ-5.83: Bluetooth protocol stack"
+log_info "  - ModemManager-1.24.2: Mobile broadband management"
+log_info "  - UPower-1.90.9: Power management"
+log_info "  - breeze-icons-6.17.0: KDE icon theme"
 log_info ""
 
 # =====================================================================
@@ -6757,6 +7125,21 @@ log_info "  - SPIRV-Headers, SPIRV-Tools: SPIR-V support"
 log_info "  - Vulkan-Headers, glslang: Vulkan/GLSL"
 log_info "  - Xorg Libraries (32 packages): libX11, libXext, libXt, etc."
 log_info "  - Vulkan-Loader: Vulkan ICD loader"
+log_info ""
+log_info "Tier 7 - Qt6 and Pre-KDE:"
+log_info "  - libwebp, pciutils, NSS, SQLite"
+log_info "  - libuv, nghttp2, Node.js, CUPS"
+log_info "  - Qt-6.9.2: Full Qt6 framework"
+log_info "  - extra-cmake-modules, qca, qcoro"
+log_info "  - Phonon, VLC, Phonon-backend-vlc"
+log_info "  - Polkit-Qt, plasma-wayland-protocols"
+log_info "  - QtWebEngine-6.9.2: Web engine"
+log_info ""
+log_info "Tier 8 - KDE Frameworks 6 Dependencies:"
+log_info "  - sound-theme-freedesktop, libcanberra"
+log_info "  - libical, lmdb, libqrencode"
+log_info "  - Aspell, BlueZ, ModemManager, UPower"
+log_info "  - breeze-icons"
 log_info "=========================================="
 
 exit 0
