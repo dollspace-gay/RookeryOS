@@ -286,6 +286,14 @@ main() {
     log_info "Downloading Tier 8: KDE Frameworks 6 Dependencies..."
     log_info "========================================="
 
+    # intltool-0.51.0 (required by sound-theme-freedesktop)
+    if [ ! -f "$SOURCES_DIR/intltool-0.51.0.tar.gz" ]; then
+        download_with_retry "https://launchpad.net/intltool/trunk/0.51.0/+download/intltool-0.51.0.tar.gz" \
+            "$SOURCES_DIR/intltool-0.51.0.tar.gz"
+    else
+        log_info "[SKIP] intltool-0.51.0.tar.gz (already exists)"
+    fi
+
     # libcanberra-0.30 (XDG Sound Theme implementation)
     if [ ! -f "$SOURCES_DIR/libcanberra-0.30.tar.xz" ]; then
         download_with_retry "https://0pointer.de/lennart/projects/libcanberra/libcanberra-0.30.tar.xz" \
@@ -380,6 +388,126 @@ main() {
             "$SOURCES_DIR/breeze-icons-6.17.0.tar.xz"
     else
         log_info "[SKIP] breeze-icons-6.17.0.tar.xz (already exists)"
+    fi
+
+    # libgudev-238 (GObject bindings for libudev - required by ModemManager, UPower, UDisks)
+    if [ ! -f "$SOURCES_DIR/libgudev-238.tar.xz" ]; then
+        download_with_retry "https://download.gnome.org/sources/libgudev/238/libgudev-238.tar.xz" \
+            "$SOURCES_DIR/libgudev-238.tar.xz"
+    else
+        log_info "[SKIP] libgudev-238.tar.xz (already exists)"
+    fi
+
+    # libusb-1.0.29 (USB access library - required by UPower)
+    if [ ! -f "$SOURCES_DIR/libusb-1.0.29.tar.bz2" ]; then
+        download_with_retry "https://github.com/libusb/libusb/releases/download/v1.0.29/libusb-1.0.29.tar.bz2" \
+            "$SOURCES_DIR/libusb-1.0.29.tar.bz2"
+    else
+        log_info "[SKIP] libusb-1.0.29.tar.bz2 (already exists)"
+    fi
+
+    # libmbim-1.32.0 (MBIM protocol library - required by ModemManager)
+    if [ ! -f "$SOURCES_DIR/libmbim-1.32.0.tar.gz" ]; then
+        download_with_retry "https://gitlab.freedesktop.org/mobile-broadband/libmbim/-/archive/1.32.0/libmbim-1.32.0.tar.gz" \
+            "$SOURCES_DIR/libmbim-1.32.0.tar.gz"
+    else
+        log_info "[SKIP] libmbim-1.32.0.tar.gz (already exists)"
+    fi
+
+    # libqmi-1.36.0 (QMI protocol library - required by ModemManager)
+    if [ ! -f "$SOURCES_DIR/libqmi-1.36.0.tar.gz" ]; then
+        download_with_retry "https://gitlab.freedesktop.org/mobile-broadband/libqmi/-/archive/1.36.0/libqmi-1.36.0.tar.gz" \
+            "$SOURCES_DIR/libqmi-1.36.0.tar.gz"
+    else
+        log_info "[SKIP] libqmi-1.36.0.tar.gz (already exists)"
+    fi
+
+    # libatasmart-0.19 (ATA SMART library - required by UDisks/libblockdev)
+    if [ ! -f "$SOURCES_DIR/libatasmart-0.19.tar.xz" ]; then
+        download_with_retry "https://0pointer.de/public/libatasmart-0.19.tar.xz" \
+            "$SOURCES_DIR/libatasmart-0.19.tar.xz"
+    else
+        log_info "[SKIP] libatasmart-0.19.tar.xz (already exists)"
+    fi
+
+    # libbytesize-2.11 (byte size library - required by libblockdev)
+    if [ ! -f "$SOURCES_DIR/libbytesize-2.11.tar.gz" ]; then
+        download_with_retry "https://github.com/storaged-project/libbytesize/releases/download/2.11/libbytesize-2.11.tar.gz" \
+            "$SOURCES_DIR/libbytesize-2.11.tar.gz"
+    else
+        log_info "[SKIP] libbytesize-2.11.tar.gz (already exists)"
+    fi
+
+    # keyutils-1.6.3 (kernel key management - required by libnvme)
+    if [ ! -f "$SOURCES_DIR/keyutils-1.6.3.tar.gz" ]; then
+        download_with_retry "https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/keyutils.git/snapshot/keyutils-1.6.3.tar.gz" \
+            "$SOURCES_DIR/keyutils-1.6.3.tar.gz"
+    else
+        log_info "[SKIP] keyutils-1.6.3.tar.gz (already exists)"
+    fi
+
+    # libaio-0.3.113 (async I/O library - required by LVM2)
+    if [ ! -f "$SOURCES_DIR/libaio-0.3.113.tar.gz" ]; then
+        download_with_retry "https://pagure.io/libaio/archive/libaio-0.3.113/libaio-0.3.113.tar.gz" \
+            "$SOURCES_DIR/libaio-0.3.113.tar.gz"
+    else
+        log_info "[SKIP] libaio-0.3.113.tar.gz (already exists)"
+    fi
+
+    # popt-1.19 (command-line parsing - required by cryptsetup)
+    if [ ! -f "$SOURCES_DIR/popt-1.19.tar.gz" ]; then
+        download_with_retry "https://ftp.osuosl.org/pub/rpm/popt/releases/popt-1.x/popt-1.19.tar.gz" \
+            "$SOURCES_DIR/popt-1.19.tar.gz"
+    else
+        log_info "[SKIP] popt-1.19.tar.gz (already exists)"
+    fi
+
+    # json-c-0.18 (JSON C library - required by cryptsetup)
+    if [ ! -f "$SOURCES_DIR/json-c-0.18.tar.gz" ]; then
+        download_with_retry "https://s3.amazonaws.com/json-c_releases/releases/json-c-0.18.tar.gz" \
+            "$SOURCES_DIR/json-c-0.18.tar.gz"
+    else
+        log_info "[SKIP] json-c-0.18.tar.gz (already exists)"
+    fi
+
+    # LVM2-2.03.34 (Logical Volume Manager - provides device-mapper)
+    if [ ! -f "$SOURCES_DIR/LVM2.2.03.34.tgz" ]; then
+        download_with_retry "https://sourceware.org/ftp/lvm2/LVM2.2.03.34.tgz" \
+            "$SOURCES_DIR/LVM2.2.03.34.tgz"
+    else
+        log_info "[SKIP] LVM2.2.03.34.tgz (already exists)"
+    fi
+
+    # cryptsetup-2.8.1 (disk encryption - required by libblockdev)
+    if [ ! -f "$SOURCES_DIR/cryptsetup-2.8.1.tar.xz" ]; then
+        download_with_retry "https://www.kernel.org/pub/linux/utils/cryptsetup/v2.8/cryptsetup-2.8.1.tar.xz" \
+            "$SOURCES_DIR/cryptsetup-2.8.1.tar.xz"
+    else
+        log_info "[SKIP] cryptsetup-2.8.1.tar.xz (already exists)"
+    fi
+
+    # libnvme-1.15 (NVMe library - required by libblockdev)
+    if [ ! -f "$SOURCES_DIR/libnvme-1.15.tar.gz" ]; then
+        download_with_retry "https://github.com/linux-nvme/libnvme/archive/v1.15/libnvme-1.15.tar.gz" \
+            "$SOURCES_DIR/libnvme-1.15.tar.gz"
+    else
+        log_info "[SKIP] libnvme-1.15.tar.gz (already exists)"
+    fi
+
+    # libblockdev-3.3.1 (block device library - required by UDisks)
+    if [ ! -f "$SOURCES_DIR/libblockdev-3.3.1.tar.gz" ]; then
+        download_with_retry "https://github.com/storaged-project/libblockdev/releases/download/3.3.1/libblockdev-3.3.1.tar.gz" \
+            "$SOURCES_DIR/libblockdev-3.3.1.tar.gz"
+    else
+        log_info "[SKIP] libblockdev-3.3.1.tar.gz (already exists)"
+    fi
+
+    # UDisks-2.10.2 (disk management daemon)
+    if [ ! -f "$SOURCES_DIR/udisks-2.10.2.tar.bz2" ]; then
+        download_with_retry "https://github.com/storaged-project/udisks/releases/download/udisks-2.10.2/udisks-2.10.2.tar.bz2" \
+            "$SOURCES_DIR/udisks-2.10.2.tar.bz2"
+    else
+        log_info "[SKIP] udisks-2.10.2.tar.bz2 (already exists)"
     fi
 
     log_info "Tier 8: KDE Frameworks 6 Dependencies complete"

@@ -6649,6 +6649,39 @@ create_checkpoint "html5lib"
 # =====================================================================
 
 # =====================================================================
+# intltool-0.51.0 (Internationalization utilities)
+# Required by: sound-theme-freedesktop
+# https://launchpad.net/intltool
+# =====================================================================
+build_intltool() {
+should_skip_package "intltool" && { log_info "Skipping intltool (already built)"; return 0; }
+log_step "Building intltool-0.51.0..."
+
+if [ ! -f /sources/intltool-0.51.0.tar.gz ]; then
+    log_error "intltool-0.51.0.tar.gz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf intltool-*
+tar -xf /sources/intltool-0.51.0.tar.gz
+cd intltool-*
+
+# Fix a warning that causes crashes in some packages (from older BLFS)
+sed -i 's/\x27LI\x27/\\&LU/' intltool-update.in
+
+./configure --prefix=/usr
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf intltool-*
+
+log_info "intltool-0.51.0 installed successfully"
+create_checkpoint "intltool"
+}
+
+# =====================================================================
 # sound-theme-freedesktop-0.8 (XDG Sound Theme)
 # https://www.linuxfromscratch.org/blfs/view/12.4/multimedia/sound-theme-freedesktop.html
 # =====================================================================
@@ -6859,6 +6892,536 @@ create_checkpoint "aspell"
 }
 
 # =====================================================================
+# libgudev-238 (GObject bindings for libudev)
+# Required by: ModemManager, UPower, UDisks
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/libgudev.html
+# =====================================================================
+build_libgudev() {
+should_skip_package "libgudev" && { log_info "Skipping libgudev (already built)"; return 0; }
+log_step "Building libgudev-238..."
+
+if [ ! -f /sources/libgudev-238.tar.xz ]; then
+    log_error "libgudev-238.tar.xz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf libgudev-*
+tar -xf /sources/libgudev-238.tar.xz
+cd libgudev-*
+
+mkdir build && cd build
+
+meson setup --prefix=/usr --buildtype=release ..
+ninja
+ninja install
+
+cd "$BUILD_DIR"
+rm -rf libgudev-*
+
+log_info "libgudev-238 installed successfully"
+create_checkpoint "libgudev"
+}
+
+# =====================================================================
+# libusb-1.0.29 (USB device access library)
+# Required by: UPower
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/libusb.html
+# =====================================================================
+build_libusb() {
+should_skip_package "libusb" && { log_info "Skipping libusb (already built)"; return 0; }
+log_step "Building libusb-1.0.29..."
+
+if [ ! -f /sources/libusb-1.0.29.tar.bz2 ]; then
+    log_error "libusb-1.0.29.tar.bz2 not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf libusb-*
+tar -xf /sources/libusb-1.0.29.tar.bz2
+cd libusb-*
+
+./configure --prefix=/usr --disable-static
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf libusb-*
+
+log_info "libusb-1.0.29 installed successfully"
+create_checkpoint "libusb"
+}
+
+# =====================================================================
+# libmbim-1.32.0 (MBIM protocol library for mobile broadband)
+# Required by: ModemManager
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/libmbim.html
+# =====================================================================
+build_libmbim() {
+should_skip_package "libmbim" && { log_info "Skipping libmbim (already built)"; return 0; }
+log_step "Building libmbim-1.32.0..."
+
+if [ ! -f /sources/libmbim-1.32.0.tar.gz ]; then
+    log_error "libmbim-1.32.0.tar.gz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf libmbim-*
+tar -xf /sources/libmbim-1.32.0.tar.gz
+cd libmbim-*
+
+mkdir build && cd build
+
+meson setup --prefix=/usr --buildtype=release -D bash_completion=false -D man=false ..
+ninja
+ninja install
+
+cd "$BUILD_DIR"
+rm -rf libmbim-*
+
+log_info "libmbim-1.32.0 installed successfully"
+create_checkpoint "libmbim"
+}
+
+# =====================================================================
+# libqmi-1.36.0 (QMI protocol library for mobile broadband)
+# Required by: ModemManager
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/libqmi.html
+# =====================================================================
+build_libqmi() {
+should_skip_package "libqmi" && { log_info "Skipping libqmi (already built)"; return 0; }
+log_step "Building libqmi-1.36.0..."
+
+if [ ! -f /sources/libqmi-1.36.0.tar.gz ]; then
+    log_error "libqmi-1.36.0.tar.gz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf libqmi-*
+tar -xf /sources/libqmi-1.36.0.tar.gz
+cd libqmi-*
+
+mkdir build && cd build
+
+meson setup --prefix=/usr \
+    --buildtype=release \
+    -D bash_completion=false \
+    -D qrtr=false \
+    -D man=false ..
+ninja
+ninja install
+
+cd "$BUILD_DIR"
+rm -rf libqmi-*
+
+log_info "libqmi-1.36.0 installed successfully"
+create_checkpoint "libqmi"
+}
+
+# =====================================================================
+# libatasmart-0.19 (ATA S.M.A.R.T. library)
+# Required by: libblockdev -> UDisks
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/libatasmart.html
+# =====================================================================
+build_libatasmart() {
+should_skip_package "libatasmart" && { log_info "Skipping libatasmart (already built)"; return 0; }
+log_step "Building libatasmart-0.19..."
+
+if [ ! -f /sources/libatasmart-0.19.tar.xz ]; then
+    log_error "libatasmart-0.19.tar.xz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf libatasmart-*
+tar -xf /sources/libatasmart-0.19.tar.xz
+cd libatasmart-*
+
+./configure --prefix=/usr --disable-static
+make
+make docdir=/usr/share/doc/libatasmart-0.19 install
+
+cd "$BUILD_DIR"
+rm -rf libatasmart-*
+
+log_info "libatasmart-0.19 installed successfully"
+create_checkpoint "libatasmart"
+}
+
+# =====================================================================
+# libbytesize-2.11 (Byte size operations library)
+# Required by: libblockdev -> UDisks
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/libbytesize.html
+# =====================================================================
+build_libbytesize() {
+should_skip_package "libbytesize" && { log_info "Skipping libbytesize (already built)"; return 0; }
+log_step "Building libbytesize-2.11..."
+
+if [ ! -f /sources/libbytesize-2.11.tar.gz ]; then
+    log_error "libbytesize-2.11.tar.gz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf libbytesize-*
+tar -xf /sources/libbytesize-2.11.tar.gz
+cd libbytesize-*
+
+./configure --prefix=/usr
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf libbytesize-*
+
+log_info "libbytesize-2.11 installed successfully"
+create_checkpoint "libbytesize"
+}
+
+# =====================================================================
+# keyutils-1.6.3 (Kernel key management utilities)
+# Required by: libnvme -> libblockdev -> UDisks
+# https://www.linuxfromscratch.org/blfs/view/git/general/keyutils.html
+# =====================================================================
+build_keyutils() {
+should_skip_package "keyutils" && { log_info "Skipping keyutils (already built)"; return 0; }
+log_step "Building keyutils-1.6.3..."
+
+if [ ! -f /sources/keyutils-1.6.3.tar.gz ]; then
+    log_error "keyutils-1.6.3.tar.gz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf keyutils-*
+tar -xf /sources/keyutils-1.6.3.tar.gz
+cd keyutils-*
+
+make
+make NO_ARLIB=1 LIBDIR=/usr/lib BINDIR=/usr/bin SBINDIR=/usr/sbin install
+
+cd "$BUILD_DIR"
+rm -rf keyutils-*
+
+log_info "keyutils-1.6.3 installed successfully"
+create_checkpoint "keyutils"
+}
+
+# =====================================================================
+# libaio-0.3.113 (Linux-native async I/O library)
+# Required by: LVM2
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/libaio.html
+# =====================================================================
+build_libaio() {
+should_skip_package "libaio" && { log_info "Skipping libaio (already built)"; return 0; }
+log_step "Building libaio-0.3.113..."
+
+if [ ! -f /sources/libaio-0.3.113.tar.gz ]; then
+    log_error "libaio-0.3.113.tar.gz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf libaio-*
+tar -xf /sources/libaio-0.3.113.tar.gz
+cd libaio-*
+
+# Disable installation of static library
+sed -i '/install.*libaio.a/s/^/#/' src/Makefile
+
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf libaio-*
+
+log_info "libaio-0.3.113 installed successfully"
+create_checkpoint "libaio"
+}
+
+# =====================================================================
+# popt-1.19 (command-line option parsing library)
+# Required by: cryptsetup
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/popt.html
+# =====================================================================
+build_popt() {
+should_skip_package "popt" && { log_info "Skipping popt (already built)"; return 0; }
+log_step "Building popt-1.19..."
+
+if [ ! -f /sources/popt-1.19.tar.gz ]; then
+    log_error "popt-1.19.tar.gz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf popt-*
+tar -xf /sources/popt-1.19.tar.gz
+cd popt-*
+
+./configure --prefix=/usr --disable-static
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf popt-*
+
+log_info "popt-1.19 installed successfully"
+create_checkpoint "popt"
+}
+
+# =====================================================================
+# json-c-0.18 (JSON C library)
+# Required by: cryptsetup
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/json-c.html
+# =====================================================================
+build_json_c() {
+should_skip_package "json-c" && { log_info "Skipping json-c (already built)"; return 0; }
+log_step "Building json-c-0.18..."
+
+if [ ! -f /sources/json-c-0.18.tar.gz ]; then
+    log_error "json-c-0.18.tar.gz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf json-c-*
+tar -xf /sources/json-c-0.18.tar.gz
+cd json-c-*
+
+# Fix for CMake-4.0
+sed -i 's/VERSION 2.8/VERSION 4.0/' apps/CMakeLists.txt
+sed -i 's/VERSION 3.9/VERSION 4.0/' tests/CMakeLists.txt
+
+mkdir build && cd build
+
+cmake -D CMAKE_INSTALL_PREFIX=/usr \
+      -D CMAKE_BUILD_TYPE=Release  \
+      -D BUILD_STATIC_LIBS=OFF     \
+      ..
+
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf json-c-*
+
+log_info "json-c-0.18 installed successfully"
+create_checkpoint "json-c"
+}
+
+# =====================================================================
+# LVM2-2.03.34 (Logical Volume Manager - provides device-mapper)
+# Required by: cryptsetup, libblockdev
+# https://www.linuxfromscratch.org/blfs/view/12.4/postlfs/lvm2.html
+# =====================================================================
+build_lvm2() {
+should_skip_package "lvm2" && { log_info "Skipping LVM2 (already built)"; return 0; }
+log_step "Building LVM2-2.03.34..."
+
+if [ ! -f /sources/LVM2.2.03.34.tgz ]; then
+    log_error "LVM2.2.03.34.tgz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf LVM2.*
+tar -xf /sources/LVM2.2.03.34.tgz
+cd LVM2.*
+
+PATH+=:/usr/sbin
+./configure --prefix=/usr       \
+            --enable-cmdlib     \
+            --enable-pkgconfig  \
+            --enable-udev_sync
+
+make
+make install
+make install_systemd_units
+
+# Fix default configuration
+sed -e '/locking_dir =/{s/#//;s/var/run/}' \
+    -i /etc/lvm/lvm.conf
+
+cd "$BUILD_DIR"
+rm -rf LVM2.*
+
+log_info "LVM2-2.03.34 installed successfully"
+create_checkpoint "lvm2"
+}
+
+# =====================================================================
+# cryptsetup-2.8.1 (disk encryption)
+# Required by: libblockdev
+# https://www.linuxfromscratch.org/blfs/view/12.4/postlfs/cryptsetup.html
+# =====================================================================
+build_cryptsetup() {
+should_skip_package "cryptsetup" && { log_info "Skipping cryptsetup (already built)"; return 0; }
+log_step "Building cryptsetup-2.8.1..."
+
+if [ ! -f /sources/cryptsetup-2.8.1.tar.xz ]; then
+    log_error "cryptsetup-2.8.1.tar.xz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf cryptsetup-*
+tar -xf /sources/cryptsetup-2.8.1.tar.xz
+cd cryptsetup-*
+
+./configure --prefix=/usr       \
+            --disable-ssh-token \
+            --disable-asciidoc
+
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf cryptsetup-*
+
+log_info "cryptsetup-2.8.1 installed successfully"
+create_checkpoint "cryptsetup"
+}
+
+# =====================================================================
+# libyaml-0.2.5 (YAML 1.1 parser and emitter)
+# Required by: libblockdev -> UDisks
+# https://www.linuxfromscratch.org/blfs/view/systemd/general/libyaml.html
+# =====================================================================
+build_libyaml() {
+should_skip_package "libyaml" && { log_info "Skipping libyaml (already built)"; return 0; }
+log_step "Building libyaml-0.2.5..."
+
+if [ ! -f /sources/yaml-0.2.5.tar.gz ]; then
+    log_error "yaml-0.2.5.tar.gz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf yaml-*
+tar -xf /sources/yaml-0.2.5.tar.gz
+cd yaml-*
+
+./configure --prefix=/usr --disable-static
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf yaml-*
+
+log_info "libyaml-0.2.5 installed successfully"
+create_checkpoint "libyaml"
+}
+
+# =====================================================================
+# libnvme-1.15 (NVMe device management library)
+# Required by: libblockdev -> UDisks
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/libnvme.html
+# =====================================================================
+build_libnvme() {
+should_skip_package "libnvme" && { log_info "Skipping libnvme (already built)"; return 0; }
+log_step "Building libnvme-1.15..."
+
+if [ ! -f /sources/libnvme-1.15.tar.gz ]; then
+    log_error "libnvme-1.15.tar.gz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf libnvme-*
+tar -xf /sources/libnvme-1.15.tar.gz
+cd libnvme-*
+
+mkdir build && cd build
+
+meson setup --prefix=/usr --buildtype=release -D libdbus=auto ..
+ninja
+ninja install
+
+cd "$BUILD_DIR"
+rm -rf libnvme-*
+
+log_info "libnvme-1.15 installed successfully"
+create_checkpoint "libnvme"
+}
+
+# =====================================================================
+# libblockdev-3.3.1 (Block device library)
+# Required by: UDisks
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/libblockdev.html
+# =====================================================================
+build_libblockdev() {
+should_skip_package "libblockdev" && { log_info "Skipping libblockdev (already built)"; return 0; }
+log_step "Building libblockdev-3.3.1..."
+
+if [ ! -f /sources/libblockdev-3.3.1.tar.gz ]; then
+    log_error "libblockdev-3.3.1.tar.gz not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf libblockdev-*
+tar -xf /sources/libblockdev-3.3.1.tar.gz
+cd libblockdev-*
+
+# Build with crypto/lvm support now that dependencies are installed
+./configure --prefix=/usr      \
+            --sysconfdir=/etc  \
+            --with-python3     \
+            --without-escrow   \
+            --without-gtk-doc  \
+            --without-lvm_dbus \
+            --without-nvdimm   \
+            --without-tools    \
+            --without-smartmontools
+
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf libblockdev-*
+
+log_info "libblockdev-3.3.1 installed successfully"
+create_checkpoint "libblockdev"
+}
+
+# =====================================================================
+# UDisks-2.10.2 (Disk management daemon)
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/udisks2.html
+# =====================================================================
+build_udisks() {
+should_skip_package "udisks" && { log_info "Skipping UDisks (already built)"; return 0; }
+log_step "Building UDisks-2.10.2..."
+
+if [ ! -f /sources/udisks-2.10.2.tar.bz2 ]; then
+    log_error "udisks-2.10.2.tar.bz2 not found in /sources"
+    return 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf udisks-*
+tar -xf /sources/udisks-2.10.2.tar.bz2
+cd udisks-*
+
+./configure --prefix=/usr        \
+            --sysconfdir=/etc    \
+            --localstatedir=/var \
+            --disable-static     \
+            --enable-available-modules
+
+make
+make install
+
+cd "$BUILD_DIR"
+rm -rf udisks-*
+
+log_info "UDisks-2.10.2 installed successfully"
+create_checkpoint "udisks"
+}
+
+# =====================================================================
 # BlueZ-5.83 (Bluetooth protocol stack)
 # https://www.linuxfromscratch.org/blfs/view/12.4/general/bluez.html
 # =====================================================================
@@ -7049,28 +7612,67 @@ log_info "Tier 7: Qt6 and Pre-KDE Dependencies completed!"
 # =====================================================================
 
 log_info "Phase 6: KDE Frameworks 6 Dependencies"
+build_intltool
 build_sound_theme_freedesktop
 build_libcanberra
 build_libical
 build_lmdb
 build_libqrencode
 build_aspell
+
+# Hardware management libraries (libgudev is required by ModemManager, UPower, UDisks)
+build_libgudev
+build_libusb
+build_libmbim
+build_libqmi
 build_bluez
 build_modemmanager
 build_upower
+
+# UDisks and its dependencies (for disk management)
+build_libatasmart
+build_libbytesize
+build_keyutils
+build_libaio
+build_popt
+build_json_c
+build_lvm2
+build_cryptsetup
+build_libyaml
+build_libnvme
+build_libblockdev
+build_udisks
+
 build_breeze_icons
 
 log_info ""
 log_info "Tier 8: KDE Frameworks 6 Dependencies completed!"
+log_info "  - intltool-0.51.0: Internationalization utilities"
 log_info "  - sound-theme-freedesktop-0.8: XDG sound theme"
 log_info "  - libcanberra-0.30: Sound theme implementation"
 log_info "  - libical-3.0.20: iCalendar library"
 log_info "  - lmdb-0.9.33: Lightning Memory-Mapped Database"
 log_info "  - libqrencode-4.1.1: QR code library"
 log_info "  - Aspell-0.60.8.1: Spell checker"
+log_info "  - libgudev-238: GObject bindings for libudev"
+log_info "  - libusb-1.0.29: USB device access library"
+log_info "  - libmbim-1.32.0: MBIM protocol library"
+log_info "  - libqmi-1.36.0: QMI protocol library"
 log_info "  - BlueZ-5.83: Bluetooth protocol stack"
 log_info "  - ModemManager-1.24.2: Mobile broadband management"
 log_info "  - UPower-1.90.9: Power management"
+log_info "  - libatasmart-0.19: ATA S.M.A.R.T. library"
+log_info "  - libbytesize-2.11: Byte size operations"
+log_info "  - keyutils-1.6.3: Kernel key management"
+log_info "  - libaio-0.3.113: Async I/O library"
+log_info "  - popt-1.19: Command-line parsing"
+log_info "  - json-c-0.18: JSON C library"
+log_info "  - LVM2-2.03.34: Logical Volume Manager"
+log_info "  - cryptsetup-2.8.1: Disk encryption"
+log_info "  - libyaml-0.2.5: YAML parser and emitter"
+log_info "  - libnvme-1.15: NVMe device management"
+log_info "  - libblockdev-3.3.1: Block device library"
+log_info "  - UDisks-2.10.2: Disk management daemon"
 log_info "  - breeze-icons-6.17.0: KDE icon theme"
 log_info ""
 
