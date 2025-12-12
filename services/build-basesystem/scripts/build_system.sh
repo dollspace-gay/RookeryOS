@@ -230,22 +230,6 @@ main() {
     log_info "~43 essential packages will be built"
     log_info "=========================================="
 
-    # Idempotency check - look for build success marker
-    if [ -f "$LFS/tmp/build_status" ]; then
-        log_info ""
-        log_info "=========================================="
-        log_info "Minimal Base System Already Built - Skipping"
-        log_info "=========================================="
-        log_info "Build status:"
-        cat "$LFS/tmp/build_status" | while read line; do
-            log_info "  $line"
-        done
-        log_info ""
-        log_info "To force rebuild, remove $LFS/tmp/build_status"
-        log_info "=========================================="
-        exit 0
-    fi
-
     verify_prerequisites
     prepare_chroot
     build_in_chroot
