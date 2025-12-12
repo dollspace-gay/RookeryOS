@@ -1925,13 +1925,20 @@ tar -xf /sources/libproxy-0.5.10.tar.gz
 cd libproxy-*
 
 rm -rf build && mkdir build
+
+# Prevent any attempt to use gi-docgen subproject (would require git)
+# Remove the wrap file AND remove docs from meson.build
+rm -rf subprojects/gi-docgen.wrap 2>/dev/null || true
+rm -rf subprojects 2>/dev/null || true
+
+# Patch meson.build to skip docs entirely
+sed -i '/subdir.*docs/d' meson.build
+
 cd build
 
 meson setup --prefix=/usr       \
             --buildtype=release \
-            -D docs=false       \
-            -D tests=false      \
-            -D introspection=false ..
+            ..
 
 ninja
 
@@ -4906,6 +4913,27 @@ build_docbook_xml() {
             /etc/xml/catalog
     done
 
+    # Create symlinks for CMake FindDocBookXML4 to find the DTDs
+    # The Debian tarball puts DTDs in subdirectories, but CMake expects them directly
+    # Create schema/dtd directories that KDE's CMake modules look for
+    mkdir -p /usr/share/xml/docbook/schema/dtd
+    for VERSION in 4.0 4.1.2 4.2 4.3 4.4 4.5; do
+        if [ -d "/usr/share/xml/docbook/xml-dtd-4.5/docbook-$VERSION" ]; then
+            ln -sfn "/usr/share/xml/docbook/xml-dtd-4.5/docbook-$VERSION" \
+                "/usr/share/xml/docbook/schema/dtd/$VERSION"
+        fi
+    done
+    # Also create a direct link from xml-dtd-4.5 to the 4.5 DTD contents for packages
+    # that look directly in xml-dtd-4.5 for docbookx.dtd
+    if [ -f "/usr/share/xml/docbook/xml-dtd-4.5/docbook-4.5/docbookx.dtd" ]; then
+        for f in /usr/share/xml/docbook/xml-dtd-4.5/docbook-4.5/*; do
+            fname=$(basename "$f")
+            if [ ! -e "/usr/share/xml/docbook/xml-dtd-4.5/$fname" ]; then
+                ln -sfn "docbook-4.5/$fname" "/usr/share/xml/docbook/xml-dtd-4.5/$fname"
+            fi
+        done
+    fi
+
     create_checkpoint "docbook-xml"
 }
 
@@ -7825,6 +7853,47 @@ create_checkpoint "zxing-cpp"
 }
 
 # =====================================================================
+# libsecret-0.21.7 (GNOME secret storage library)
+# Required for: KDE kwallet
+# https://www.linuxfromscratch.org/blfs/view/12.4/gnome/libsecret.html
+# =====================================================================
+build_libsecret() {
+should_skip_package "libsecret" && { log_info "Skipping libsecret (already built)"; return 0; }
+log_step "Building libsecret-0.21.7..."
+
+if [ ! -f /sources/libsecret-0.21.7.tar.xz ]; then
+    log_error "libsecret-0.21.7.tar.xz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf libsecret-*
+tar -xf /sources/libsecret-0.21.7.tar.xz
+cd libsecret-*
+
+# Remove existing build directory if present (tarball includes one)
+rm -rf build
+mkdir build
+cd build
+
+meson setup --prefix=/usr       \
+            --buildtype=release \
+            -D gtk_doc=false    \
+            -D manpage=false    \
+            ..
+
+ninja
+ninja install
+
+cd "$BUILD_DIR"
+rm -rf libsecret-*
+ldconfig
+
+log_info "libsecret-0.21.7 installed successfully"
+create_checkpoint "libsecret"
+}
+
+# =====================================================================
 # Perl Modules for KDE Frameworks
 # =====================================================================
 
@@ -7911,14 +7980,15 @@ build_kf6_package() {
 
     cmake -D CMAKE_INSTALL_PREFIX=/usr \
           -D CMAKE_INSTALL_LIBEXECDIR=libexec \
-          -D CMAKE_PREFIX_PATH=/usr \
+          -D CMAKE_PREFIX_PATH="/usr;/opt/qt6" \
           -D CMAKE_SKIP_INSTALL_RPATH=ON \
           -D CMAKE_BUILD_TYPE=Release \
           -D BUILD_TESTING=OFF \
           -D BUILD_PYTHON_BINDINGS=OFF \
           -W no-dev \
-          $extra_cmake_args .. &&
-    make $MAKEFLAGS &&
+          $extra_cmake_args ..
+
+    make $MAKEFLAGS
     make install
 
     cd "$BUILD_DIR"
@@ -8097,6 +8167,9 @@ build_gpgmepp
 # zxing-cpp (barcode/QR library for KDE Prison)
 build_zxing_cpp
 
+# libsecret (GNOME secret storage library for KDE kwallet)
+build_libsecret
+
 log_info ""
 log_info "Tier 8: KDE Frameworks 6 Dependencies completed!"
 log_info "  - intltool-0.51.0: Internationalization utilities"
@@ -8253,6 +8326,268 @@ log_info "  - Tier 1 Foundation: 21 packages"
 log_info "  - Tier 2 Core: 22 packages"
 log_info "  - Tier 3 Integration: 10 packages"
 log_info "  - Tier 4 Extended: 16 packages"
+log_info ""
+
+log_info "KDE Frameworks 6.17.0 Build Complete!"
+
+# =====================================================================
+# Tier 10: Plasma Prerequisites
+# =====================================================================
+
+log_info ""
+log_info "#####################################################################"
+log_info "# TIER 10: Plasma Prerequisites"
+log_info "#####################################################################"
+log_info ""
+
+# NOTE: duktape and libproxy are already built in Tier 2 networking section
+# so we don't need separate build functions for them here
+
+# Build kdsoap (Qt SOAP library)
+build_kdsoap() {
+should_skip_package "blfs-kdsoap" && { log_info "Skipping kdsoap (already built)"; return 0; }
+log_step "Building kdsoap-2.2.0..."
+
+cd "$BUILD_DIR"
+rm -rf kdsoap-*
+tar -xf /sources/kdsoap-2.2.0.tar.gz
+cd kdsoap-*
+
+mkdir build
+cd build
+
+cmake -D CMAKE_INSTALL_PREFIX=/usr \
+      -D CMAKE_PREFIX_PATH="/usr;/opt/qt6" \
+      -D CMAKE_BUILD_TYPE=Release  \
+      -D KDSoap_QT6=ON             \
+      -D CMAKE_INSTALL_DOCDIR=/usr/share/doc/kdsoap-2.2.0 \
+      -W no-dev ..
+
+make $MAKEFLAGS
+make install
+
+cd "$BUILD_DIR"
+rm -rf kdsoap-*
+ldconfig
+
+log_info "kdsoap-2.2.0 installed successfully"
+create_checkpoint "blfs-kdsoap"
+}
+
+# Build kdsoap-ws-discovery-client (WS-Discovery protocol)
+build_kdsoap_ws_discovery_client() {
+should_skip_package "blfs-kdsoap-ws-discovery-client" && { log_info "Skipping kdsoap-ws-discovery-client (already built)"; return 0; }
+log_step "Building kdsoap-ws-discovery-client-0.4.0..."
+
+cd "$BUILD_DIR"
+rm -rf kdsoap-ws-discovery-client-*
+tar -xf /sources/kdsoap-ws-discovery-client-0.4.0.tar.xz
+cd kdsoap-ws-discovery-client-*
+
+mkdir build
+cd build
+
+cmake -D CMAKE_INSTALL_PREFIX=/usr    \
+      -D CMAKE_PREFIX_PATH="/usr;/opt/qt6" \
+      -D CMAKE_BUILD_TYPE=Release     \
+      -D CMAKE_SKIP_INSTALL_RPATH=ON  \
+      -D QT_MAJOR_VERSION=6           \
+      -W no-dev ..
+
+make $MAKEFLAGS
+make install
+
+# Move docs to versioned directory
+if [ -d /usr/share/doc/KDSoapWSDiscoveryClient ]; then
+    mv -v /usr/share/doc/KDSoapWSDiscoveryClient /usr/share/doc/KDSoapWSDiscoveryClient-0.4.0
+fi
+
+cd "$BUILD_DIR"
+rm -rf kdsoap-ws-discovery-client-*
+ldconfig
+
+log_info "kdsoap-ws-discovery-client-0.4.0 installed successfully"
+create_checkpoint "blfs-kdsoap-ws-discovery-client"
+}
+
+# Build oxygen-icons
+build_oxygen_icons() {
+should_skip_package "blfs-oxygen-icons" && { log_info "Skipping oxygen-icons (already built)"; return 0; }
+log_step "Building oxygen-icons-6.0.0..."
+
+cd "$BUILD_DIR"
+rm -rf oxygen-icons-*
+tar -xf /sources/oxygen-icons-6.0.0.tar.xz
+cd oxygen-icons-*
+
+# Enable scalable icons
+sed -i '/( oxygen/ s/)/scalable )/' CMakeLists.txt
+
+mkdir build
+cd build
+
+cmake -D CMAKE_INSTALL_PREFIX=/usr \
+      -D CMAKE_PREFIX_PATH="/usr;/opt/qt6" \
+      -W no-dev ..
+make install
+
+cd "$BUILD_DIR"
+rm -rf oxygen-icons-*
+
+log_info "oxygen-icons-6.0.0 installed successfully"
+create_checkpoint "blfs-oxygen-icons"
+}
+
+# Build kirigami-addons
+build_kirigami_addons() {
+should_skip_package "blfs-kirigami-addons" && { log_info "Skipping kirigami-addons (already built)"; return 0; }
+log_step "Building kirigami-addons-1.9.0..."
+
+cd "$BUILD_DIR"
+rm -rf kirigami-addons-*
+tar -xf /sources/kirigami-addons-1.9.0.tar.xz
+cd kirigami-addons-*
+
+mkdir build
+cd build
+
+cmake -D CMAKE_INSTALL_PREFIX=/usr \
+      -D CMAKE_PREFIX_PATH="/usr;/opt/qt6" \
+      -D CMAKE_BUILD_TYPE=Release  \
+      -D BUILD_TESTING=OFF         \
+      -W no-dev ..
+
+make $MAKEFLAGS
+make install
+
+cd "$BUILD_DIR"
+rm -rf kirigami-addons-*
+ldconfig
+
+log_info "kirigami-addons-1.9.0 installed successfully"
+create_checkpoint "blfs-kirigami-addons"
+}
+
+# Build plasma-activities
+build_plasma_activities() {
+should_skip_package "blfs-plasma-activities" && { log_info "Skipping plasma-activities (already built)"; return 0; }
+log_step "Building plasma-activities-6.4.4..."
+
+cd "$BUILD_DIR"
+rm -rf plasma-activities-*
+tar -xf /sources/plasma-activities-6.4.4.tar.xz
+cd plasma-activities-*
+
+mkdir build
+cd build
+
+cmake -D CMAKE_INSTALL_PREFIX=/usr \
+      -D CMAKE_PREFIX_PATH="/usr;/opt/qt6" \
+      -D CMAKE_BUILD_TYPE=Release  \
+      -D BUILD_TESTING=OFF         \
+      -W no-dev ..
+
+make $MAKEFLAGS
+make install
+
+cd "$BUILD_DIR"
+rm -rf plasma-activities-*
+ldconfig
+
+log_info "plasma-activities-6.4.4 installed successfully"
+create_checkpoint "blfs-plasma-activities"
+}
+
+# Build plasma-activities-stats
+build_plasma_activities_stats() {
+should_skip_package "blfs-plasma-activities-stats" && { log_info "Skipping plasma-activities-stats (already built)"; return 0; }
+log_step "Building plasma-activities-stats-6.4.4..."
+
+cd "$BUILD_DIR"
+rm -rf plasma-activities-stats-*
+tar -xf /sources/plasma-activities-stats-6.4.4.tar.xz
+cd plasma-activities-stats-*
+
+mkdir build
+cd build
+
+cmake -D CMAKE_INSTALL_PREFIX=/usr \
+      -D CMAKE_PREFIX_PATH="/usr;/opt/qt6" \
+      -D CMAKE_BUILD_TYPE=Release  \
+      -D BUILD_TESTING=OFF         \
+      -W no-dev ..
+
+make $MAKEFLAGS
+make install
+
+cd "$BUILD_DIR"
+rm -rf plasma-activities-stats-*
+ldconfig
+
+log_info "plasma-activities-stats-6.4.4 installed successfully"
+create_checkpoint "blfs-plasma-activities-stats"
+}
+
+# Build kio-extras
+build_kio_extras() {
+should_skip_package "blfs-kio-extras" && { log_info "Skipping kio-extras (already built)"; return 0; }
+log_step "Building kio-extras-25.08.0..."
+
+cd "$BUILD_DIR"
+rm -rf kio-extras-*
+tar -xf /sources/kio-extras-25.08.0.tar.xz
+cd kio-extras-*
+
+mkdir build
+cd build
+
+cmake -D CMAKE_INSTALL_PREFIX=/usr \
+      -D CMAKE_PREFIX_PATH="/usr;/opt/qt6" \
+      -D CMAKE_BUILD_TYPE=Release  \
+      -D BUILD_TESTING=OFF         \
+      -W no-dev ..
+
+make $MAKEFLAGS
+make install
+
+cd "$BUILD_DIR"
+rm -rf kio-extras-*
+ldconfig
+
+log_info "kio-extras-25.08.0 installed successfully"
+create_checkpoint "blfs-kio-extras"
+}
+
+# Execute Tier 10 builds
+# NOTE: duktape and libproxy are already built in Tier 2, so we skip them here
+
+log_info "Phase 1: Support Libraries (kdsoap only - duktape/libproxy already in Tier 2)"
+build_kdsoap
+build_kdsoap_ws_discovery_client
+
+log_info "Phase 2: Icon Themes"
+build_oxygen_icons
+
+log_info "Phase 3: KDE Addons and Activities"
+build_kirigami_addons
+build_plasma_activities
+build_plasma_activities_stats
+
+log_info "Phase 4: KIO Extensions"
+build_kio_extras
+
+log_info ""
+log_info "=========================================="
+log_info "Tier 10: Plasma Prerequisites Complete!"
+log_info "=========================================="
+log_info "  (duktape and libproxy built in Tier 2)"
+log_info "  - kdsoap-2.2.0: Qt SOAP library"
+log_info "  - kdsoap-ws-discovery-client-0.4.0: WS-Discovery"
+log_info "  - oxygen-icons-6.0.0: Alternative icon theme"
+log_info "  - kirigami-addons-1.9.0: Kirigami UI addons"
+log_info "  - plasma-activities-6.4.4: KDE Activities"
+log_info "  - plasma-activities-stats-6.4.4: Activity statistics"
+log_info "  - kio-extras-25.08.0: Extra KIO protocols"
 log_info ""
 
 # =====================================================================

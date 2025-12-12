@@ -584,6 +584,14 @@ main() {
         log_info "[SKIP] zxing-cpp-2.3.0.tar.gz (already exists)"
     fi
 
+    # libsecret-0.21.7 (GNOME secret storage library - required by kwallet)
+    if [ ! -f "$SOURCES_DIR/libsecret-0.21.7.tar.xz" ]; then
+        download_with_retry "https://download.gnome.org/sources/libsecret/0.21/libsecret-0.21.7.tar.xz" \
+            "$SOURCES_DIR/libsecret-0.21.7.tar.xz"
+    else
+        log_info "[SKIP] libsecret-0.21.7.tar.xz (already exists)"
+    fi
+
     # =========================================================================
     # Perl modules required for KDE Frameworks
     # =========================================================================
@@ -671,6 +679,87 @@ main() {
 
     log_info "KF6 Tier 4 downloads complete"
     log_info "KDE Frameworks 6.17.0 downloads complete (49 packages)"
+
+    # =========================================================================
+    # Tier 9: Plasma Prerequisites (required before KDE Plasma)
+    # =========================================================================
+    log_info "========================================="
+    log_info "Downloading Tier 9: Plasma Prerequisites..."
+    log_info "========================================="
+
+    # oxygen-icons-6.0.0 (alternative icon theme)
+    if [ ! -f "$SOURCES_DIR/oxygen-icons-6.0.0.tar.xz" ]; then
+        download_with_retry "https://download.kde.org/stable/oxygen-icons/oxygen-icons-6.0.0.tar.xz" \
+            "$SOURCES_DIR/oxygen-icons-6.0.0.tar.xz"
+    else
+        log_info "[SKIP] oxygen-icons-6.0.0.tar.xz (already exists)"
+    fi
+
+    # kirigami-addons-1.9.0 (Kirigami UI addons)
+    if [ ! -f "$SOURCES_DIR/kirigami-addons-1.9.0.tar.xz" ]; then
+        download_with_retry "https://download.kde.org/stable/kirigami-addons/kirigami-addons-1.9.0.tar.xz" \
+            "$SOURCES_DIR/kirigami-addons-1.9.0.tar.xz"
+    else
+        log_info "[SKIP] kirigami-addons-1.9.0.tar.xz (already exists)"
+    fi
+
+    # duktape-2.7.0 (JavaScript engine - required by libproxy)
+    if [ ! -f "$SOURCES_DIR/duktape-2.7.0.tar.xz" ]; then
+        download_with_retry "https://duktape.org/duktape-2.7.0.tar.xz" \
+            "$SOURCES_DIR/duktape-2.7.0.tar.xz"
+    else
+        log_info "[SKIP] duktape-2.7.0.tar.xz (already exists)"
+    fi
+
+    # libproxy-0.5.10 (proxy configuration library - required by kio-extras)
+    if [ ! -f "$SOURCES_DIR/libproxy-0.5.10.tar.gz" ]; then
+        download_with_retry "https://github.com/libproxy/libproxy/archive/0.5.10/libproxy-0.5.10.tar.gz" \
+            "$SOURCES_DIR/libproxy-0.5.10.tar.gz"
+    else
+        log_info "[SKIP] libproxy-0.5.10.tar.gz (already exists)"
+    fi
+
+    # kdsoap-2.2.0 (Qt SOAP library)
+    if [ ! -f "$SOURCES_DIR/kdsoap-2.2.0.tar.gz" ]; then
+        download_with_retry "https://github.com/KDAB/KDSoap/releases/download/kdsoap-2.2.0/kdsoap-2.2.0.tar.gz" \
+            "$SOURCES_DIR/kdsoap-2.2.0.tar.gz"
+    else
+        log_info "[SKIP] kdsoap-2.2.0.tar.gz (already exists)"
+    fi
+
+    # kdsoap-ws-discovery-client-0.4.0 (WS-Discovery protocol - required by kio-extras)
+    if [ ! -f "$SOURCES_DIR/kdsoap-ws-discovery-client-0.4.0.tar.xz" ]; then
+        download_with_retry "https://download.kde.org/stable/kdsoap-ws-discovery-client/kdsoap-ws-discovery-client-0.4.0.tar.xz" \
+            "$SOURCES_DIR/kdsoap-ws-discovery-client-0.4.0.tar.xz"
+    else
+        log_info "[SKIP] kdsoap-ws-discovery-client-0.4.0.tar.xz (already exists)"
+    fi
+
+    # plasma-activities-6.4.4 (KDE Activities core)
+    if [ ! -f "$SOURCES_DIR/plasma-activities-6.4.4.tar.xz" ]; then
+        download_with_retry "https://download.kde.org/stable/plasma/6.4.4/plasma-activities-6.4.4.tar.xz" \
+            "$SOURCES_DIR/plasma-activities-6.4.4.tar.xz"
+    else
+        log_info "[SKIP] plasma-activities-6.4.4.tar.xz (already exists)"
+    fi
+
+    # plasma-activities-stats-6.4.4 (Activity usage stats - required by kio-extras)
+    if [ ! -f "$SOURCES_DIR/plasma-activities-stats-6.4.4.tar.xz" ]; then
+        download_with_retry "https://download.kde.org/stable/plasma/6.4.4/plasma-activities-stats-6.4.4.tar.xz" \
+            "$SOURCES_DIR/plasma-activities-stats-6.4.4.tar.xz"
+    else
+        log_info "[SKIP] plasma-activities-stats-6.4.4.tar.xz (already exists)"
+    fi
+
+    # kio-extras-25.08.0 (Extra KIO protocols)
+    if [ ! -f "$SOURCES_DIR/kio-extras-25.08.0.tar.xz" ]; then
+        download_with_retry "https://download.kde.org/stable/release-service/25.08.0/src/kio-extras-25.08.0.tar.xz" \
+            "$SOURCES_DIR/kio-extras-25.08.0.tar.xz"
+    else
+        log_info "[SKIP] kio-extras-25.08.0.tar.xz (already exists)"
+    fi
+
+    log_info "Tier 9: Plasma Prerequisites downloads complete"
 
     # Check for any failures
     if [ -s "$FAILED_DOWNLOADS_FILE" ]; then
