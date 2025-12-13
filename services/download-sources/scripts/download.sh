@@ -110,6 +110,7 @@ LFS_PACKAGES=(
     "Python-3.13.7.tar.xz"
     "texinfo-7.2.tar.xz"
     "util-linux-2.41.1.tar.xz"
+    "systemd-man-pages-257.8.tar.xz"
 
     # Additional Chapter 8 packages
     "acl-2.3.2.tar.xz"
