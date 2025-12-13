@@ -206,13 +206,13 @@ BLFS_NETWORKING=(
     "wget-1.25.0.tar.gz"
     "libevent-2.1.12-stable.tar.gz"
     "nghttp2-1.67.0.tar.xz"
-    "c-ares-1.37.0.tar.gz"
+    "c-ares-1.34.5.tar.gz"
     "avahi-0.8.tar.gz"
     "bluez-5.83.tar.xz"
     "dhcpcd-10.2.4.tar.xz"
     "wpa_supplicant-2.11.tar.gz"
     "iw-6.9.tar.xz"
-    "wireless-regdb-2025.06.09.tar.xz"
+    "wireless-regdb-2025.07.10.tar.xz"
 )
 
 # BLFS Packages - Libraries
