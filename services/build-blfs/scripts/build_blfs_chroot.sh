@@ -6623,12 +6623,12 @@ else
 fi
 
 # Set NINJAJOBS for the actual build (both fresh and resumed)
-export NINJAJOBS=4
-export NINJAFLAGS="-j4"
+export NINJAJOBS=20
+export NINJAFLAGS="-j20"
 
 # Run with NINJAJOBS environment variable set for nested builds
 log_info "Running ninja build with NINJAJOBS=$NINJAJOBS..."
-if ! NINJAJOBS=4 ninja -j4; then
+if ! NINJAJOBS=20 ninja -j20; then
     log_error "QtWebEngine ninja build failed - you can resume by re-running the build"
     return 1
 fi
