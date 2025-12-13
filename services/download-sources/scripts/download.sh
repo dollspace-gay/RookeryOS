@@ -219,6 +219,8 @@ BLFS_NETWORKING=(
     "wpa_supplicant-2.11.tar.gz"
     "iw-6.9.tar.xz"
     "wireless-regdb-2025.07.10.tar.xz"
+    "libnl-3.11.0.tar.gz"
+    "libpcap-1.10.5.tar.xz"
 )
 
 # BLFS Packages - Libraries
@@ -250,6 +252,16 @@ BLFS_LIBRARIES=(
     "shared-mime-info-2.4.tar.gz"
     "duktape-2.7.0.tar.xz"
     "libical-3.0.20.tar.gz"
+    # Plasma dependencies
+    "libpwquality-1.4.5.tar.bz2"
+    "libqalculate-5.7.0.tar.gz"
+    "libxcvt-0.1.3.tar.xz"
+    "libepoxy-1.5.10.tar.xz"
+    "taglib-2.1.1.tar.gz"
+    "libsass-3.6.5.tar.gz"
+    "json-glib-1.10.6.tar.xz"
+    "libxmlb-0.3.23.tar.xz"
+    "fuse-3.17.4.tar.gz"
 )
 
 # BLFS Packages - X11/Wayland
@@ -285,12 +297,17 @@ BLFS_DISPLAY=(
     "xkeyboard-config-2.45.tar.xz"
     "libwacom-2.17.0.tar.xz"
     "libdisplay-info-0.3.0.tar.xz"
+    # Plasma dependencies
+    "xf86-input-evdev-2.11.0.tar.xz"
+    "glu-9.0.3.tar.xz"
 )
 
 # BLFS Packages - Qt6
 BLFS_QT6=(
     "qt-everywhere-src-6.9.2.tar.xz"
     "qtwebengine-everywhere-src-6.9.2.tar.xz"
+    # Plasma dependencies
+    "qcoro-0.12.0.tar.gz"
 )
 
 # BLFS Packages - Audio/Video
@@ -326,6 +343,10 @@ BLFS_MULTIMEDIA=(
     "libva-2.22.0.tar.gz"
     "libvdpau-1.5.tar.bz2"
     "v4l-utils-1.30.1.tar.xz"
+    # Plasma dependencies (Phonon multimedia framework)
+    "phonon-4.12.0.tar.xz"
+    "phonon-backend-vlc-0.12.0.tar.xz"
+    "vlc-3.0.21.tar.xz"
 )
 
 # BLFS Packages - KDE Frameworks 6
@@ -517,6 +538,8 @@ BLFS_PYTHON=(
     "pycairo-1.28.0.tar.gz"
     "dbus-python-1.4.0.tar.xz"
     "psutil-7.0.0.tar.gz"
+    # Plasma dependencies
+    "pygdbmi-0.11.0.0.tar.gz"
 )
 
 # BLFS Packages - Misc Libraries
@@ -563,7 +586,21 @@ BLFS_MISC=(
     "kdsoap-2.2.0.tar.gz"
     "kdsoap-ws-discovery-client-0.4.0.tar.xz"
     "kio-extras-25.08.0.tar.xz"
-    "oxygen-icons-15.04.3.tar.xz"
+    # Plasma dependencies - System & Tools
+    "GTK-3.24.50.tar.xz"
+    "gsettings-desktop-schemas-48.0.tar.xz"
+    "lm-sensors-3-6-0.tar.gz"
+    "pciutils-3.14.0.tar.gz"
+    "power-profiles-daemon-0.30.tar.xz"
+    "AccountsService-23.13.9.tar.xz"
+    "smartmontools-7.5.tar.gz"
+    "xdg-desktop-portal-1.20.3.tar.xz"
+    "AppStream-1.0.6.tar.xz"
+    "sassc-3.6.2.tar.gz"
+    "xdotool-3.20211022.1.tar.gz"
+    "ibus-1.5.32.tar.gz"
+    "socat-1.8.0.0.tar.gz"
+    "oxygen-icons-6.0.0.tar.xz"
 )
 
 # BLFS Patches

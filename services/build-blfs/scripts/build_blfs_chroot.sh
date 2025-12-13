@@ -8885,6 +8885,554 @@ log_info "opencv-4.12.0 installed successfully"
 create_checkpoint "opencv"
 }
 
+# =====================================================================
+# glu-9.0.3 (OpenGL Utility Library - required for 3D graphics)
+# https://www.linuxfromscratch.org/blfs/view/stable/x/glu.html
+# =====================================================================
+build_glu() {
+should_skip_package "glu" && { log_info "Skipping glu (already built)"; return 0; }
+log_step "Building glu-9.0.3..."
+
+if [ ! -f /sources/glu-9.0.3.tar.xz ]; then
+    log_error "glu-9.0.3.tar.xz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf glu-*
+tar -xf /sources/glu-9.0.3.tar.xz
+cd glu-*
+
+mkdir build
+cd build
+
+meson setup --prefix=/usr --buildtype=release -D gl_provider=gl ..
+ninja
+ninja install
+
+cd "$BUILD_DIR"
+rm -rf glu-*
+ldconfig
+
+log_info "glu-9.0.3 installed successfully"
+create_checkpoint "glu"
+}
+
+# =====================================================================
+# libpwquality-1.4.5 (Password Quality Checking Library)
+# https://www.linuxfromscratch.org/blfs/view/stable/postlfs/libpwquality.html
+# =====================================================================
+build_libpwquality() {
+should_skip_package "libpwquality" && { log_info "Skipping libpwquality (already built)"; return 0; }
+log_step "Building libpwquality-1.4.5..."
+
+if [ ! -f /sources/libpwquality-1.4.5.tar.bz2 ]; then
+    log_error "libpwquality-1.4.5.tar.bz2 not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf libpwquality-*
+tar -xf /sources/libpwquality-1.4.5.tar.bz2
+cd libpwquality-*
+
+./configure --prefix=/usr \
+            --disable-static \
+            --with-securedir=/usr/lib/security \
+            --with-python-binary=python3
+
+make $MAKEFLAGS
+make install
+
+cd "$BUILD_DIR"
+rm -rf libpwquality-*
+ldconfig
+
+log_info "libpwquality-1.4.5 installed successfully"
+create_checkpoint "libpwquality"
+}
+
+# =====================================================================
+# libqalculate-5.7.0 (Multi-purpose calculator library - for Plasma)
+# https://www.linuxfromscratch.org/blfs/view/stable/general/libqalculate.html
+# =====================================================================
+build_libqalculate() {
+should_skip_package "libqalculate" && { log_info "Skipping libqalculate (already built)"; return 0; }
+log_step "Building libqalculate-5.7.0..."
+
+if [ ! -f /sources/libqalculate-5.7.0.tar.gz ]; then
+    log_error "libqalculate-5.7.0.tar.gz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf libqalculate-*
+tar -xf /sources/libqalculate-5.7.0.tar.gz
+cd libqalculate-*
+
+./configure --prefix=/usr \
+            --disable-static
+
+make $MAKEFLAGS
+make install
+
+cd "$BUILD_DIR"
+rm -rf libqalculate-*
+ldconfig
+
+log_info "libqalculate-5.7.0 installed successfully"
+create_checkpoint "libqalculate"
+}
+
+# =====================================================================
+# taglib-2.1.1 (Audio Meta-Data Library - required by Plasma)
+# https://www.linuxfromscratch.org/blfs/view/stable/multimedia/taglib.html
+# =====================================================================
+build_taglib() {
+should_skip_package "taglib" && { log_info "Skipping taglib (already built)"; return 0; }
+log_step "Building taglib-2.1.1..."
+
+if [ ! -f /sources/taglib-2.1.1.tar.gz ]; then
+    log_error "taglib-2.1.1.tar.gz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf taglib-*
+tar -xf /sources/taglib-2.1.1.tar.gz
+cd taglib-*
+
+mkdir build
+cd build
+
+cmake -D CMAKE_INSTALL_PREFIX=/usr \
+      -D CMAKE_BUILD_TYPE=Release \
+      -D BUILD_SHARED_LIBS=ON \
+      -W no-dev \
+      ..
+
+make $MAKEFLAGS
+make install
+
+cd "$BUILD_DIR"
+rm -rf taglib-*
+ldconfig
+
+log_info "taglib-2.1.1 installed successfully"
+create_checkpoint "taglib"
+}
+
+# =====================================================================
+# json-glib-1.10.6 (JSON library for GLib - required by various GNOME apps)
+# https://www.linuxfromscratch.org/blfs/view/stable/general/json-glib.html
+# =====================================================================
+build_json_glib() {
+should_skip_package "json-glib" && { log_info "Skipping json-glib (already built)"; return 0; }
+log_step "Building json-glib-1.10.6..."
+
+if [ ! -f /sources/json-glib-1.10.6.tar.xz ]; then
+    log_error "json-glib-1.10.6.tar.xz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf json-glib-*
+tar -xf /sources/json-glib-1.10.6.tar.xz
+cd json-glib-*
+
+mkdir build
+cd build
+
+meson setup --prefix=/usr --buildtype=release -D man=false ..
+ninja
+ninja install
+
+cd "$BUILD_DIR"
+rm -rf json-glib-*
+ldconfig
+
+log_info "json-glib-1.10.6 installed successfully"
+create_checkpoint "json-glib"
+}
+
+# =====================================================================
+# libxmlb-0.3.23 (XMLb library - required by AppStream)
+# https://www.linuxfromscratch.org/blfs/view/stable/general/libxmlb.html
+# =====================================================================
+build_libxmlb() {
+should_skip_package "libxmlb" && { log_info "Skipping libxmlb (already built)"; return 0; }
+log_step "Building libxmlb-0.3.23..."
+
+if [ ! -f /sources/libxmlb-0.3.23.tar.xz ]; then
+    log_error "libxmlb-0.3.23.tar.xz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf libxmlb-*
+tar -xf /sources/libxmlb-0.3.23.tar.xz
+cd libxmlb-*
+
+mkdir build
+cd build
+
+meson setup --prefix=/usr \
+            --buildtype=release \
+            -D gtkdoc=false \
+            -D stemmer=false \
+            -D introspection=true \
+            ..
+ninja
+ninja install
+
+cd "$BUILD_DIR"
+rm -rf libxmlb-*
+ldconfig
+
+log_info "libxmlb-0.3.23 installed successfully"
+create_checkpoint "libxmlb"
+}
+
+# =====================================================================
+# fuse-3.17.4 (Filesystem in Userspace - required by various apps)
+# https://www.linuxfromscratch.org/blfs/view/stable/postlfs/fuse3.html
+# =====================================================================
+build_fuse3() {
+should_skip_package "fuse3" && { log_info "Skipping fuse3 (already built)"; return 0; }
+log_step "Building fuse-3.17.4..."
+
+if [ ! -f /sources/fuse-3.17.4.tar.gz ]; then
+    log_error "fuse-3.17.4.tar.gz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf fuse-*
+tar -xf /sources/fuse-3.17.4.tar.gz
+cd fuse-*
+
+mkdir build
+cd build
+
+meson setup --prefix=/usr \
+            --buildtype=release \
+            -D examples=false \
+            ..
+ninja
+ninja install
+
+# Install udev rules
+install -v -m644 ../util/udev.rules /etc/udev/rules.d/99-fuse.rules || true
+
+cd "$BUILD_DIR"
+rm -rf fuse-*
+ldconfig
+
+log_info "fuse-3.17.4 installed successfully"
+create_checkpoint "fuse3"
+}
+
+# =====================================================================
+# power-profiles-daemon-0.30 (Power profiles management)
+# https://www.linuxfromscratch.org/blfs/view/stable/general/power-profiles-daemon.html
+# =====================================================================
+build_power_profiles_daemon() {
+should_skip_package "power-profiles-daemon" && { log_info "Skipping power-profiles-daemon (already built)"; return 0; }
+log_step "Building power-profiles-daemon-0.30..."
+
+if [ ! -f /sources/power-profiles-daemon-0.30.tar.xz ]; then
+    log_error "power-profiles-daemon-0.30.tar.xz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf power-profiles-daemon-*
+tar -xf /sources/power-profiles-daemon-0.30.tar.xz
+cd power-profiles-daemon-*
+
+mkdir build
+cd build
+
+meson setup --prefix=/usr \
+            --buildtype=release \
+            -D gtk_doc=false \
+            -D tests=false \
+            ..
+ninja
+ninja install
+
+cd "$BUILD_DIR"
+rm -rf power-profiles-daemon-*
+ldconfig
+
+log_info "power-profiles-daemon-0.30 installed successfully"
+create_checkpoint "power-profiles-daemon"
+}
+
+# =====================================================================
+# AccountsService-23.13.9 (D-Bus interface for user account management)
+# https://www.linuxfromscratch.org/blfs/view/stable/general/accountsservice.html
+# =====================================================================
+build_accountsservice() {
+should_skip_package "accountsservice" && { log_info "Skipping accountsservice (already built)"; return 0; }
+log_step "Building AccountsService-23.13.9..."
+
+if [ ! -f /sources/AccountsService-23.13.9.tar.xz ]; then
+    log_error "AccountsService-23.13.9.tar.xz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf accountsservice-* AccountsService-*
+tar -xf /sources/AccountsService-23.13.9.tar.xz
+cd accountsservice-* || cd AccountsService-*
+
+mkdir build
+cd build
+
+meson setup --prefix=/usr \
+            --buildtype=release \
+            -D admin_group=wheel \
+            -D docbook=false \
+            -D gtk_doc=false \
+            ..
+ninja
+ninja install
+
+cd "$BUILD_DIR"
+rm -rf accountsservice-* AccountsService-*
+ldconfig
+
+log_info "AccountsService-23.13.9 installed successfully"
+create_checkpoint "accountsservice"
+}
+
+# =====================================================================
+# smartmontools-7.5 (S.M.A.R.T. disk monitoring tools)
+# https://www.linuxfromscratch.org/blfs/view/stable/general/smartmontools.html
+# =====================================================================
+build_smartmontools() {
+should_skip_package "smartmontools" && { log_info "Skipping smartmontools (already built)"; return 0; }
+log_step "Building smartmontools-7.5..."
+
+if [ ! -f /sources/smartmontools-7.5.tar.gz ]; then
+    log_error "smartmontools-7.5.tar.gz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf smartmontools-*
+tar -xf /sources/smartmontools-7.5.tar.gz
+cd smartmontools-*
+
+./configure --prefix=/usr \
+            --sysconfdir=/etc \
+            --with-systemdsystemunitdir=/usr/lib/systemd/system
+
+make $MAKEFLAGS
+make install
+
+cd "$BUILD_DIR"
+rm -rf smartmontools-*
+
+log_info "smartmontools-7.5 installed successfully"
+create_checkpoint "smartmontools"
+}
+
+# =====================================================================
+# xdg-desktop-portal-1.20.3 (Portal frontend service - desktop integration)
+# https://www.linuxfromscratch.org/blfs/view/stable/general/xdg-desktop-portal.html
+# =====================================================================
+build_xdg_desktop_portal() {
+should_skip_package "xdg-desktop-portal" && { log_info "Skipping xdg-desktop-portal (already built)"; return 0; }
+log_step "Building xdg-desktop-portal-1.20.3..."
+
+if [ ! -f /sources/xdg-desktop-portal-1.20.3.tar.xz ]; then
+    log_error "xdg-desktop-portal-1.20.3.tar.xz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf xdg-desktop-portal-*
+tar -xf /sources/xdg-desktop-portal-1.20.3.tar.xz
+cd xdg-desktop-portal-*
+
+mkdir build
+cd build
+
+meson setup --prefix=/usr \
+            --buildtype=release \
+            -D docbook-docs=disabled \
+            -D man-pages=disabled \
+            ..
+ninja
+ninja install
+
+cd "$BUILD_DIR"
+rm -rf xdg-desktop-portal-*
+ldconfig
+
+log_info "xdg-desktop-portal-1.20.3 installed successfully"
+create_checkpoint "xdg-desktop-portal"
+}
+
+# =====================================================================
+# AppStream-1.0.6 (Software component metadata)
+# https://www.linuxfromscratch.org/blfs/view/stable/general/appstream.html
+# =====================================================================
+build_appstream() {
+should_skip_package "appstream" && { log_info "Skipping appstream (already built)"; return 0; }
+log_step "Building AppStream-1.0.6..."
+
+if [ ! -f /sources/AppStream-1.0.6.tar.xz ]; then
+    log_error "AppStream-1.0.6.tar.xz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf AppStream-*
+tar -xf /sources/AppStream-1.0.6.tar.xz
+cd AppStream-*
+
+mkdir build
+cd build
+
+meson setup --prefix=/usr \
+            --buildtype=release \
+            -D apidocs=false \
+            -D docs=false \
+            -D qt=true \
+            ..
+ninja
+ninja install
+
+cd "$BUILD_DIR"
+rm -rf AppStream-*
+ldconfig
+
+log_info "AppStream-1.0.6 installed successfully"
+create_checkpoint "appstream"
+}
+
+# =====================================================================
+# xdotool-3.20211022.1 (X11 automation tool - optional for Plasma)
+# =====================================================================
+build_xdotool() {
+should_skip_package "xdotool" && { log_info "Skipping xdotool (already built)"; return 0; }
+log_step "Building xdotool-3.20211022.1..."
+
+if [ ! -f /sources/xdotool-3.20211022.1.tar.gz ]; then
+    log_error "xdotool-3.20211022.1.tar.gz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf xdotool-*
+tar -xf /sources/xdotool-3.20211022.1.tar.gz
+cd xdotool-*
+
+make PREFIX=/usr $MAKEFLAGS
+make PREFIX=/usr install
+
+cd "$BUILD_DIR"
+rm -rf xdotool-*
+ldconfig
+
+log_info "xdotool-3.20211022.1 installed successfully"
+create_checkpoint "xdotool"
+}
+
+# =====================================================================
+# ibus-1.5.32 (Intelligent Input Bus - input method framework)
+# https://www.linuxfromscratch.org/blfs/view/stable/general/ibus.html
+# =====================================================================
+build_ibus() {
+should_skip_package "ibus" && { log_info "Skipping ibus (already built)"; return 0; }
+log_step "Building ibus-1.5.32..."
+
+if [ ! -f /sources/ibus-1.5.32.tar.gz ]; then
+    log_error "ibus-1.5.32.tar.gz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf ibus-*
+tar -xf /sources/ibus-1.5.32.tar.gz
+cd ibus-*
+
+./configure --prefix=/usr \
+            --sysconfdir=/etc \
+            --disable-unicode-dict \
+            --disable-emoji-dict \
+            --enable-wayland \
+            --with-python=/usr/bin/python3
+
+make $MAKEFLAGS
+make install
+
+cd "$BUILD_DIR"
+rm -rf ibus-*
+ldconfig
+
+log_info "ibus-1.5.32 installed successfully"
+create_checkpoint "ibus"
+}
+
+# =====================================================================
+# socat-1.8.0.0 (Multipurpose relay - bidirectional data transfer)
+# https://www.linuxfromscratch.org/blfs/view/stable/general/socat.html
+# =====================================================================
+build_socat() {
+should_skip_package "socat" && { log_info "Skipping socat (already built)"; return 0; }
+log_step "Building socat-1.8.0.0..."
+
+if [ ! -f /sources/socat-1.8.0.0.tar.gz ]; then
+    log_error "socat-1.8.0.0.tar.gz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf socat-*
+tar -xf /sources/socat-1.8.0.0.tar.gz
+cd socat-*
+
+./configure --prefix=/usr
+
+make $MAKEFLAGS
+make install
+
+cd "$BUILD_DIR"
+rm -rf socat-*
+
+log_info "socat-1.8.0.0 installed successfully"
+create_checkpoint "socat"
+}
+
+# =====================================================================
+# pygdbmi-0.11.0.0 (Python GDB Machine Interface - for debugging)
+# =====================================================================
+build_pygdbmi() {
+should_skip_package "pygdbmi" && { log_info "Skipping pygdbmi (already built)"; return 0; }
+log_step "Building pygdbmi-0.11.0.0..."
+
+if [ ! -f /sources/pygdbmi-0.11.0.0.tar.gz ]; then
+    log_error "pygdbmi-0.11.0.0.tar.gz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf pygdbmi-*
+tar -xf /sources/pygdbmi-0.11.0.0.tar.gz
+cd pygdbmi-*
+
+pip3 install --no-build-isolation --prefix=/usr .
+
+cd "$BUILD_DIR"
+rm -rf pygdbmi-*
+
+log_info "pygdbmi-0.11.0.0 installed successfully"
+create_checkpoint "pygdbmi"
+}
 
 
 # =====================================================================
@@ -9117,6 +9665,24 @@ build_hwdata
 log_info "Phase 8: Display Information Library"
 build_libdisplay_info
 
+log_info "Phase 9: Additional Plasma Dependencies"
+build_glu
+build_libpwquality
+build_libqalculate
+build_taglib
+build_json_glib
+build_libxmlb
+build_fuse3
+build_power_profiles_daemon
+build_accountsservice
+build_smartmontools
+build_xdg_desktop_portal
+build_appstream
+build_xdotool
+build_ibus
+build_socat
+build_pygdbmi
+
 log_info ""
 log_info "=========================================="
 log_info "Tier 10: Plasma Prerequisites Complete!"
@@ -9134,6 +9700,22 @@ log_info "  - libsass-3.6.6: Sass CSS compiler library"
 log_info "  - sassc-3.6.2: Sass CSS compiler"
 log_info "  - hwdata-0.398: Hardware identification database"
 log_info "  - libdisplay-info-0.3.0: EDID/DisplayID library"
+log_info "  - glu-9.0.3: OpenGL Utility Library"
+log_info "  - libpwquality-1.4.5: Password quality checking"
+log_info "  - libqalculate-5.7.0: Calculator library"
+log_info "  - taglib-2.1.1: Audio meta-data library"
+log_info "  - json-glib-1.10.6: JSON library for GLib"
+log_info "  - libxmlb-0.3.23: XML binary library"
+log_info "  - fuse-3.17.4: Filesystem in userspace"
+log_info "  - power-profiles-daemon-0.30: Power management"
+log_info "  - accountsservice-23.13.9: User account management"
+log_info "  - smartmontools-7.5: Disk monitoring"
+log_info "  - xdg-desktop-portal-1.20.3: Desktop integration"
+log_info "  - appstream-1.0.6: Software metadata"
+log_info "  - xdotool-3.20211022.1: X11 automation"
+log_info "  - ibus-1.5.32: Input method framework"
+log_info "  - socat-1.8.0.0: Data relay tool"
+log_info "  - pygdbmi-0.11.0.0: Python GDB interface"
 log_info ""
 
 # =====================================================================
