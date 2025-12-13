@@ -519,7 +519,7 @@ BLFS_MISC=(
     "docbook-xsl-nons-1.79.2.tar.bz2"
     "itstool-2.0.7.tar.bz2"
     "xmlto-0.0.29.tar.gz"
-    "glib-2.84.0.tar.xz"
+    "glib-2.84.4.tar.xz"
     "gobject-introspection-1.84.0.tar.xz"
     "vala-0.58.0.tar.xz"
     "libgudev-238.tar.xz"
