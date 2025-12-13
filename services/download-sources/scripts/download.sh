@@ -112,16 +112,16 @@ main() {
     local current=0
 
     while IFS= read -r filename; do
-        ((current++))
+        current=$((current + 1))
         log_info "[$current/$TOTAL_FILES] Processing: $filename"
 
         if [ -f "$SOURCES_DIR/$filename" ]; then
             log_info "[SKIP] $filename (already exists)"
-            ((skipped++))
+            skipped=$((skipped + 1))
         elif download_with_retry "$filename"; then
-            ((downloaded++))
+            downloaded=$((downloaded + 1))
         else
-            ((failed++))
+            failed=$((failed + 1))
         fi
     done <<< "$FILE_LIST"
 
