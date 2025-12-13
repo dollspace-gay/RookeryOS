@@ -500,7 +500,7 @@ BLFS_PYTHON=(
     "cython-3.1.3.tar.gz"
     "numpy-2.3.2.tar.gz"
     "mako-1.3.10.tar.gz"
-    "PyYAML-6.0.2.tar.gz"
+    "pyyaml-6.0.2.tar.gz"
     "six-1.17.0.tar.gz"
     "certifi-2025.4.26.tar.gz"
     "charset-normalizer-3.4.2.tar.gz"
