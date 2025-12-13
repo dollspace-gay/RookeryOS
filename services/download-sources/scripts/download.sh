@@ -369,7 +369,6 @@ BLFS_KDE_FRAMEWORKS=(
     "syndication-6.17.0.tar.xz"
     "knewstuff-6.17.0.tar.xz"
     "frameworkintegration-6.17.0.tar.xz"
-    "kinit-6.17.0.tar.xz"
     "kparts-6.17.0.tar.xz"
     "syntax-highlighting-6.17.0.tar.xz"
     "ktexteditor-6.17.0.tar.xz"
