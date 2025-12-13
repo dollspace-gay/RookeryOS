@@ -221,7 +221,7 @@ BLFS_NETWORKING=(
     "iw-6.9.tar.xz"
     "wireless-regdb-2025.07.10.tar.xz"
     "libnl-3.11.0.tar.gz"
-    "libpcap-1.10.5.tar.xz"
+    "libpcap-1.10.5.tar.gz"
 )
 
 # BLFS Packages - Libraries
