@@ -181,11 +181,11 @@ BLFS_SECURITY=(
     "shadow-4.18.0.tar.xz"
     "sudo-1.9.17p2.tar.gz"
     "polkit-126.tar.gz"
-    "make-ca-1.14.tar.xz"
+    "make-ca-1.16.1.tar.gz"
     "p11-kit-0.25.5.tar.xz"
     "libtasn1-4.20.0.tar.gz"
-    "nss-3.108.tar.gz"
-    "nspr-4.36.tar.gz"
+    "nss-3.115.tar.gz"
+    "nspr-4.37.tar.gz"
 )
 
 # BLFS Packages - GnuPG PQC Stack (Post-Quantum Cryptography)
