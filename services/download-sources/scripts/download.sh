@@ -503,7 +503,7 @@ BLFS_PYTHON=(
     "pyyaml-6.0.2.tar.gz"
     "six-1.17.0.tar.gz"
     "certifi-2025.8.3.tar.gz"
-    "charset-normalizer-3.4.2.tar.gz"
+    "charset_normalizer-3.4.3.tar.gz"
     "idna-3.10.tar.gz"
     "urllib3-2.3.0.tar.gz"
     "requests-2.32.3.tar.gz"
