@@ -502,7 +502,7 @@ BLFS_PYTHON=(
     "mako-1.3.10.tar.gz"
     "pyyaml-6.0.2.tar.gz"
     "six-1.17.0.tar.gz"
-    "certifi-2025.4.26.tar.gz"
+    "certifi-2025.8.3.tar.gz"
     "charset-normalizer-3.4.2.tar.gz"
     "idna-3.10.tar.gz"
     "urllib3-2.3.0.tar.gz"
