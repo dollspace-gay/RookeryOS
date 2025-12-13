@@ -82,7 +82,7 @@ LFS_PACKAGES=(
     # Chapter 5-6: Cross-compilation toolchain
     "binutils-2.45.tar.xz"
     "gcc-15.2.0.tar.xz"
-    "linux-6.14.5.tar.xz"
+    # Note: Kernel not downloaded - using local grsec kernel (linux-6.6.102) via bind mount
     "glibc-2.42.tar.xz"
     "mpfr-4.2.2.tar.xz"
     "gmp-6.3.0.tar.xz"
