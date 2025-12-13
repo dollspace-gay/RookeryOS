@@ -6606,7 +6606,7 @@ else
     # BLFS recommends ~1 core per 1.5GB RAM to avoid OOM
     # Use NINJAJOBS env var which nested chromium ninja builds will respect
     export NINJAJOBS=4
-    export NINJAFLAGS="-j4"
+    export NINJAFLAGS="-j40"
     log_info "Building QtWebEngine with NINJAJOBS=$NINJAJOBS (memory-intensive Chromium build)"
 
     cmake -DCMAKE_MESSAGE_LOG_LEVEL=STATUS \
