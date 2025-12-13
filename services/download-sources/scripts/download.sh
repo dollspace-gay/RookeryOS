@@ -193,6 +193,7 @@ BLFS_SECURITY=(
     "nss-3.115.tar.gz"
     "nspr-4.37.tar.gz"
     "nettle-3.10.2.tar.gz"
+    "gnutls-3.8.10.tar.xz"
 )
 
 # BLFS Packages - GnuPG PQC Stack (Post-Quantum Cryptography)
