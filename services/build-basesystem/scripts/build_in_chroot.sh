@@ -273,6 +273,33 @@ build_package "util-linux-*.tar.xz" "Util-linux (temporary)" bash -c '
 fi  # End of Chapter 7 conditional block
 
 # =============================================================================
+# Ensure essential Chapter 7 tools exist (must run even when Chapter 7 is skipped)
+# =============================================================================
+
+# Texinfo - needed for DejaGNU and other packages that generate documentation
+# This must exist before Tcl/Expect/DejaGNU can be built
+if ! command -v makeinfo >/dev/null 2>&1; then
+    log_step "Building Texinfo (required for documentation tools)..."
+    cd /build
+    texinfo_tarball=$(ls /sources/texinfo-*.tar.xz 2>/dev/null | head -1)
+    if [ -n "$texinfo_tarball" ]; then
+        tar -xf "$texinfo_tarball"
+        cd texinfo-*
+        ./configure --prefix=/usr
+        make
+        make install
+        cd /build
+        rm -rf texinfo-*
+        log_info "Texinfo installed (makeinfo now available)"
+    else
+        log_error "texinfo tarball not found in /sources"
+        exit 1
+    fi
+else
+    log_info "makeinfo already available, skipping Texinfo bootstrap"
+fi
+
+# =============================================================================
 # Ensure essential system files exist (must run even when Chapter 7 is skipped)
 # =============================================================================
 if ! grep -q "^root:" /etc/passwd 2>/dev/null; then
