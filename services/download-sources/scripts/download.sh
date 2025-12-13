@@ -274,9 +274,9 @@ BLFS_DISPLAY=(
     "libXfixes-6.0.1.tar.xz"
     "libXtst-1.2.5.tar.xz"
     "libXxf86vm-1.1.6.tar.xz"
-    "libxkbcommon-1.9.0.tar.xz"
+    "libxkbcommon-1.11.0.tar.gz"
     "libxkbfile-1.1.3.tar.xz"
-    "xkeyboard-config-2.44.tar.xz"
+    "xkeyboard-config-2.45.tar.xz"
     "libwacom-2.17.0.tar.xz"
     "libdisplay-info-0.3.0.tar.xz"
 )
