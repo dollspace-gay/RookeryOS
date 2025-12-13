@@ -505,11 +505,11 @@ BLFS_PYTHON=(
     "certifi-2025.8.3.tar.gz"
     "charset_normalizer-3.4.3.tar.gz"
     "idna-3.10.tar.gz"
-    "urllib3-2.3.0.tar.gz"
-    "requests-2.32.3.tar.gz"
-    "pygobject-3.50.0.tar.xz"
+    "urllib3-2.5.0.tar.gz"
+    "requests-2.32.5.tar.gz"
+    "pygobject-3.52.3.tar.gz"
     "pycairo-1.28.0.tar.gz"
-    "dbus-python-1.3.2.tar.gz"
+    "dbus-python-1.4.0.tar.xz"
     "psutil-7.0.0.tar.gz"
 )
 
