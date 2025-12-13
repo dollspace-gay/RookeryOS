@@ -814,7 +814,7 @@ build_package "pkgconf-*.tar.xz" "Pkgconf" bash -c '
 '
 
 # =====================================================================
-# 8.13 Flex-2.6.4 (Required by Kbd)
+# 8.15 Flex-2.6.4 (Required by Kbd)
 # =====================================================================
 build_package "flex-*.tar.gz" "Flex" bash -c '
     ./configure --prefix=/usr \
@@ -825,6 +825,95 @@ build_package "flex-*.tar.gz" "Flex" bash -c '
     ln -sv flex /usr/bin/lex
     ln -sv flex.1 /usr/share/man/man1/lex.1
 '
+
+# =====================================================================
+# 8.16 Tcl-8.6.16 (Test suite support)
+# =====================================================================
+should_skip_package "tcl" "/sources" && { log_info "⊙ Skipping Tcl (already built)"; } || {
+log_step "Building Tcl-8.6.16..."
+cd /build
+tar -xf /sources/tcl8.6.16-src.tar.gz
+cd tcl8.6.16
+SRCDIR=$(pwd)
+cd unix
+./configure --prefix=/usr \
+            --mandir=/usr/share/man \
+            --disable-rpath
+make
+
+sed -e "s|$SRCDIR/unix|/usr/lib|" \
+    -e "s|$SRCDIR|/usr/include|" \
+    -i tclConfig.sh
+
+sed -e "s|$SRCDIR/unix/pkgs/tdbc1.1.10|/usr/lib/tdbc1.1.10|" \
+    -e "s|$SRCDIR/pkgs/tdbc1.1.10/generic|/usr/include|" \
+    -e "s|$SRCDIR/pkgs/tdbc1.1.10/library|/usr/lib/tcl8.6|" \
+    -e "s|$SRCDIR/pkgs/tdbc1.1.10|/usr/include|" \
+    -i pkgs/tdbc1.1.10/tdbcConfig.sh
+
+sed -e "s|$SRCDIR/unix/pkgs/itcl4.3.2|/usr/lib/itcl4.3.2|" \
+    -e "s|$SRCDIR/pkgs/itcl4.3.2/generic|/usr/include|" \
+    -e "s|$SRCDIR/pkgs/itcl4.3.2|/usr/include|" \
+    -i pkgs/itcl4.3.2/itclConfig.sh
+
+unset SRCDIR
+make install
+chmod 644 /usr/lib/libtclstub8.6.a
+chmod -v u+w /usr/lib/libtcl8.6.so
+make install-private-headers
+ln -sfv tclsh8.6 /usr/bin/tclsh
+mv /usr/share/man/man3/{Thread,Tcl_Thread}.3
+cd /build
+rm -rf tcl8.6.16
+log_info "Tcl complete"
+create_checkpoint "tcl" "/sources" "chapter8"
+}
+
+# =====================================================================
+# 8.17 Expect-5.45.4 (Test suite support)
+# =====================================================================
+should_skip_package "expect" "/sources" && { log_info "⊙ Skipping Expect (already built)"; } || {
+log_step "Building Expect-5.45.4..."
+cd /build
+tar -xf /sources/expect5.45.4.tar.gz
+cd expect5.45.4
+patch -Np1 -i /sources/expect-5.45.4-gcc15-1.patch
+./configure --prefix=/usr \
+            --with-tcl=/usr/lib \
+            --enable-shared \
+            --disable-rpath \
+            --mandir=/usr/share/man \
+            --with-tclinclude=/usr/include
+make
+make install
+ln -svf expect5.45.4/libexpect5.45.4.so /usr/lib
+cd /build
+rm -rf expect5.45.4
+log_info "Expect complete"
+create_checkpoint "expect" "/sources" "chapter8"
+}
+
+# =====================================================================
+# 8.18 DejaGNU-1.6.3 (Test suite support)
+# =====================================================================
+should_skip_package "dejagnu" "/sources" && { log_info "⊙ Skipping DejaGNU (already built)"; } || {
+log_step "Building DejaGNU-1.6.3..."
+cd /build
+tar -xf /sources/dejagnu-1.6.3.tar.gz
+cd dejagnu-1.6.3
+mkdir -v build
+cd build
+../configure --prefix=/usr
+makeinfo --html --no-split -o doc/dejagnu.html ../doc/dejagnu.texi
+makeinfo --plaintext -o doc/dejagnu.txt ../doc/dejagnu.texi
+make install
+install -v -dm755 /usr/share/doc/dejagnu-1.6.3
+install -v -m644 doc/dejagnu.{html,txt} /usr/share/doc/dejagnu-1.6.3
+cd /build
+rm -rf dejagnu-1.6.3
+log_info "DejaGNU complete"
+create_checkpoint "dejagnu" "/sources" "chapter8"
+}
 
 # =====================================================================
 # 8.34 Bison-3.8.2 (Final)
@@ -1713,8 +1802,8 @@ for bin in $ESSENTIAL_BINS; do
 done
 
 # 3. Count installed packages by checkpoints
-# Full LFS 12.4 systemd build with all packages including nano + Perl final + XML-Parser + Texinfo final
-EXPECTED_PACKAGES=73  # Full LFS 12.4 package count + nano + additions
+# Full LFS 12.4 systemd build with all packages including nano + Tcl/Expect/DejaGNU test tools
+EXPECTED_PACKAGES=76  # Full LFS 12.4 package count + nano + tcl + expect + dejagnu
 CHECKPOINT_COUNT=$(ls -1 /.checkpoints/*.checkpoint 2>/dev/null | grep -v "toolchain\|download\|configure" | wc -l)
 
 log_info "Packages installed: $CHECKPOINT_COUNT / $EXPECTED_PACKAGES (full build)"
@@ -1729,6 +1818,7 @@ if [ "$CHECKPOINT_COUNT" -lt "$EXPECTED_PACKAGES" ]; then
         "man-pages" "iana-etc" "glibc" "zlib" "bzip2" "xz" "lz4" "zstd"
         "file" "libxcrypt" "readline" "m4" "bc" "gettext" "libtool" "binutils"
         "gmp" "mpfr" "mpc" "attr" "acl" "gcc" "shadow" "gdbm" "pkgconf" "flex"
+        "tcl" "expect" "dejagnu"
         "bison" "ncurses" "sed" "grep" "bash" "autoconf" "automake" "openssl"
         "libffi" "perl" "expat" "XML-Parser" "gawk" "groff" "less" "libpipeline" "make"
         "patch" "man-db" "inetutils" "psmisc" "intltool" "nano" "elfutils"

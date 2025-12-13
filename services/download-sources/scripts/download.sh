@@ -125,7 +125,11 @@ LFS_PACKAGES=(
     "flex-2.6.4.tar.gz"
     "flit_core-3.12.0.tar.gz"
     "gdbm-1.26.tar.gz"
-    "gperf-3.0.4.tar.gz"
+    "gperf-3.3.tar.gz"
+    # Test suite tools (Tcl, Expect, DejaGNU)
+    "tcl8.6.16-src.tar.gz"
+    "expect5.45.4.tar.gz"
+    "dejagnu-1.6.3.tar.gz"
     "groff-1.23.0.tar.gz"
     "grub-2.12.tar.xz"
     "iana-etc-20250807.tar.gz"
@@ -149,7 +153,7 @@ LFS_PACKAGES=(
     "nano-8.6.tar.xz"
     "ninja-1.13.1.tar.gz"
     "openssl-3.5.2.tar.gz"
-    "packaging-24.2.tar.gz"
+    "packaging-25.0.tar.gz"
     "pkgconf-2.5.1.tar.xz"
     "procps-ng-4.0.5.tar.xz"
     "psmisc-23.7.tar.xz"
@@ -171,8 +175,9 @@ LFS_PATCHES=(
     "glibc-2.42-fhs-1.patch"
     "bzip2-1.0.8-install_docs-1.patch"
     "coreutils-9.7-i18n-1.patch"
+    "coreutils-9.7-upstream_fix-1.patch"
     "kbd-2.8.0-backspace-1.patch"
-    "sysvinit-3.14-consolidated-1.patch"
+    "expect-5.45.4-gcc15-1.patch"
 )
 
 # BLFS Packages - Security & Authentication
@@ -564,7 +569,6 @@ BLFS_MISC=(
 # BLFS Patches
 BLFS_PATCHES=(
     "avahi-0.8-ipv6_race_condition_fix-1.patch"
-    "coreutils-9.7-upstream_fix-1.patch"
     "docbook-xsl-nons-1.79.2-stack_fix-1.patch"
     "extra-cmake-modules-6.17.0-upstream_fix-1.patch"
     "libcanberra-0.30-wayland-1.patch"
