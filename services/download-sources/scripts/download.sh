@@ -187,6 +187,7 @@ BLFS_SECURITY=(
     "shadow-4.18.0.tar.xz"
     "sudo-1.9.17p2.tar.gz"
     "polkit-126.tar.gz"
+    "polkit-qt-1-0.200.0.tar.xz"
     "make-ca-1.16.1.tar.gz"
     "p11-kit-0.25.5.tar.xz"
     "libtasn1-4.20.0.tar.gz"
@@ -194,6 +195,7 @@ BLFS_SECURITY=(
     "nspr-4.37.tar.gz"
     "nettle-3.10.2.tar.gz"
     "gnutls-3.8.10.tar.xz"
+    "libsecret-0.21.7.tar.xz"
 )
 
 # BLFS Packages - GnuPG PQC Stack (Post-Quantum Cryptography)
@@ -213,7 +215,7 @@ BLFS_NETWORKING=(
     "curl-8.15.0.tar.xz"
     "wget-1.25.0.tar.gz"
     "libevent-2.1.12-stable.tar.gz"
-    "nghttp2-1.67.0.tar.xz"
+    "nghttp2-1.66.0.tar.xz"
     "c-ares-1.34.5.tar.gz"
     "libdaemon-0.14.tar.gz"
     "avahi-0.8.tar.gz"
@@ -224,6 +226,14 @@ BLFS_NETWORKING=(
     "wireless-regdb-2025.07.10.tar.xz"
     "libnl-3.11.0.tar.gz"
     "libpcap-1.10.5.tar.xz"
+    "libndp-1.9.tar.gz"
+    "libpsl-0.21.5.tar.gz"
+    "libproxy-0.5.10.tar.gz"
+    "iptables-1.8.11.tar.xz"
+    "NetworkManager-1.54.0.tar.xz"
+    "ModemManager-1.24.2.tar.gz"
+    "libmbim-1.32.0.tar.gz"
+    "libqmi-1.36.0.tar.gz"
 )
 
 # BLFS Packages - Libraries
@@ -237,17 +247,19 @@ BLFS_LIBRARIES=(
     "json-c-0.18.tar.gz"
     "jansson-2.14.1.tar.bz2"
     "libyaml-0.2.5.tar.gz"
+    "yaml-0.2.5.tar.gz"
     "double-conversion-3.3.1.tar.gz"
     "libpng-1.6.50.tar.xz"
     "libjpeg-turbo-3.0.1.tar.gz"
     "tiff-4.7.0.tar.gz"
-    "libwebp-1.5.0.tar.gz"
+    "libwebp-1.6.0.tar.gz"
     "giflib-5.2.2.tar.gz"
     "freetype-2.13.3.tar.xz"
     "fontconfig-2.17.1.tar.xz"
     "harfbuzz-11.4.1.tar.xz"
     "fribidi-1.0.16.tar.xz"
     "graphite2-1.3.14.tgz"
+    "graphene-1.10.8.tar.xz"
     "cairo-1.18.4.tar.xz"
     "pango-1.56.4.tar.xz"
     "gdk-pixbuf-2.42.12.tar.xz"
@@ -255,17 +267,27 @@ BLFS_LIBRARIES=(
     "shared-mime-info-2.4.tar.gz"
     "duktape-2.7.0.tar.xz"
     "libical-3.0.20.tar.gz"
+    "lcms2-2.17.tar.gz"
+    "brotli-1.1.0.tar.gz"
+    "libmng-2.0.3.tar.xz"
+    "jasper-version-4.2.8.tar.gz"
+    "popt-1.19.tar.gz"
+    "libuv-v1.51.0.tar.gz"
+    "LMDB_0.9.33.tar.bz2"
+    "libnvme-1.15.tar.gz"
     # Plasma dependencies
     "libpwquality-1.4.5.tar.bz2"
     "libqalculate-5.7.0.tar.gz"
+    "libqrencode-4.1.1.tar.gz"
     "libxcvt-0.1.3.tar.xz"
     "libepoxy-1.5.10.tar.xz"
     "taglib-2.1.1.tar.gz"
-    "libsass-3.6.5.tar.gz"
+    "libsass-3.6.6.tar.gz"
     "json-glib-1.10.6.tar.xz"
     "libxmlb-0.3.23.tar.xz"
     "fuse-3.17.4.tar.gz"
     "libunistring-1.3.tar.xz"
+    "libsamplerate-0.2.2.tar.xz"
 )
 
 # BLFS Packages - X11/Wayland
@@ -274,6 +296,7 @@ BLFS_DISPLAY=(
     "xwayland-24.1.8.tar.xz"
     "wayland-1.24.0.tar.xz"
     "wayland-protocols-1.45.tar.xz"
+    "plasma-wayland-protocols-1.18.0.tar.xz"
     "mesa-25.1.8.tar.xz"
     "libdrm-2.4.125.tar.xz"
     "libinput-1.29.0.tar.gz"
@@ -282,7 +305,16 @@ BLFS_DISPLAY=(
     "pixman-0.46.4.tar.gz"
     "xcb-proto-1.17.0.tar.xz"
     "libxcb-1.17.0.tar.xz"
+    "xcb-util-0.4.1.tar.xz"
+    "xcb-util-image-0.4.1.tar.xz"
+    "xcb-util-keysyms-0.4.1.tar.xz"
+    "xcb-util-renderutil-0.3.10.tar.xz"
+    "xcb-util-wm-0.4.2.tar.xz"
+    "xcb-util-cursor-0.1.5.tar.xz"
     "xorgproto-2024.1.tar.xz"
+    "util-macros-1.20.2.tar.xz"
+    "libXau-1.0.12.tar.xz"
+    "libXdmcp-1.1.5.tar.xz"
     "libX11-1.8.12.tar.xz"
     "libXext-1.3.6.tar.xz"
     "libXrender-0.9.12.tar.xz"
@@ -301,8 +333,12 @@ BLFS_DISPLAY=(
     "xkeyboard-config-2.45.tar.xz"
     "libwacom-2.17.0.tar.xz"
     "libdisplay-info-0.3.0.tar.xz"
+    "xbitmaps-1.1.3.tar.xz"
+    "xcursor-themes-1.0.7.tar.xz"
+    "xinit-1.4.4.tar.xz"
     # Plasma dependencies
     "xf86-input-evdev-2.11.0.tar.xz"
+    "xf86-input-libinput-1.5.0.tar.xz"
     "glu-9.0.3.tar.xz"
 )
 
@@ -329,6 +365,7 @@ BLFS_MULTIMEDIA=(
     "gst-plugins-good-1.26.5.tar.xz"
     "gst-plugins-bad-1.26.5.tar.xz"
     "gst-plugins-ugly-1.26.5.tar.xz"
+    "gst-libav-1.26.5.tar.xz"
     "libmad-0.15.1b.tar.gz"
     "libvorbis-1.3.7.tar.xz"
     "libogg-1.3.6.tar.xz"
@@ -344,9 +381,13 @@ BLFS_MULTIMEDIA=(
     "x264-20250815.tar.xz"
     "x265_4.1.tar.gz"
     "dav1d-1.5.1.tar.xz"
+    "libaom-3.12.1.tar.gz"
+    "libvpx-1.15.2.tar.gz"
+    "a52dec-0.8.0.tar.gz"
     "libva-2.22.0.tar.gz"
     "libvdpau-1.5.tar.bz2"
     "v4l-utils-1.30.1.tar.xz"
+    "sound-theme-freedesktop-0.8.tar.bz2"
     # Plasma dependencies (Phonon multimedia framework)
     "phonon-4.12.0.tar.xz"
     "phonon-backend-vlc-0.12.0.tar.xz"
@@ -356,6 +397,7 @@ BLFS_MULTIMEDIA=(
 # BLFS Packages - KDE Frameworks 6
 BLFS_KDE_FRAMEWORKS=(
     "extra-cmake-modules-6.17.0.tar.xz"
+    "kapidox-6.17.0.tar.xz"
     "karchive-6.17.0.tar.xz"
     "kcodecs-6.17.0.tar.xz"
     "kconfig-6.17.0.tar.xz"
@@ -516,16 +558,23 @@ BLFS_DEVEL=(
     "libmnl-1.0.5.tar.bz2"
     "git-2.50.1.tar.xz"
     "llvm-20.1.8.src.tar.xz"
+    "llvm-cmake-20.1.8.src.tar.xz"
+    "llvm-third-party-20.1.8.src.tar.xz"
     "clang-20.1.8.src.tar.xz"
+    "compiler-rt-20.1.8.src.tar.xz"
     "rustc-1.89.0-src.tar.xz"
     "rust-bindgen-0.72.0.tar.gz"
-    "cargo-c-0.10.11.tar.gz"
+    "cargo-c-0.10.15.tar.gz"
     "cbindgen-0.29.0.tar.gz"
     "nasm-2.16.03.tar.xz"
     "yasm-1.3.0.tar.gz"
     "swig-4.3.1.tar.gz"
     "doxygen-1.14.0.src.tar.gz"
     "libidn2-2.3.8.tar.gz"
+    "lua-5.4.8.tar.gz"
+    "node-v22.18.0.tar.xz"
+    "which-2.23.tar.gz"
+    "iso-codes-v4.18.0.tar.gz"
 )
 
 # BLFS Packages - Python Modules
@@ -546,6 +595,18 @@ BLFS_PYTHON=(
     "psutil-7.0.0.tar.gz"
     # Plasma dependencies
     "pygdbmi-0.11.0.0.tar.gz"
+    "pygments-2.19.2.tar.gz"
+    # Build system packages
+    "hatchling-1.27.0.tar.gz"
+    "hatch_vcs-0.5.0.tar.gz"
+    "editables-0.5.tar.gz"
+    "pathspec-0.12.1.tar.gz"
+    "trove_classifiers-2025.8.6.13.tar.gz"
+    "pluggy-1.6.0.tar.gz"
+    "iniconfig-2.1.0.tar.gz"
+    "pytest-8.4.1.tar.gz"
+    "setuptools_scm-8.3.1.tar.gz"
+    "html5lib-1.1.tar.gz"
 )
 
 # BLFS Packages - Misc Libraries
@@ -595,10 +656,11 @@ BLFS_MISC=(
     # Plasma dependencies - System & Tools
     "gtk-3.24.50.tar.xz"
     "gsettings-desktop-schemas-48.0.tar.xz"
-    "lm-sensors-3-6-0.tar.gz"
+    "lm-sensors-3-6-2.tar.gz"
     "pciutils-3.14.0.tar.gz"
     "power-profiles-daemon-0.30.tar.gz"
     "accountsservice-23.13.9.tar.xz"
+    "gtk-4.18.6.tar.xz"
     "smartmontools-7.5.tar.gz"
     "xdg-desktop-portal-1.20.3.tar.xz"
     "AppStream-1.0.6.tar.xz"
@@ -607,6 +669,23 @@ BLFS_MISC=(
     "ibus-1.5.32.tar.gz"
     "socat-1.8.0.0.tar.gz"
     "oxygen-icons-6.0.0.tar.xz"
+)
+
+# BLFS Packages - Vulkan/Graphics
+BLFS_VULKAN=(
+    "Vulkan-Headers-1.4.321.tar.gz"
+    "Vulkan-Loader-1.4.321.tar.gz"
+    "SPIRV-Headers-vulkan-sdk-1.4.321.0.tar.gz"
+    "SPIRV-Tools-vulkan-sdk-1.4.321.0.tar.gz"
+    "glslang-15.4.0.tar.gz"
+    "shaderc-2025.3.tar.gz"
+    "opencv_contrib-4.12.0.tar.gz"
+)
+
+# BLFS Packages - Perl Modules
+BLFS_PERL=(
+    "URI-5.32.tar.gz"
+    "MIME-Base32-1.303.tar.gz"
 )
 
 # BLFS Patches
@@ -682,6 +761,8 @@ main() {
     download_category "Development Tools" "${BLFS_DEVEL[@]}"
     download_category "Python Modules" "${BLFS_PYTHON[@]}"
     download_category "Miscellaneous" "${BLFS_MISC[@]}"
+    download_category "Vulkan/Graphics" "${BLFS_VULKAN[@]}"
+    download_category "Perl Modules" "${BLFS_PERL[@]}"
     download_category "BLFS Patches" "${BLFS_PATCHES[@]}"
 
     log_info "=========================================="
