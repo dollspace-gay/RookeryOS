@@ -491,7 +491,7 @@ BLFS_DEVEL=(
     "cbindgen-0.29.0.tar.gz"
     "nasm-2.16.03.tar.xz"
     "yasm-1.3.0.tar.gz"
-    "swig-4.3.0.tar.gz"
+    "swig-4.3.1.tar.gz"
     "doxygen-1.14.0.src.tar.gz"
 )
 
