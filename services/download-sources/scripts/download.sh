@@ -218,7 +218,7 @@ BLFS_NETWORKING=(
 # BLFS Packages - Libraries
 BLFS_LIBRARIES=(
     "boost-1.89.0-b2-nodocs.tar.xz"
-    "icu-78.1-src.tgz"
+    "icu4c-78.1-sources.tgz"
     "libxml2-2.14.5.tar.xz"
     "libxslt-1.1.43.tar.xz"
     "pcre2-10.45.tar.bz2"
