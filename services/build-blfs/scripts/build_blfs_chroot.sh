@@ -1226,14 +1226,14 @@ create_checkpoint "avahi"
 should_skip_package "libpcap" && { log_info "Skipping libpcap (already built)"; } || {
 log_step "Building libpcap-1.10.5..."
 
-if [ ! -f /sources/libpcap-1.10.5.tar.gz ]; then
-    log_error "libpcap-1.10.5.tar.gz not found in /sources"
+if [ ! -f /sources/libpcap-1.10.5.tar.xz ]; then
+    log_error "libpcap-1.10.5.tar.xz not found in /sources"
     exit 1
 fi
 
 cd "$BUILD_DIR"
 rm -rf libpcap-*
-tar -xf /sources/libpcap-1.10.5.tar.gz
+tar -xf /sources/libpcap-1.10.5.tar.xz
 cd libpcap-*
 
 ./configure --prefix=/usr
