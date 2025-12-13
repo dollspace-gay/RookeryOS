@@ -273,33 +273,6 @@ build_package "util-linux-*.tar.xz" "Util-linux (temporary)" bash -c '
 fi  # End of Chapter 7 conditional block
 
 # =============================================================================
-# Ensure essential Chapter 7 tools exist (must run even when Chapter 7 is skipped)
-# =============================================================================
-
-# Texinfo - needed for DejaGNU and other packages that generate documentation
-# This must exist before Tcl/Expect/DejaGNU can be built
-if ! command -v makeinfo >/dev/null 2>&1; then
-    log_step "Building Texinfo (required for documentation tools)..."
-    cd /build
-    texinfo_tarball=$(ls /sources/texinfo-*.tar.xz 2>/dev/null | head -1)
-    if [ -n "$texinfo_tarball" ]; then
-        tar -xf "$texinfo_tarball"
-        cd texinfo-*
-        ./configure --prefix=/usr
-        make
-        make install
-        cd /build
-        rm -rf texinfo-*
-        log_info "Texinfo installed (makeinfo now available)"
-    else
-        log_error "texinfo tarball not found in /sources"
-        exit 1
-    fi
-else
-    log_info "makeinfo already available, skipping Texinfo bootstrap"
-fi
-
-# =============================================================================
 # Ensure essential system files exist (must run even when Chapter 7 is skipped)
 # =============================================================================
 if ! grep -q "^root:" /etc/passwd 2>/dev/null; then
@@ -932,11 +905,17 @@ cd dejagnu-1.6.3
 mkdir -p build
 cd build
 ../configure --prefix=/usr
-makeinfo --html --no-split -o doc/dejagnu.html ../doc/dejagnu.texi
-makeinfo --plaintext -o doc/dejagnu.txt ../doc/dejagnu.texi
+# Build documentation only if makeinfo is available (requires Texinfo)
+if command -v makeinfo >/dev/null 2>&1; then
+    makeinfo --html --no-split -o doc/dejagnu.html ../doc/dejagnu.texi
+    makeinfo --plaintext -o doc/dejagnu.txt ../doc/dejagnu.texi
+fi
 make install
 install -v -dm755 /usr/share/doc/dejagnu-1.6.3
-install -v -m644 doc/dejagnu.{html,txt} /usr/share/doc/dejagnu-1.6.3
+# Install docs only if they were built
+if [ -f doc/dejagnu.html ] && [ -f doc/dejagnu.txt ]; then
+    install -v -m644 doc/dejagnu.{html,txt} /usr/share/doc/dejagnu-1.6.3
+fi
 cd /build
 rm -rf dejagnu-*
 log_info "DejaGNU complete"

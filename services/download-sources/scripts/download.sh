@@ -68,7 +68,7 @@ download_with_retry() {
         log_warn "Download failed, retrying in $RETRY_DELAY seconds..."
         rm -f "$output"  # Remove partial download
         sleep $RETRY_DELAY
-        ((attempt++))
+        attempt=$((attempt + 1))
     done
 
     log_error "FAILED: $filename after $MAX_RETRIES attempts"
