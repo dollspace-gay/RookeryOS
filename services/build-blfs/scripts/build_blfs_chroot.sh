@@ -4299,19 +4299,19 @@ build_llvm() {
     create_checkpoint "llvm"
 }
 
-# Rust-1.89.0 (Rust compiler and cargo - required for cargo-c and librsvg)
+# Rust-1.91.0 (Rust compiler and cargo - required for cargo-c and librsvg)
 build_rust() {
     should_skip_package "rust" && { log_info "Skipping Rust"; return 0; }
-    log_step "Building Rust-1.89.0..."
+    log_step "Building Rust-1.91.0..."
 
     # Create /opt directory if it doesn't exist
     mkdir -pv /opt
 
     # Extract to /opt
     cd /opt
-    rm -rf rustc-1.89.0-src
-    tar -xf /sources/rustc-1.89.0-src.tar.xz
-    cd rustc-1.89.0-src
+    rm -rf rustc-1.91.0-src
+    tar -xf /sources/rustc-1.91.0-src.tar.xz
+    cd rustc-1.91.0-src
 
     # Create bootstrap configuration (BLFS 12.4 rust.html)
     cat > bootstrap.toml << "EOF"
@@ -4352,8 +4352,8 @@ locked-deps = true
 tools = ["cargo", "clippy", "rustdoc", "rustfmt"]
 
 [install]
-prefix = "/opt/rustc-1.89.0"
-docdir = "share/doc/rustc-1.89.0"
+prefix = "/opt/rustc-1.91.0"
+docdir = "share/doc/rustc-1.91.0"
 
 [rust]
 channel = "stable"
@@ -4388,8 +4388,8 @@ EOF
     rm -rf build
 
     # Fix documentation installation, symlink Zsh completion, move Bash completion
-    rm -fv /opt/rustc-1.89.0/share/doc/rustc-1.89.0/*.old
-    install -vm644 README.md /opt/rustc-1.89.0/share/doc/rustc-1.89.0
+    rm -fv /opt/rustc-1.91.0/share/doc/rustc-1.91.0/*.old
+    install -vm644 README.md /opt/rustc-1.91.0/share/doc/rustc-1.91.0
 
     install -vdm755 /usr/share/zsh/site-functions
     ln -sfv /opt/rustc/share/zsh/site-functions/_cargo /usr/share/zsh/site-functions
@@ -4399,7 +4399,7 @@ EOF
     fi
 
     # Create /opt/rustc symlink
-    ln -svfn rustc-1.89.0 /opt/rustc
+    ln -svfn rustc-1.91.0 /opt/rustc
 
     # Configure PATH for Rust
     cat > /etc/profile.d/rustc.sh << "EOF"
@@ -5278,7 +5278,7 @@ build_pygobject
 
 log_info ""
 log_info "Tier 5 GTK Stack completed!"
-log_info "  - Foundation: Brotli, Graphite2, Rust-1.89.0, HarfBuzz (with FreeType), FreeType (rebuilt with HarfBuzz+Brotli), Fontconfig (rebuilt), FriBidi, Pixman, Graphene, libxkbcommon"
+log_info "  - Foundation: Brotli, Graphite2, Rust-1.91.0, HarfBuzz (with FreeType), FreeType (rebuilt with HarfBuzz+Brotli), Fontconfig (rebuilt), FriBidi, Pixman, Graphene, libxkbcommon"
 log_info "  - Graphics: Cairo, HarfBuzz (rebuilt with Cairo), Pango, at-spi2-core"
 log_info "  - Images: libjpeg-turbo, libtiff, gdk-pixbuf, librsvg, shared-mime-info"
 log_info "  - Icons: ISO Codes, hicolor-icon-theme, adwaita-icon-theme"
