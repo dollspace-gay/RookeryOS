@@ -525,6 +525,7 @@ BLFS_DEVEL=(
     "yasm-1.3.0.tar.gz"
     "swig-4.3.1.tar.gz"
     "doxygen-1.14.0.src.tar.gz"
+    "libidn2-2.3.8.tar.gz"
 )
 
 # BLFS Packages - Python Modules
