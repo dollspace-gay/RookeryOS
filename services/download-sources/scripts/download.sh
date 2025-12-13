@@ -213,6 +213,7 @@ BLFS_NETWORKING=(
     "libevent-2.1.12-stable.tar.gz"
     "nghttp2-1.67.0.tar.xz"
     "c-ares-1.34.5.tar.gz"
+    "libdaemon-0.14.tar.gz"
     "avahi-0.8.tar.gz"
     "bluez-5.83.tar.xz"
     "dhcpcd-10.2.4.tar.xz"
