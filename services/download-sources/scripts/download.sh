@@ -263,6 +263,7 @@ BLFS_LIBRARIES=(
     "json-glib-1.10.6.tar.xz"
     "libxmlb-0.3.23.tar.xz"
     "fuse-3.17.4.tar.gz"
+    "libunistring-1.3.tar.xz"
 )
 
 # BLFS Packages - X11/Wayland
