@@ -60,6 +60,8 @@ download_with_retry() {
                 -O "$output" \
                 "$url" 2>&1; then
             log_info "[OK] $filename"
+            # Create checkpoint for this download
+            create_checkpoint "dl-$filename" "$SOURCES_DIR" "download"
             return 0
         fi
 
