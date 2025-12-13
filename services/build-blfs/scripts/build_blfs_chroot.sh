@@ -6602,12 +6602,13 @@ else
     mkdir -p build
     cd    build
 
-    # QtWebEngine (Chromium) is extremely memory-intensive
+    # QtWebEngine (Chromium) is memory-intensive
     # BLFS recommends ~1 core per 1.5GB RAM to avoid OOM
+    # With 64GB RAM: 64/1.5 ≈ 42 jobs possible, but CPU-limited to ~20 cores
     # Use NINJAJOBS env var which nested chromium ninja builds will respect
-    export NINJAJOBS=4
-    export NINJAFLAGS="-j40"
-    log_info "Building QtWebEngine with NINJAJOBS=$NINJAJOBS (memory-intensive Chromium build)"
+    export NINJAJOBS=20
+    export NINJAFLAGS="-j20"
+    log_info "Building QtWebEngine with NINJAJOBS=$NINJAJOBS (i7-14700K + 64GB RAM)"
 
     cmake -DCMAKE_MESSAGE_LOG_LEVEL=STATUS \
           -DCMAKE_PREFIX_PATH=/opt/qt6 \
