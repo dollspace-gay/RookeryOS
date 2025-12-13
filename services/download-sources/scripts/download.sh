@@ -509,6 +509,7 @@ BLFS_STORAGE=(
 # BLFS Packages - Development Tools
 BLFS_DEVEL=(
     "cmake-4.1.0.tar.gz"
+    "libmnl-1.0.5.tar.bz2"
     "git-2.50.1.tar.xz"
     "llvm-20.1.8.src.tar.xz"
     "clang-20.1.8.src.tar.xz"
