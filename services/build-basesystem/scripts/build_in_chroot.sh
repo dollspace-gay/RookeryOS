@@ -926,9 +926,10 @@ create_checkpoint "expect" "/sources" "chapter8"
 should_skip_package "dejagnu" "/sources" && { log_info "⊙ Skipping DejaGNU (already built)"; } || {
 log_step "Building DejaGNU-1.6.3..."
 cd /build
+rm -rf dejagnu-*
 tar -xf /sources/dejagnu-1.6.3.tar.gz
 cd dejagnu-1.6.3
-mkdir -v build
+mkdir -p build
 cd build
 ../configure --prefix=/usr
 makeinfo --html --no-split -o doc/dejagnu.html ../doc/dejagnu.texi
@@ -937,7 +938,7 @@ make install
 install -v -dm755 /usr/share/doc/dejagnu-1.6.3
 install -v -m644 doc/dejagnu.{html,txt} /usr/share/doc/dejagnu-1.6.3
 cd /build
-rm -rf dejagnu-1.6.3
+rm -rf dejagnu-*
 log_info "DejaGNU complete"
 create_checkpoint "dejagnu" "/sources" "chapter8"
 }
