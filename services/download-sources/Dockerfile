@@ -3,10 +3,13 @@ FROM alpine:3.19
 # Install download tools
 RUN apk add --no-cache \
     wget \
+    curl \
     ca-certificates \
     gnupg \
     coreutils \
     bash \
+    grep \
+    sed \
     parallel
 
 WORKDIR /sources

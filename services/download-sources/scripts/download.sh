@@ -90,7 +90,12 @@ main() {
     # Fetch directory listing from mirror
     log_info "Fetching file list from mirror..."
 
-    FILE_LIST=$(curl -s "$MIRROR/" | grep -oP 'href="[^"]+\.(tar\.gz|tar\.xz|tar\.bz2|tar\.lz|tgz|patch|zip|gz|xz|bz2)"' | sed 's/href="//;s/"$//' | sort -u)
+    # Fetch HTML and extract filenames
+    # Uses GNU grep (-oE for extended regex with -o output)
+    FILE_LIST=$(wget -q -O - "$MIRROR/" | \
+        grep -oE 'href="[^"]+\.(tar\.gz|tar\.xz|tar\.bz2|tar\.lz|tgz|patch|zip)"' | \
+        sed 's/href="//;s/"$//' | \
+        sort -u)
 
     if [ -z "$FILE_LIST" ]; then
         log_error "Failed to fetch file list from mirror"
