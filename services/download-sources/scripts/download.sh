@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # =============================================================================
-# EasyLFS Download Sources Script
-# Downloads all LFS and BLFS packages from Corvidae mirrors for LFS 12.4
+# RookeryOS Download Sources Script
+# Downloads all LFS and BLFS packages from Corvidae mirror
 # =============================================================================
 
 # Load common utilities
@@ -19,885 +19,629 @@ else
 fi
 
 # Configuration
-LFS_VERSION="${LFS_VERSION:-12.4}"
 SOURCES_DIR="/sources"
 MAX_RETRIES=3
 RETRY_DELAY=5
-PARALLEL_DOWNLOADS="${PARALLEL_DOWNLOADS:-6}"
-DOWNLOAD_TIMEOUT=60
+DOWNLOAD_TIMEOUT=120
 
-# Mirror URLs
-LFS_MIRROR="http://corvidae.social/lfs/12.4"
-BLFS_MIRROR="http://corvidae.social/blfs/12.4"
+# Corvidae Mirror - single source for all packages
+MIRROR="http://corvidae.social/RookerySource"
 
 # Note: LFS for download-sources points to /sources since we don't have /lfs yet
 export LFS="${LFS:-/lfs}"
 
-# Track failed downloads
-FAILED_DOWNLOADS_FILE="/tmp/failed_downloads.$$"
-: > "$FAILED_DOWNLOADS_FILE"
-
 # Setup logging trap
-trap 'finalize_logging $?; rm -f "$FAILED_DOWNLOADS_FILE"' EXIT
-
-# =============================================================================
-# Halt on Download Failure
-# =============================================================================
-halt_on_download_failure() {
-    local url="$1"
-    local filename="${2:-$(basename "$url")}"
-    
-    log_error "========================================="
-    log_error "FATAL: Download failed - halting build"
-    log_error "========================================="
-    log_error "URL:      $url"
-    log_error "Filename: $filename"
-    log_error "========================================="
-    log_error "The download failed after $MAX_RETRIES attempts."
-    log_error "Please check:"
-    log_error "  - Your network connection"
-    log_error "  - If the mirror is available"
-    log_error "========================================="
-    
-    exit 1
-}
+trap 'finalize_logging $?' EXIT
 
 # =============================================================================
 # Download with retry
 # =============================================================================
 download_with_retry() {
-    local url="$1"
-    local output="$2"
+    local filename="$1"
+    local output="$SOURCES_DIR/$filename"
+    local url="$MIRROR/$filename"
     local attempt=1
 
+    # Skip if already exists
+    if [ -f "$output" ]; then
+        log_info "[SKIP] $filename (already exists)"
+        return 0
+    fi
+
     while [ $attempt -le $MAX_RETRIES ]; do
-        log_info "Downloading $output (attempt $attempt/$MAX_RETRIES)..."
+        log_info "Downloading $filename (attempt $attempt/$MAX_RETRIES)..."
 
         if wget --continue \
                 --progress=dot:giga \
                 --timeout=$DOWNLOAD_TIMEOUT \
-                --read-timeout=30 \
+                --read-timeout=60 \
                 --dns-timeout=20 \
                 --tries=2 \
                 -O "$output" \
-                "$url"; then
+                "$url" 2>&1; then
+            log_info "[OK] $filename"
             return 0
         fi
 
         log_warn "Download failed, retrying in $RETRY_DELAY seconds..."
+        rm -f "$output"  # Remove partial download
         sleep $RETRY_DELAY
         ((attempt++))
     done
 
-    halt_on_download_failure "$url" "$output"
+    log_error "FAILED: $filename after $MAX_RETRIES attempts"
+    return 1
 }
 
 # =============================================================================
-# Download a single file (for parallel execution)
+# Package Lists
 # =============================================================================
-download_file() {
-    local url="$1"
-    local filename=$(basename "$url")
-    local sources_dir="$2"
 
-    cd "$sources_dir"
+# LFS Base System Packages (Chapter 5-8)
+LFS_PACKAGES=(
+    # Chapter 5-6: Cross-compilation toolchain
+    "binutils-2.45.tar.xz"
+    "gcc-15.2.0.tar.xz"
+    "linux-6.14.5.tar.xz"
+    "glibc-2.42.tar.xz"
+    "mpfr-4.2.2.tar.xz"
+    "gmp-6.3.0.tar.xz"
+    "mpc-1.3.1.tar.gz"
 
-    # Skip if file already exists and is non-empty
-    if [ -f "$filename" ] && [ -s "$filename" ]; then
-        echo "[SKIP] $filename (already exists)"
-        return 0
+    # Chapter 7-8: Base system
+    "m4-1.4.20.tar.xz"
+    "ncurses-6.5-20250809.tgz"
+    "bash-5.3.tar.gz"
+    "coreutils-9.7.tar.xz"
+    "diffutils-3.12.tar.xz"
+    "file-5.46.tar.gz"
+    "findutils-4.10.0.tar.xz"
+    "gawk-5.3.2.tar.xz"
+    "grep-3.12.tar.xz"
+    "gzip-1.14.tar.xz"
+    "make-4.4.1.tar.gz"
+    "patch-2.8.tar.xz"
+    "sed-4.9.tar.xz"
+    "tar-1.35.tar.xz"
+    "xz-5.8.1.tar.xz"
+    "gettext-0.26.tar.xz"
+    "bison-3.8.2.tar.xz"
+    "perl-5.42.0.tar.xz"
+    "Python-3.13.7.tar.xz"
+    "texinfo-7.2.tar.xz"
+    "util-linux-2.41.1.tar.xz"
+
+    # Additional Chapter 8 packages
+    "acl-2.3.2.tar.xz"
+    "attr-2.5.2.tar.gz"
+    "autoconf-2.72.tar.xz"
+    "automake-1.18.1.tar.xz"
+    "bc-7.0.3.tar.xz"
+    "bzip2-1.0.8.tar.gz"
+    "e2fsprogs-1.47.3.tar.gz"
+    "elfutils-0.193.tar.bz2"
+    "expat-2.7.1.tar.xz"
+    "flex-2.6.4.tar.gz"
+    "flit_core-3.12.0.tar.gz"
+    "gdbm-1.26.tar.gz"
+    "gperf-3.0.4.tar.gz"
+    "groff-1.23.0.tar.gz"
+    "grub-2.12.tar.xz"
+    "iana-etc-20250807.tar.gz"
+    "inetutils-2.6.tar.xz"
+    "intltool-0.51.0.tar.gz"
+    "iproute2-6.16.0.tar.xz"
+    "jinja2-3.1.6.tar.gz"
+    "kbd-2.8.0.tar.xz"
+    "kmod-34.2.tar.xz"
+    "less-679.tar.gz"
+    "libcap-2.76.tar.xz"
+    "libffi-3.5.2.tar.gz"
+    "libpipeline-1.5.8.tar.gz"
+    "libtool-2.5.4.tar.xz"
+    "libxcrypt-4.4.38.tar.xz"
+    "lz4-1.10.0.tar.gz"
+    "man-db-2.13.1.tar.xz"
+    "man-pages-6.15.tar.xz"
+    "markupsafe-3.0.2.tar.gz"
+    "meson-1.8.3.tar.gz"
+    "nano-8.6.tar.xz"
+    "ninja-1.13.1.tar.gz"
+    "openssl-3.5.2.tar.gz"
+    "packaging-24.2.tar.gz"
+    "pkgconf-2.5.1.tar.xz"
+    "procps-ng-4.0.6.tar.xz"
+    "psmisc-23.7.tar.xz"
+    "readline-8.3.tar.gz"
+    "setuptools-80.9.0.tar.gz"
+    "shadow-4.18.0.tar.xz"
+    "sysklogd-2.7.0.tar.gz"
+    "systemd-257.8.tar.gz"
+    "tzdata2025b.tar.gz"
+    "wheel-0.46.1.tar.gz"
+    "XML-Parser-2.47.tar.gz"
+    "zlib-1.3.1.tar.gz"
+    "zstd-1.5.7.tar.gz"
+    "dbus-1.16.2.tar.xz"
+)
+
+# LFS Patches
+LFS_PATCHES=(
+    "glibc-2.42-fhs-1.patch"
+    "bzip2-1.0.8-install_docs-1.patch"
+    "coreutils-9.7-i18n-1.patch"
+    "kbd-2.8.0-backspace-1.patch"
+    "sysvinit-3.14-consolidated-1.patch"
+)
+
+# BLFS Packages - Security & Authentication
+BLFS_SECURITY=(
+    "Linux-PAM-1.7.1.tar.xz"
+    "Linux-PAM-1.7.1-docs.tar.xz"
+    "shadow-4.18.0.tar.xz"
+    "sudo-1.9.17p2.tar.gz"
+    "polkit-126.tar.gz"
+    "make-ca-1.14.tar.xz"
+    "p11-kit-0.25.5.tar.xz"
+    "libtasn1-4.20.0.tar.gz"
+    "nss-3.108.tar.gz"
+    "nspr-4.36.tar.gz"
+)
+
+# BLFS Packages - GnuPG PQC Stack (Post-Quantum Cryptography)
+BLFS_GNUPG=(
+    "libgpg-error-1.58.tar.bz2"
+    "libgcrypt-1.11.2.tar.bz2"
+    "libassuan-3.0.2.tar.bz2"
+    "libksba-1.6.7.tar.bz2"
+    "npth-1.8.tar.bz2"
+    "pinentry-1.3.2.tar.bz2"
+    "gnupg-2.5.14.tar.bz2"
+    "gpgme-2.0.0.tar.bz2"
+)
+
+# BLFS Packages - Networking
+BLFS_NETWORKING=(
+    "curl-8.15.0.tar.xz"
+    "wget-1.25.0.tar.gz"
+    "libevent-2.1.12-stable.tar.gz"
+    "nghttp2-1.67.0.tar.xz"
+    "c-ares-1.37.0.tar.gz"
+    "avahi-0.8.tar.gz"
+    "bluez-5.83.tar.xz"
+    "dhcpcd-10.2.4.tar.xz"
+    "wpa_supplicant-2.11.tar.gz"
+    "iw-6.9.tar.xz"
+    "wireless-regdb-2025.06.09.tar.xz"
+)
+
+# BLFS Packages - Libraries
+BLFS_LIBRARIES=(
+    "boost-1.89.0-b2-nodocs.tar.xz"
+    "icu-78.1-src.tgz"
+    "libxml2-2.14.5.tar.xz"
+    "libxslt-1.1.43.tar.xz"
+    "pcre2-10.45.tar.bz2"
+    "sqlite-autoconf-3500400.tar.gz"
+    "json-c-0.18.tar.gz"
+    "jansson-2.14.tar.gz"
+    "libyaml-0.2.5.tar.gz"
+    "double-conversion-3.3.1.tar.gz"
+    "libpng-1.6.50.tar.xz"
+    "libjpeg-turbo-3.1.1.tar.gz"
+    "libtiff-4.7.0.tar.xz"
+    "libwebp-1.5.0.tar.gz"
+    "giflib-5.2.2.tar.gz"
+    "freetype-2.13.4.tar.xz"
+    "fontconfig-2.16.2.tar.xz"
+    "harfbuzz-11.2.1.tar.xz"
+    "fribidi-1.0.16.tar.xz"
+    "graphite2-1.3.14.tgz"
+    "cairo-1.18.4.tar.xz"
+    "pango-1.56.3.tar.xz"
+    "gdk-pixbuf-2.42.12.tar.xz"
+    "librsvg-2.60.1.tar.xz"
+    "shared-mime-info-2.4.tar.gz"
+    "duktape-2.7.0.tar.xz"
+    "libical-3.0.20.tar.gz"
+)
+
+# BLFS Packages - X11/Wayland
+BLFS_DISPLAY=(
+    "xorg-server-21.1.18.tar.xz"
+    "xwayland-24.1.8.tar.xz"
+    "wayland-1.24.0.tar.xz"
+    "wayland-protocols-1.45.tar.xz"
+    "mesa-25.1.8.tar.xz"
+    "libdrm-2.4.125.tar.xz"
+    "libinput-1.29.0.tar.gz"
+    "libevdev-1.13.4.tar.xz"
+    "mtdev-1.1.7.tar.bz2"
+    "pixman-0.46.4.tar.gz"
+    "xcb-proto-1.17.0.tar.xz"
+    "libxcb-1.17.0.tar.xz"
+    "xorgproto-2024.1.tar.xz"
+    "libX11-1.8.12.tar.xz"
+    "libXext-1.3.6.tar.xz"
+    "libXrender-0.9.12.tar.xz"
+    "libXft-2.3.9.tar.xz"
+    "libXi-1.8.2.tar.xz"
+    "libXrandr-1.5.4.tar.xz"
+    "libXinerama-1.1.5.tar.xz"
+    "libXcursor-1.2.3.tar.xz"
+    "libXcomposite-0.4.6.tar.xz"
+    "libXdamage-1.1.6.tar.xz"
+    "libXfixes-6.0.1.tar.xz"
+    "libXtst-1.2.5.tar.xz"
+    "libXxf86vm-1.1.6.tar.xz"
+    "libxkbcommon-1.9.0.tar.xz"
+    "libxkbfile-1.1.3.tar.xz"
+    "xkeyboard-config-2.44.tar.xz"
+    "libwacom-2.17.0.tar.xz"
+    "libdisplay-info-0.3.0.tar.xz"
+)
+
+# BLFS Packages - Qt6
+BLFS_QT6=(
+    "qt-everywhere-src-6.9.2.tar.xz"
+    "qtwebengine-everywhere-src-6.9.2.tar.xz"
+)
+
+# BLFS Packages - Audio/Video
+BLFS_MULTIMEDIA=(
+    "alsa-lib-1.2.14.tar.bz2"
+    "alsa-plugins-1.2.12.tar.bz2"
+    "alsa-utils-1.2.14.tar.bz2"
+    "alsa-ucm-conf-1.2.14.tar.bz2"
+    "pulseaudio-17.0.tar.xz"
+    "pipewire-1.4.7.tar.bz2"
+    "wireplumber-0.5.10.tar.xz"
+    "ffmpeg-7.1.1.tar.xz"
+    "gstreamer-1.26.5.tar.xz"
+    "gst-plugins-base-1.26.5.tar.xz"
+    "gst-plugins-good-1.26.5.tar.xz"
+    "gst-plugins-bad-1.26.5.tar.xz"
+    "gst-plugins-ugly-1.26.5.tar.xz"
+    "libmad-0.15.1b.tar.gz"
+    "libvorbis-1.3.7.tar.xz"
+    "libogg-1.3.5.tar.xz"
+    "flac-1.5.0.tar.xz"
+    "opus-1.5.2.tar.gz"
+    "libsndfile-1.2.2.tar.xz"
+    "speex-1.2.1.tar.gz"
+    "speexdsp-1.2.1.tar.gz"
+    "lame-3.100.tar.gz"
+    "libcanberra-0.30.tar.xz"
+    "libass-0.17.3.tar.xz"
+    "fdk-aac-2.0.3.tar.gz"
+    "x264-20241227.tar.xz"
+    "x265-4.1.tar.gz"
+    "dav1d-1.5.1.tar.xz"
+    "libva-2.22.0.tar.bz2"
+    "libvdpau-1.5.tar.bz2"
+    "v4l-utils-1.28.1.tar.xz"
+)
+
+# BLFS Packages - KDE Frameworks 6
+BLFS_KDE_FRAMEWORKS=(
+    "extra-cmake-modules-6.17.0.tar.xz"
+    "karchive-6.17.0.tar.xz"
+    "kcodecs-6.17.0.tar.xz"
+    "kconfig-6.17.0.tar.xz"
+    "kcoreaddons-6.17.0.tar.xz"
+    "kdbusaddons-6.17.0.tar.xz"
+    "kdnssd-6.17.0.tar.xz"
+    "kguiaddons-6.17.0.tar.xz"
+    "ki18n-6.17.0.tar.xz"
+    "kidletime-6.17.0.tar.xz"
+    "kimageformats-6.17.0.tar.xz"
+    "kitemmodels-6.17.0.tar.xz"
+    "kitemviews-6.17.0.tar.xz"
+    "kplotting-6.17.0.tar.xz"
+    "kwidgetsaddons-6.17.0.tar.xz"
+    "kwindowsystem-6.17.0.tar.xz"
+    "networkmanager-qt-6.17.0.tar.xz"
+    "solid-6.17.0.tar.xz"
+    "sonnet-6.17.0.tar.xz"
+    "threadweaver-6.17.0.tar.xz"
+    "kauth-6.17.0.tar.xz"
+    "kcompletion-6.17.0.tar.xz"
+    "kcrash-6.17.0.tar.xz"
+    "kdoctools-6.17.0.tar.xz"
+    "kpty-6.17.0.tar.xz"
+    "kunitconversion-6.17.0.tar.xz"
+    "kconfigwidgets-6.17.0.tar.xz"
+    "kservice-6.17.0.tar.xz"
+    "kglobalaccel-6.17.0.tar.xz"
+    "kpackage-6.17.0.tar.xz"
+    "attica-6.17.0.tar.xz"
+    "kiconthemes-6.17.0.tar.xz"
+    "kjobwidgets-6.17.0.tar.xz"
+    "knotifications-6.17.0.tar.xz"
+    "ktextwidgets-6.17.0.tar.xz"
+    "kxmlgui-6.17.0.tar.xz"
+    "kbookmarks-6.17.0.tar.xz"
+    "kwallet-6.17.0.tar.xz"
+    "kio-6.17.0.tar.xz"
+    "kdeclarative-6.17.0.tar.xz"
+    "kcmutils-6.17.0.tar.xz"
+    "kirigami-6.17.0.tar.xz"
+    "syndication-6.17.0.tar.xz"
+    "knewstuff-6.17.0.tar.xz"
+    "frameworkintegration-6.17.0.tar.xz"
+    "kinit-6.17.0.tar.xz"
+    "kparts-6.17.0.tar.xz"
+    "syntax-highlighting-6.17.0.tar.xz"
+    "ktexteditor-6.17.0.tar.xz"
+    "kded-6.17.0.tar.xz"
+    "ksvg-6.17.0.tar.xz"
+    "knotifyconfig-6.17.0.tar.xz"
+    "purpose-6.17.0.tar.xz"
+    "qqc2-desktop-style-6.17.0.tar.xz"
+    "baloo-6.17.0.tar.xz"
+    "kfilemetadata-6.17.0.tar.xz"
+    "krunner-6.17.0.tar.xz"
+    "modemmanager-qt-6.17.0.tar.xz"
+    "bluez-qt-6.17.0.tar.xz"
+    "prison-6.17.0.tar.xz"
+    "kholidays-6.17.0.tar.xz"
+    "kcontacts-6.17.0.tar.xz"
+    "kpeople-6.17.0.tar.xz"
+    "kquickcharts-6.17.0.tar.xz"
+    "kstatusnotifieritem-6.17.0.tar.xz"
+    "kuserfeedback-6.17.0.tar.xz"
+)
+
+# BLFS Packages - KDE Plasma 6
+BLFS_KDE_PLASMA=(
+    "libplasma-6.4.4.tar.xz"
+    "kscreenlocker-6.4.4.tar.xz"
+    "kinfocenter-6.4.4.tar.xz"
+    "kglobalacceld-6.4.4.tar.xz"
+    "kwayland-6.4.4.tar.xz"
+    "aurorae-6.4.4.tar.xz"
+    "breeze-6.4.4.tar.xz"
+    "breeze-gtk-6.4.4.tar.xz"
+    "breeze-icons-6.17.0.tar.xz"
+    "drkonqi-6.4.4.tar.xz"
+    "kactivitymanagerd-6.4.4.tar.xz"
+    "kde-cli-tools-6.4.4.tar.xz"
+    "kdecoration-6.4.4.tar.xz"
+    "kdeplasma-addons-6.4.4.tar.xz"
+    "kgamma-6.4.4.tar.xz"
+    "kmenuedit-6.4.4.tar.xz"
+    "kpipewire-6.4.4.tar.xz"
+    "kscreen-6.4.4.tar.xz"
+    "kscreenlocker-6.4.4.tar.xz"
+    "ksshaskpass-6.4.4.tar.xz"
+    "ksystemstats-6.4.4.tar.xz"
+    "kwallet-pam-6.4.4.tar.xz"
+    "kwayland-integration-6.4.4.tar.xz"
+    "kwin-6.4.4.tar.xz"
+    "kwrited-6.4.4.tar.xz"
+    "layer-shell-qt-6.4.4.tar.xz"
+    "libkscreen-6.4.4.tar.xz"
+    "libksysguard-6.4.4.tar.xz"
+    "milou-6.4.4.tar.xz"
+    "ocean-sound-theme-6.4.4.tar.xz"
+    "oxygen-6.4.4.tar.xz"
+    "oxygen-sounds-6.4.4.tar.xz"
+    "plasma-activities-6.4.4.tar.xz"
+    "plasma-activities-stats-6.4.4.tar.xz"
+    "plasma-browser-integration-6.4.4.tar.xz"
+    "plasma-desktop-6.4.4.tar.xz"
+    "plasma-disks-6.4.4.tar.xz"
+    "plasma-integration-6.4.4.tar.xz"
+    "plasma-nm-6.4.4.tar.xz"
+    "plasma-pa-6.4.4.tar.xz"
+    "plasma-sdk-6.4.4.tar.xz"
+    "plasma-systemmonitor-6.4.4.tar.xz"
+    "plasma-thunderbolt-6.4.4.tar.xz"
+    "plasma-vault-6.4.4.tar.xz"
+    "plasma-welcome-6.4.4.tar.xz"
+    "plasma-workspace-6.4.4.tar.xz"
+    "plasma-workspace-wallpapers-6.4.4.tar.xz"
+    "plasma5support-6.4.4.tar.xz"
+    "polkit-kde-agent-1-6.4.4.tar.xz"
+    "powerdevil-6.4.4.tar.xz"
+    "qqc2-breeze-style-6.4.4.tar.xz"
+    "sddm-kcm-6.4.4.tar.xz"
+    "systemsettings-6.4.4.tar.xz"
+    "xdg-desktop-portal-kde-6.4.4.tar.xz"
+    "bluedevil-6.4.4.tar.xz"
+    "discover-6.4.4.tar.xz"
+    "print-manager-6.4.4.tar.xz"
+    "spectacle-6.4.4.tar.xz"
+    "dolphin-25.08.0.tar.xz"
+    "konsole-25.08.0.tar.xz"
+    "kate-25.08.0.tar.xz"
+    "ark-25.08.0.tar.xz"
+    "okular-25.08.0.tar.xz"
+    "gwenview-25.08.0.tar.xz"
+)
+
+# BLFS Packages - Display Manager
+BLFS_SDDM=(
+    "sddm-0.21.0.tar.gz"
+)
+
+# BLFS Packages - Storage/Filesystem
+BLFS_STORAGE=(
+    "LVM2.2.03.34.tgz"
+    "cryptsetup-2.8.1.tar.xz"
+    "mdadm-4.4.tar.xz"
+    "parted-3.6.tar.xz"
+    "dosfstools-4.2.tar.gz"
+    "ntfs-3g-2022.10.3.tar.gz"
+    "exfatprogs-1.2.7.tar.xz"
+    "libaio-0.3.113.tar.gz"
+    "udisks-2.10.2.tar.bz2"
+    "libblockdev-3.3.1.tar.gz"
+    "libbytesize-2.11.tar.gz"
+)
+
+# BLFS Packages - Development Tools
+BLFS_DEVEL=(
+    "cmake-4.1.0.tar.gz"
+    "git-2.50.1.tar.xz"
+    "llvm-20.1.8.src.tar.xz"
+    "clang-20.1.8.src.tar.xz"
+    "rustc-1.89.0-src.tar.xz"
+    "rust-bindgen-0.72.0.tar.gz"
+    "cargo-c-0.10.11.tar.gz"
+    "cbindgen-0.29.0.tar.gz"
+    "nasm-2.16.03.tar.xz"
+    "yasm-1.3.0.tar.gz"
+    "swig-4.3.0.tar.gz"
+    "doxygen-1.14.0.src.tar.gz"
+)
+
+# BLFS Packages - Python Modules
+BLFS_PYTHON=(
+    "Cython-3.1.3.tar.gz"
+    "numpy-2.3.0.tar.gz"
+    "mako-1.3.10.tar.gz"
+    "PyYAML-6.0.2.tar.gz"
+    "six-1.17.0.tar.gz"
+    "certifi-2025.4.26.tar.gz"
+    "charset-normalizer-3.4.2.tar.gz"
+    "idna-3.10.tar.gz"
+    "urllib3-2.3.0.tar.gz"
+    "requests-2.32.3.tar.gz"
+    "pygobject-3.50.0.tar.xz"
+    "pycairo-1.28.0.tar.gz"
+    "dbus-python-1.3.2.tar.gz"
+    "psutil-7.0.0.tar.gz"
+)
+
+# BLFS Packages - Misc Libraries
+BLFS_MISC=(
+    "docbook-xml_4.5.orig.tar.gz"
+    "docbook-xsl-nons-1.79.2.tar.bz2"
+    "itstool-2.0.7.tar.bz2"
+    "xmlto-0.0.29.tar.gz"
+    "glib-2.84.0.tar.xz"
+    "gobject-introspection-1.84.0.tar.xz"
+    "vala-0.58.0.tar.xz"
+    "libgudev-238.tar.xz"
+    "upower-1.90.8.tar.xz"
+    "at-spi2-core-2.56.4.tar.xz"
+    "aspell-0.60.8.1.tar.gz"
+    "aspell6-en-2020.12.07-0.tar.bz2"
+    "enchant-2.8.3.tar.gz"
+    "hunspell-1.7.2.tar.gz"
+    "hwdata-0.398.tar.gz"
+    "libusb-1.0.27.tar.bz2"
+    "libgusb-0.4.9.tar.xz"
+    "gpgmepp-2.0.0.tar.xz"
+    "qca-2.3.10.tar.xz"
+    "poppler-25.05.0.tar.xz"
+    "poppler-data-0.4.12.tar.gz"
+    "opencv-4.11.0.tar.gz"
+    "zxing-cpp-2.3.0.tar.gz"
+    "libatasmart-0.19.tar.xz"
+    "volume_key-0.3.12.tar.bz2"
+    "keyutils-1.6.3.tar.gz"
+    "cups-2.4.12-source.tar.gz"
+    "cups-filters-1.28.18.tar.xz"
+    "hplip-3.25.5.tar.gz"
+    "sane-backends-1.4.0.tar.gz"
+    "xdg-utils-1.2.1.tar.gz"
+    "xdg-user-dirs-0.18.tar.gz"
+    "desktop-file-utils-0.28.tar.xz"
+    "hicolor-icon-theme-0.18.tar.xz"
+    "adwaita-icon-theme-48.1.tar.xz"
+    "pulseaudio-qt-1.7.0.tar.xz"
+    "xf86-input-wacom-1.2.3.tar.bz2"
+    "wacomtablet-6.4.4.tar.xz"
+    "kirigami-addons-1.9.0.tar.xz"
+    "kdsoap-2.2.0.tar.gz"
+    "kdsoap-ws-discovery-client-0.4.0.tar.xz"
+    "kio-extras-25.08.0.tar.xz"
+    "oxygen-icons-6.1.0.tar.xz"
+)
+
+# BLFS Patches
+BLFS_PATCHES=(
+    "avahi-0.8-ipv6_race_condition_fix-1.patch"
+    "coreutils-9.7-upstream_fix-1.patch"
+    "docbook-xsl-nons-1.79.2-stack_fix-1.patch"
+    "extra-cmake-modules-6.17.0-upstream_fix-1.patch"
+    "libcanberra-0.30-wayland-1.patch"
+    "libmad-0.15.1b-fixes-1.patch"
+    "lua-5.4.8-shared_library-1.patch"
+    "nss-standalone-1.patch"
+    "vlc-3.0.21-fedora_ffmpeg7-1.patch"
+    "vlc-3.0.21-taglib-1.patch"
+)
+
+# =============================================================================
+# Download Functions
+# =============================================================================
+
+download_category() {
+    local name="$1"
+    shift
+    local packages=("$@")
+
+    log_info "=========================================="
+    log_info "Downloading: $name"
+    log_info "=========================================="
+
+    local failed=0
+    for pkg in "${packages[@]}"; do
+        if ! download_with_retry "$pkg"; then
+            failed=$((failed + 1))
+        fi
+    done
+
+    if [ $failed -gt 0 ]; then
+        log_error "$failed packages failed in $name"
+        return 1
     fi
 
-    # Remove empty/partial files
-    rm -f "$filename"
-
-    # Download the file
-    if download_with_retry "$url" "$filename"; then
-        echo "[OK] $filename"
-        return 0
-    else
-        echo "[FAIL] $filename"
-        echo "$url" >> /tmp/failed_downloads.$$
-        exit 1
-    fi
+    log_info "$name complete"
+    return 0
 }
 
 # =============================================================================
-# Get file list from mirror directory
-# =============================================================================
-get_mirror_files() {
-    local mirror_url="$1"
-    
-    # Fetch the directory listing and extract file links
-    # The mirror should return an HTML directory listing
-    wget -q -O - "$mirror_url/" 2>/dev/null | \
-        grep -oE 'href="[^"]+\.(tar\.(xz|gz|bz2)|tgz|patch|zip)"' | \
-        sed 's/href="//g; s/"//g' | \
-        sort -u
-}
-
-# =============================================================================
-# Download all files from a mirror
-# =============================================================================
-download_from_mirror() {
-    local mirror_url="$1"
-    local mirror_name="$2"
-    
-    log_info "========================================="
-    log_info "Downloading from $mirror_name mirror..."
-    log_info "URL: $mirror_url"
-    log_info "========================================="
-    
-    # Get list of files from mirror
-    local files
-    files=$(get_mirror_files "$mirror_url")
-    
-    if [ -z "$files" ]; then
-        log_error "Failed to get file list from $mirror_url"
-        log_error "Make sure the mirror is accessible and contains files."
-        exit 1
-    fi
-    
-    local file_count=$(echo "$files" | wc -l)
-    log_info "Found $file_count files to download from $mirror_name"
-    
-    # Create URL list for parallel download
-    local url_list="/tmp/${mirror_name}_urls.$$"
-    echo "$files" | while read -r filename; do
-        echo "${mirror_url}/${filename}"
-    done > "$url_list"
-    
-    # Download files in parallel
-    if command -v parallel >/dev/null 2>&1; then
-        log_info "Using GNU parallel for downloads"
-        cat "$url_list" | \
-            parallel -j "$PARALLEL_DOWNLOADS" --line-buffer --tag --halt now,fail=1 \
-                download_file {} "$SOURCES_DIR"
-    else
-        log_info "Using xargs for parallel downloads"
-        cat "$url_list" | \
-            xargs -P "$PARALLEL_DOWNLOADS" -I {} bash -c 'download_file "$@"' _ {} "$SOURCES_DIR"
-    fi
-    
-    rm -f "$url_list"
-    
-    log_info "Completed downloads from $mirror_name"
-}
-
-# =============================================================================
-# Main function
+# Main
 # =============================================================================
 main() {
-    # Initialize logging
-    init_logging
-
-    log_info "========================================="
-    log_info "EasyLFS Source Download - Mirror Edition"
-    log_info "========================================="
-    log_info "LFS Version: $LFS_VERSION"
-    log_info "Target directory: $SOURCES_DIR"
-    log_info "LFS Mirror: $LFS_MIRROR"
-    log_info "BLFS Mirror: $BLFS_MIRROR"
-    log_info "========================================="
+    log_info "=========================================="
+    log_info "RookeryOS Source Download"
+    log_info "=========================================="
+    log_info "Mirror: $MIRROR"
+    log_info "Target: $SOURCES_DIR"
+    log_info "=========================================="
 
     # Create sources directory
     mkdir -p "$SOURCES_DIR"
-    cd "$SOURCES_DIR"
 
-    # Initialize checkpoint system
-    export CHECKPOINT_DIR="$SOURCES_DIR/.checkpoints"
-    init_checkpointing
-
-    # Check if download was already completed
-    if should_skip_global_checkpoint "download-complete"; then
-        log_info "========================================="
-        log_info "All sources already downloaded"
-        log_info "========================================="
-        exit 0
-    fi
-
-    # Export functions for parallel execution
-    export -f download_with_retry
-    export -f download_file
-    export -f halt_on_download_failure
-    export -f log_info
-    export -f log_warn
-    export -f log_error
-    export SOURCES_DIR MAX_RETRIES RETRY_DELAY DOWNLOAD_TIMEOUT
-    export RED GREEN YELLOW NC
-
-    log_info ""
-    log_info "NOTE: Build will halt immediately if any download fails"
-    log_info ""
-
-    # Download from LFS mirror
-    download_from_mirror "$LFS_MIRROR" "LFS"
-    
-    # Download from BLFS mirror
-    download_from_mirror "$BLFS_MIRROR" "BLFS"
-
-    # =============================================================================
-    # Download packages not on mirror (Tier 7: Qt6 and Pre-KDE dependencies)
-    # These packages are required for Qt6/KDE but aren't on the corvidae mirror yet
-    # =============================================================================
-    log_info "========================================="
-    log_info "Downloading additional Tier 7 packages..."
-    log_info "========================================="
-
-    # libuv-1.51.0 (required by Node.js)
-    if [ ! -f "$SOURCES_DIR/libuv-v1.51.0.tar.gz" ]; then
-        download_with_retry "https://dist.libuv.org/dist/v1.51.0/libuv-v1.51.0.tar.gz" \
-            "$SOURCES_DIR/libuv-v1.51.0.tar.gz"
-    else
-        log_info "[SKIP] libuv-v1.51.0.tar.gz (already exists)"
-    fi
-
-    # nghttp2-1.66.0 (required by Node.js with --shared-nghttp2)
-    if [ ! -f "$SOURCES_DIR/nghttp2-1.66.0.tar.xz" ]; then
-        download_with_retry "https://github.com/nghttp2/nghttp2/releases/download/v1.66.0/nghttp2-1.66.0.tar.xz" \
-            "$SOURCES_DIR/nghttp2-1.66.0.tar.xz"
-    else
-        log_info "[SKIP] nghttp2-1.66.0.tar.xz (already exists)"
-    fi
-
-    # Node.js v22.18.0 (required by QtWebEngine)
-    if [ ! -f "$SOURCES_DIR/node-v22.18.0.tar.xz" ]; then
-        download_with_retry "https://nodejs.org/dist/v22.18.0/node-v22.18.0.tar.xz" \
-            "$SOURCES_DIR/node-v22.18.0.tar.xz"
-    else
-        log_info "[SKIP] node-v22.18.0.tar.xz (already exists)"
-    fi
-
-    # CUPS 2.4.12 (printing support)
-    if [ ! -f "$SOURCES_DIR/cups-2.4.12-source.tar.gz" ]; then
-        download_with_retry "https://github.com/OpenPrinting/cups/releases/download/v2.4.12/cups-2.4.12-source.tar.gz" \
-            "$SOURCES_DIR/cups-2.4.12-source.tar.gz"
-    else
-        log_info "[SKIP] cups-2.4.12-source.tar.gz (already exists)"
-    fi
-
-    log_info "Tier 7 additional downloads complete"
-
-    # =============================================================================
-    # Tier 8: KDE Frameworks 6 Dependencies
-    # These packages are required by KF6 but aren't on the corvidae mirror
-    # =============================================================================
-    log_info "========================================="
-    log_info "Downloading Tier 8: KDE Frameworks 6 Dependencies..."
-    log_info "========================================="
-
-    # intltool-0.51.0 (required by sound-theme-freedesktop)
-    if [ ! -f "$SOURCES_DIR/intltool-0.51.0.tar.gz" ]; then
-        download_with_retry "https://launchpad.net/intltool/trunk/0.51.0/+download/intltool-0.51.0.tar.gz" \
-            "$SOURCES_DIR/intltool-0.51.0.tar.gz"
-    else
-        log_info "[SKIP] intltool-0.51.0.tar.gz (already exists)"
-    fi
-
-    # libcanberra-0.30 (XDG Sound Theme implementation)
-    if [ ! -f "$SOURCES_DIR/libcanberra-0.30.tar.xz" ]; then
-        download_with_retry "https://0pointer.de/lennart/projects/libcanberra/libcanberra-0.30.tar.xz" \
-            "$SOURCES_DIR/libcanberra-0.30.tar.xz"
-    else
-        log_info "[SKIP] libcanberra-0.30.tar.xz (already exists)"
-    fi
-
-    # libcanberra wayland patch
-    if [ ! -f "$SOURCES_DIR/libcanberra-0.30-wayland-1.patch" ]; then
-        download_with_retry "https://www.linuxfromscratch.org/patches/blfs/12.4/libcanberra-0.30-wayland-1.patch" \
-            "$SOURCES_DIR/libcanberra-0.30-wayland-1.patch"
-    else
-        log_info "[SKIP] libcanberra-0.30-wayland-1.patch (already exists)"
-    fi
-
-    # libical-3.0.20 (iCalendar protocols)
-    if [ ! -f "$SOURCES_DIR/libical-3.0.20.tar.gz" ]; then
-        download_with_retry "https://github.com/libical/libical/releases/download/v3.0.20/libical-3.0.20.tar.gz" \
-            "$SOURCES_DIR/libical-3.0.20.tar.gz"
-    else
-        log_info "[SKIP] libical-3.0.20.tar.gz (already exists)"
-    fi
-
-    # lmdb-0.9.33 (Lightning Memory-Mapped Database)
-    if [ ! -f "$SOURCES_DIR/LMDB_0.9.33.tar.bz2" ]; then
-        download_with_retry "https://git.openldap.org/openldap/openldap/-/archive/LMDB_0.9.33.tar.bz2" \
-            "$SOURCES_DIR/LMDB_0.9.33.tar.bz2"
-    else
-        log_info "[SKIP] LMDB_0.9.33.tar.bz2 (already exists)"
-    fi
-
-    # libqrencode-4.1.1 (QR code library)
-    if [ ! -f "$SOURCES_DIR/libqrencode-4.1.1.tar.gz" ]; then
-        download_with_retry "https://github.com/fukuchi/libqrencode/archive/v4.1.1/libqrencode-4.1.1.tar.gz" \
-            "$SOURCES_DIR/libqrencode-4.1.1.tar.gz"
-    else
-        log_info "[SKIP] libqrencode-4.1.1.tar.gz (already exists)"
-    fi
-
-    # Aspell-0.60.8.1 (Spell checker)
-    if [ ! -f "$SOURCES_DIR/aspell-0.60.8.1.tar.gz" ]; then
-        download_with_retry "https://ftp.gnu.org/gnu/aspell/aspell-0.60.8.1.tar.gz" \
-            "$SOURCES_DIR/aspell-0.60.8.1.tar.gz"
-    else
-        log_info "[SKIP] aspell-0.60.8.1.tar.gz (already exists)"
-    fi
-
-    # Aspell English dictionary
-    if [ ! -f "$SOURCES_DIR/aspell6-en-2020.12.07-0.tar.bz2" ]; then
-        download_with_retry "https://ftp.gnu.org/gnu/aspell/dict/en/aspell6-en-2020.12.07-0.tar.bz2" \
-            "$SOURCES_DIR/aspell6-en-2020.12.07-0.tar.bz2"
-    else
-        log_info "[SKIP] aspell6-en-2020.12.07-0.tar.bz2 (already exists)"
-    fi
-
-    # BlueZ-5.83 (Bluetooth stack)
-    if [ ! -f "$SOURCES_DIR/bluez-5.83.tar.xz" ]; then
-        download_with_retry "https://www.kernel.org/pub/linux/bluetooth/bluez-5.83.tar.xz" \
-            "$SOURCES_DIR/bluez-5.83.tar.xz"
-    else
-        log_info "[SKIP] bluez-5.83.tar.xz (already exists)"
-    fi
-
-    # ModemManager-1.24.2 (Mobile broadband modem management)
-    if [ ! -f "$SOURCES_DIR/ModemManager-1.24.2.tar.gz" ]; then
-        download_with_retry "https://gitlab.freedesktop.org/mobile-broadband/ModemManager/-/archive/1.24.2/ModemManager-1.24.2.tar.gz" \
-            "$SOURCES_DIR/ModemManager-1.24.2.tar.gz"
-    else
-        log_info "[SKIP] ModemManager-1.24.2.tar.gz (already exists)"
-    fi
-
-    # UPower-1.90.9 (Power management)
-    if [ ! -f "$SOURCES_DIR/upower-v1.90.9.tar.bz2" ]; then
-        download_with_retry "https://gitlab.freedesktop.org/upower/upower/-/archive/v1.90.9/upower-v1.90.9.tar.bz2" \
-            "$SOURCES_DIR/upower-v1.90.9.tar.bz2"
-    else
-        log_info "[SKIP] upower-v1.90.9.tar.bz2 (already exists)"
-    fi
-
-    # sound-theme-freedesktop-0.8 (XDG sound theme)
-    if [ ! -f "$SOURCES_DIR/sound-theme-freedesktop-0.8.tar.bz2" ]; then
-        download_with_retry "https://people.freedesktop.org/~mccann/dist/sound-theme-freedesktop-0.8.tar.bz2" \
-            "$SOURCES_DIR/sound-theme-freedesktop-0.8.tar.bz2"
-    else
-        log_info "[SKIP] sound-theme-freedesktop-0.8.tar.bz2 (already exists)"
-    fi
-
-    # breeze-icons-6.17.0 (KDE icon theme)
-    if [ ! -f "$SOURCES_DIR/breeze-icons-6.17.0.tar.xz" ]; then
-        download_with_retry "https://download.kde.org/stable/frameworks/6.17/breeze-icons-6.17.0.tar.xz" \
-            "$SOURCES_DIR/breeze-icons-6.17.0.tar.xz"
-    else
-        log_info "[SKIP] breeze-icons-6.17.0.tar.xz (already exists)"
-    fi
-
-    # libgudev-238 (GObject bindings for libudev - required by ModemManager, UPower, UDisks)
-    if [ ! -f "$SOURCES_DIR/libgudev-238.tar.xz" ]; then
-        download_with_retry "https://download.gnome.org/sources/libgudev/238/libgudev-238.tar.xz" \
-            "$SOURCES_DIR/libgudev-238.tar.xz"
-    else
-        log_info "[SKIP] libgudev-238.tar.xz (already exists)"
-    fi
-
-    # libusb-1.0.29 (USB access library - required by UPower)
-    if [ ! -f "$SOURCES_DIR/libusb-1.0.29.tar.bz2" ]; then
-        download_with_retry "https://github.com/libusb/libusb/releases/download/v1.0.29/libusb-1.0.29.tar.bz2" \
-            "$SOURCES_DIR/libusb-1.0.29.tar.bz2"
-    else
-        log_info "[SKIP] libusb-1.0.29.tar.bz2 (already exists)"
-    fi
-
-    # libmbim-1.32.0 (MBIM protocol library - required by ModemManager)
-    if [ ! -f "$SOURCES_DIR/libmbim-1.32.0.tar.gz" ]; then
-        download_with_retry "https://gitlab.freedesktop.org/mobile-broadband/libmbim/-/archive/1.32.0/libmbim-1.32.0.tar.gz" \
-            "$SOURCES_DIR/libmbim-1.32.0.tar.gz"
-    else
-        log_info "[SKIP] libmbim-1.32.0.tar.gz (already exists)"
-    fi
-
-    # libqmi-1.36.0 (QMI protocol library - required by ModemManager)
-    if [ ! -f "$SOURCES_DIR/libqmi-1.36.0.tar.gz" ]; then
-        download_with_retry "https://gitlab.freedesktop.org/mobile-broadband/libqmi/-/archive/1.36.0/libqmi-1.36.0.tar.gz" \
-            "$SOURCES_DIR/libqmi-1.36.0.tar.gz"
-    else
-        log_info "[SKIP] libqmi-1.36.0.tar.gz (already exists)"
-    fi
-
-    # libatasmart-0.19 (ATA SMART library - required by UDisks/libblockdev)
-    if [ ! -f "$SOURCES_DIR/libatasmart-0.19.tar.xz" ]; then
-        download_with_retry "https://0pointer.de/public/libatasmart-0.19.tar.xz" \
-            "$SOURCES_DIR/libatasmart-0.19.tar.xz"
-    else
-        log_info "[SKIP] libatasmart-0.19.tar.xz (already exists)"
-    fi
-
-    # libbytesize-2.11 (byte size library - required by libblockdev)
-    if [ ! -f "$SOURCES_DIR/libbytesize-2.11.tar.gz" ]; then
-        download_with_retry "https://github.com/storaged-project/libbytesize/releases/download/2.11/libbytesize-2.11.tar.gz" \
-            "$SOURCES_DIR/libbytesize-2.11.tar.gz"
-    else
-        log_info "[SKIP] libbytesize-2.11.tar.gz (already exists)"
-    fi
-
-    # keyutils-1.6.3 (kernel key management - required by libnvme)
-    if [ ! -f "$SOURCES_DIR/keyutils-1.6.3.tar.gz" ]; then
-        download_with_retry "https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/keyutils.git/snapshot/keyutils-1.6.3.tar.gz" \
-            "$SOURCES_DIR/keyutils-1.6.3.tar.gz"
-    else
-        log_info "[SKIP] keyutils-1.6.3.tar.gz (already exists)"
-    fi
-
-    # libaio-0.3.113 (async I/O library - required by LVM2)
-    if [ ! -f "$SOURCES_DIR/libaio-0.3.113.tar.gz" ]; then
-        download_with_retry "https://pagure.io/libaio/archive/libaio-0.3.113/libaio-0.3.113.tar.gz" \
-            "$SOURCES_DIR/libaio-0.3.113.tar.gz"
-    else
-        log_info "[SKIP] libaio-0.3.113.tar.gz (already exists)"
-    fi
-
-    # popt-1.19 (command-line parsing - required by cryptsetup)
-    if [ ! -f "$SOURCES_DIR/popt-1.19.tar.gz" ]; then
-        download_with_retry "https://ftp.osuosl.org/pub/rpm/popt/releases/popt-1.x/popt-1.19.tar.gz" \
-            "$SOURCES_DIR/popt-1.19.tar.gz"
-    else
-        log_info "[SKIP] popt-1.19.tar.gz (already exists)"
-    fi
-
-    # json-c-0.18 (JSON C library - required by cryptsetup)
-    if [ ! -f "$SOURCES_DIR/json-c-0.18.tar.gz" ]; then
-        download_with_retry "https://s3.amazonaws.com/json-c_releases/releases/json-c-0.18.tar.gz" \
-            "$SOURCES_DIR/json-c-0.18.tar.gz"
-    else
-        log_info "[SKIP] json-c-0.18.tar.gz (already exists)"
-    fi
-
-    # LVM2-2.03.34 (Logical Volume Manager - provides device-mapper)
-    if [ ! -f "$SOURCES_DIR/LVM2.2.03.34.tgz" ]; then
-        download_with_retry "https://sourceware.org/ftp/lvm2/LVM2.2.03.34.tgz" \
-            "$SOURCES_DIR/LVM2.2.03.34.tgz"
-    else
-        log_info "[SKIP] LVM2.2.03.34.tgz (already exists)"
-    fi
-
-    # cryptsetup-2.8.1 (disk encryption - required by libblockdev)
-    if [ ! -f "$SOURCES_DIR/cryptsetup-2.8.1.tar.xz" ]; then
-        download_with_retry "https://www.kernel.org/pub/linux/utils/cryptsetup/v2.8/cryptsetup-2.8.1.tar.xz" \
-            "$SOURCES_DIR/cryptsetup-2.8.1.tar.xz"
-    else
-        log_info "[SKIP] cryptsetup-2.8.1.tar.xz (already exists)"
-    fi
-
-    # libnvme-1.15 (NVMe library - required by libblockdev)
-    if [ ! -f "$SOURCES_DIR/libnvme-1.15.tar.gz" ]; then
-        download_with_retry "https://github.com/linux-nvme/libnvme/archive/v1.15/libnvme-1.15.tar.gz" \
-            "$SOURCES_DIR/libnvme-1.15.tar.gz"
-    else
-        log_info "[SKIP] libnvme-1.15.tar.gz (already exists)"
-    fi
-
-    # libblockdev-3.3.1 (block device library - required by UDisks)
-    if [ ! -f "$SOURCES_DIR/libblockdev-3.3.1.tar.gz" ]; then
-        download_with_retry "https://github.com/storaged-project/libblockdev/releases/download/3.3.1/libblockdev-3.3.1.tar.gz" \
-            "$SOURCES_DIR/libblockdev-3.3.1.tar.gz"
-    else
-        log_info "[SKIP] libblockdev-3.3.1.tar.gz (already exists)"
-    fi
-
-    # UDisks-2.10.2 (disk management daemon)
-    if [ ! -f "$SOURCES_DIR/udisks-2.10.2.tar.bz2" ]; then
-        download_with_retry "https://github.com/storaged-project/udisks/releases/download/udisks-2.10.2/udisks-2.10.2.tar.bz2" \
-            "$SOURCES_DIR/udisks-2.10.2.tar.bz2"
-    else
-        log_info "[SKIP] udisks-2.10.2.tar.bz2 (already exists)"
-    fi
-
-    # =========================================================================
-    # GnuPG Cryptography Stack (for gpgmepp -> KDE Frameworks)
-    # Post-Quantum Cryptography ready with Kyber/ML-KEM support
-    # =========================================================================
-
-    # libgpg-error-1.58 (error handling library for GnuPG)
-    if [ ! -f "$SOURCES_DIR/libgpg-error-1.58.tar.bz2" ]; then
-        download_with_retry "https://www.gnupg.org/ftp/gcrypt/libgpg-error/libgpg-error-1.58.tar.bz2" \
-            "$SOURCES_DIR/libgpg-error-1.58.tar.bz2"
-    else
-        log_info "[SKIP] libgpg-error-1.58.tar.bz2 (already exists)"
-    fi
-
-    # libgcrypt-1.11.2 (cryptographic library with PQC support)
-    if [ ! -f "$SOURCES_DIR/libgcrypt-1.11.2.tar.bz2" ]; then
-        download_with_retry "https://www.gnupg.org/ftp/gcrypt/libgcrypt/libgcrypt-1.11.2.tar.bz2" \
-            "$SOURCES_DIR/libgcrypt-1.11.2.tar.bz2"
-    else
-        log_info "[SKIP] libgcrypt-1.11.2.tar.bz2 (already exists)"
-    fi
-
-    # npth-1.8 (portable threading library for GnuPG)
-    if [ ! -f "$SOURCES_DIR/npth-1.8.tar.bz2" ]; then
-        download_with_retry "https://www.gnupg.org/ftp/gcrypt/npth/npth-1.8.tar.bz2" \
-            "$SOURCES_DIR/npth-1.8.tar.bz2"
-    else
-        log_info "[SKIP] npth-1.8.tar.bz2 (already exists)"
-    fi
-
-    # libassuan-3.0.2 (IPC library for GnuPG)
-    if [ ! -f "$SOURCES_DIR/libassuan-3.0.2.tar.bz2" ]; then
-        download_with_retry "https://www.gnupg.org/ftp/gcrypt/libassuan/libassuan-3.0.2.tar.bz2" \
-            "$SOURCES_DIR/libassuan-3.0.2.tar.bz2"
-    else
-        log_info "[SKIP] libassuan-3.0.2.tar.bz2 (already exists)"
-    fi
-
-    # libksba-1.6.7 (X.509 library for GnuPG)
-    if [ ! -f "$SOURCES_DIR/libksba-1.6.7.tar.bz2" ]; then
-        download_with_retry "https://www.gnupg.org/ftp/gcrypt/libksba/libksba-1.6.7.tar.bz2" \
-            "$SOURCES_DIR/libksba-1.6.7.tar.bz2"
-    else
-        log_info "[SKIP] libksba-1.6.7.tar.bz2 (already exists)"
-    fi
-
-    # pinentry-1.3.2 (PIN entry dialog)
-    if [ ! -f "$SOURCES_DIR/pinentry-1.3.2.tar.bz2" ]; then
-        download_with_retry "https://www.gnupg.org/ftp/gcrypt/pinentry/pinentry-1.3.2.tar.bz2" \
-            "$SOURCES_DIR/pinentry-1.3.2.tar.bz2"
-    else
-        log_info "[SKIP] pinentry-1.3.2.tar.bz2 (already exists)"
-    fi
-
-    # gnupg-2.5.14 (GNU Privacy Guard with Kyber/ML-KEM PQC support)
-    if [ ! -f "$SOURCES_DIR/gnupg-2.5.14.tar.bz2" ]; then
-        download_with_retry "https://www.gnupg.org/ftp/gcrypt/gnupg/gnupg-2.5.14.tar.bz2" \
-            "$SOURCES_DIR/gnupg-2.5.14.tar.bz2"
-    else
-        log_info "[SKIP] gnupg-2.5.14.tar.bz2 (already exists)"
-    fi
-
-    # gpgme-2.0.0 (GnuPG Made Easy)
-    if [ ! -f "$SOURCES_DIR/gpgme-2.0.0.tar.bz2" ]; then
-        download_with_retry "https://www.gnupg.org/ftp/gcrypt/gpgme/gpgme-2.0.0.tar.bz2" \
-            "$SOURCES_DIR/gpgme-2.0.0.tar.bz2"
-    else
-        log_info "[SKIP] gpgme-2.0.0.tar.bz2 (already exists)"
-    fi
-
-    # gpgmepp-2.0.0 (C++ bindings for GPGME - from KDE)
-    if [ ! -f "$SOURCES_DIR/gpgmepp-2.0.0.tar.xz" ]; then
-        download_with_retry "https://download.kde.org/stable/gpgmepp/gpgmepp-2.0.0.tar.xz" \
-            "$SOURCES_DIR/gpgmepp-2.0.0.tar.xz"
-    else
-        log_info "[SKIP] gpgmepp-2.0.0.tar.xz (already exists)"
-    fi
-
-    log_info "Tier 8: KDE Frameworks 6 Dependencies complete"
-
-    # =========================================================================
-    # zxing-cpp (barcode/QR code library - needed for KF6 Prison)
-    # =========================================================================
-
-    # zxing-cpp-2.3.0
-    if [ ! -f "$SOURCES_DIR/zxing-cpp-2.3.0.tar.gz" ]; then
-        download_with_retry "https://github.com/zxing-cpp/zxing-cpp/archive/v2.3.0/zxing-cpp-2.3.0.tar.gz" \
-            "$SOURCES_DIR/zxing-cpp-2.3.0.tar.gz"
-    else
-        log_info "[SKIP] zxing-cpp-2.3.0.tar.gz (already exists)"
-    fi
-
-    # libsecret-0.21.7 (GNOME secret storage library - required by kwallet)
-    if [ ! -f "$SOURCES_DIR/libsecret-0.21.7.tar.xz" ]; then
-        download_with_retry "https://download.gnome.org/sources/libsecret/0.21/libsecret-0.21.7.tar.xz" \
-            "$SOURCES_DIR/libsecret-0.21.7.tar.xz"
-    else
-        log_info "[SKIP] libsecret-0.21.7.tar.xz (already exists)"
-    fi
-
-    # =========================================================================
-    # Perl modules required for KDE Frameworks
-    # =========================================================================
-
-    # MIME-Base32-1.303 (dependency of URI)
-    if [ ! -f "$SOURCES_DIR/MIME-Base32-1.303.tar.gz" ]; then
-        download_with_retry "https://cpan.metacpan.org/authors/id/R/RE/REHSACK/MIME-Base32-1.303.tar.gz" \
-            "$SOURCES_DIR/MIME-Base32-1.303.tar.gz"
-    else
-        log_info "[SKIP] MIME-Base32-1.303.tar.gz (already exists)"
-    fi
-
-    # URI-5.32 (required for KDE Frameworks)
-    if [ ! -f "$SOURCES_DIR/URI-5.32.tar.gz" ]; then
-        download_with_retry "https://www.cpan.org/authors/id/O/OA/OALDERS/URI-5.32.tar.gz" \
-            "$SOURCES_DIR/URI-5.32.tar.gz"
-    else
-        log_info "[SKIP] URI-5.32.tar.gz (already exists)"
-    fi
-
-    log_info "Perl modules for KDE complete"
-
-    # =========================================================================
-    # KDE Frameworks 6.17.0 (49 packages)
-    # https://www.linuxfromscratch.org/blfs/view/12.4/kde/frameworks6.html
-    # =========================================================================
-
-    log_info "Downloading KDE Frameworks 6.17.0..."
-    local KF6_URL="https://download.kde.org/stable/frameworks/6.17"
-
-    # Tier 1: Foundation Frameworks (no KF6 dependencies)
-    for pkg in attica kapidox karchive kcodecs kconfig kcoreaddons kdbusaddons \
-               kdnssd kguiaddons ki18n kidletime kimageformats kitemmodels \
-               kitemviews kplotting kwidgetsaddons kwindowsystem networkmanager-qt \
-               solid sonnet threadweaver; do
-        if [ ! -f "$SOURCES_DIR/${pkg}-6.17.0.tar.xz" ]; then
-            download_with_retry "${KF6_URL}/${pkg}-6.17.0.tar.xz" \
-                "$SOURCES_DIR/${pkg}-6.17.0.tar.xz"
-        else
-            log_info "[SKIP] ${pkg}-6.17.0.tar.xz (already exists)"
-        fi
-    done
-
-    log_info "KF6 Tier 1 downloads complete"
-
-    # Tier 2: Core Frameworks (depend on Tier 1)
-    for pkg in kauth kcompletion kcrash kdoctools kpty kunitconversion \
-               kcolorscheme kconfigwidgets kservice kglobalaccel kpackage \
-               kdesu kiconthemes knotifications kjobwidgets ktextwidgets \
-               kxmlgui kbookmarks kwallet kded kio kdeclarative kcmutils; do
-        if [ ! -f "$SOURCES_DIR/${pkg}-6.17.0.tar.xz" ]; then
-            download_with_retry "${KF6_URL}/${pkg}-6.17.0.tar.xz" \
-                "$SOURCES_DIR/${pkg}-6.17.0.tar.xz"
-        else
-            log_info "[SKIP] ${pkg}-6.17.0.tar.xz (already exists)"
-        fi
-    done
-
-    log_info "KF6 Tier 2 downloads complete"
-
-    # Tier 3: Integration Frameworks (depend on Tier 2)
-    for pkg in kirigami syndication knewstuff frameworkintegration kparts \
-               syntax-highlighting ktexteditor modemmanager-qt kcontacts kpeople; do
-        if [ ! -f "$SOURCES_DIR/${pkg}-6.17.0.tar.xz" ]; then
-            download_with_retry "${KF6_URL}/${pkg}-6.17.0.tar.xz" \
-                "$SOURCES_DIR/${pkg}-6.17.0.tar.xz"
-        else
-            log_info "[SKIP] ${pkg}-6.17.0.tar.xz (already exists)"
-        fi
-    done
-
-    log_info "KF6 Tier 3 downloads complete"
-
-    # Tier 4: Extended Frameworks (depend on Tier 3)
-    for pkg in bluez-qt kfilemetadata baloo krunner prison qqc2-desktop-style \
-               kholidays purpose kcalendarcore kquickcharts knotifyconfig kdav \
-               kstatusnotifieritem ksvg ktexttemplate kuserfeedback; do
-        if [ ! -f "$SOURCES_DIR/${pkg}-6.17.0.tar.xz" ]; then
-            download_with_retry "${KF6_URL}/${pkg}-6.17.0.tar.xz" \
-                "$SOURCES_DIR/${pkg}-6.17.0.tar.xz"
-        else
-            log_info "[SKIP] ${pkg}-6.17.0.tar.xz (already exists)"
-        fi
-    done
-
-    log_info "KF6 Tier 4 downloads complete"
-    log_info "KDE Frameworks 6.17.0 downloads complete (49 packages)"
-
-    # =========================================================================
-    # Tier 9: Plasma Prerequisites (required before KDE Plasma)
-    # =========================================================================
-    log_info "========================================="
-    log_info "Downloading Tier 9: Plasma Prerequisites..."
-    log_info "========================================="
-
-    # oxygen-icons-6.0.0 (alternative icon theme)
-    if [ ! -f "$SOURCES_DIR/oxygen-icons-6.0.0.tar.xz" ]; then
-        download_with_retry "https://download.kde.org/stable/oxygen-icons/oxygen-icons-6.0.0.tar.xz" \
-            "$SOURCES_DIR/oxygen-icons-6.0.0.tar.xz"
-    else
-        log_info "[SKIP] oxygen-icons-6.0.0.tar.xz (already exists)"
-    fi
-
-    # kirigami-addons-1.9.0 (Kirigami UI addons)
-    if [ ! -f "$SOURCES_DIR/kirigami-addons-1.9.0.tar.xz" ]; then
-        download_with_retry "https://download.kde.org/stable/kirigami-addons/kirigami-addons-1.9.0.tar.xz" \
-            "$SOURCES_DIR/kirigami-addons-1.9.0.tar.xz"
-    else
-        log_info "[SKIP] kirigami-addons-1.9.0.tar.xz (already exists)"
-    fi
-
-    # duktape-2.7.0 (JavaScript engine - required by libproxy)
-    if [ ! -f "$SOURCES_DIR/duktape-2.7.0.tar.xz" ]; then
-        download_with_retry "https://duktape.org/duktape-2.7.0.tar.xz" \
-            "$SOURCES_DIR/duktape-2.7.0.tar.xz"
-    else
-        log_info "[SKIP] duktape-2.7.0.tar.xz (already exists)"
-    fi
-
-    # libproxy-0.5.10 (proxy configuration library - required by kio-extras)
-    if [ ! -f "$SOURCES_DIR/libproxy-0.5.10.tar.gz" ]; then
-        download_with_retry "https://github.com/libproxy/libproxy/archive/0.5.10/libproxy-0.5.10.tar.gz" \
-            "$SOURCES_DIR/libproxy-0.5.10.tar.gz"
-    else
-        log_info "[SKIP] libproxy-0.5.10.tar.gz (already exists)"
-    fi
-
-    # kdsoap-2.2.0 (Qt SOAP library)
-    if [ ! -f "$SOURCES_DIR/kdsoap-2.2.0.tar.gz" ]; then
-        download_with_retry "https://github.com/KDAB/KDSoap/releases/download/kdsoap-2.2.0/kdsoap-2.2.0.tar.gz" \
-            "$SOURCES_DIR/kdsoap-2.2.0.tar.gz"
-    else
-        log_info "[SKIP] kdsoap-2.2.0.tar.gz (already exists)"
-    fi
-
-    # kdsoap-ws-discovery-client-0.4.0 (WS-Discovery protocol - required by kio-extras)
-    if [ ! -f "$SOURCES_DIR/kdsoap-ws-discovery-client-0.4.0.tar.xz" ]; then
-        download_with_retry "https://download.kde.org/stable/kdsoap-ws-discovery-client/kdsoap-ws-discovery-client-0.4.0.tar.xz" \
-            "$SOURCES_DIR/kdsoap-ws-discovery-client-0.4.0.tar.xz"
-    else
-        log_info "[SKIP] kdsoap-ws-discovery-client-0.4.0.tar.xz (already exists)"
-    fi
-
-    # plasma-activities-6.4.4 (KDE Activities core)
-    if [ ! -f "$SOURCES_DIR/plasma-activities-6.4.4.tar.xz" ]; then
-        download_with_retry "https://download.kde.org/stable/plasma/6.4.4/plasma-activities-6.4.4.tar.xz" \
-            "$SOURCES_DIR/plasma-activities-6.4.4.tar.xz"
-    else
-        log_info "[SKIP] plasma-activities-6.4.4.tar.xz (already exists)"
-    fi
-
-    # plasma-activities-stats-6.4.4 (Activity usage stats - required by kio-extras)
-    if [ ! -f "$SOURCES_DIR/plasma-activities-stats-6.4.4.tar.xz" ]; then
-        download_with_retry "https://download.kde.org/stable/plasma/6.4.4/plasma-activities-stats-6.4.4.tar.xz" \
-            "$SOURCES_DIR/plasma-activities-stats-6.4.4.tar.xz"
-    else
-        log_info "[SKIP] plasma-activities-stats-6.4.4.tar.xz (already exists)"
-    fi
-
-    # kio-extras-25.08.0 (Extra KIO protocols)
-    if [ ! -f "$SOURCES_DIR/kio-extras-25.08.0.tar.xz" ]; then
-        download_with_retry "https://download.kde.org/stable/release-service/25.08.0/src/kio-extras-25.08.0.tar.xz" \
-            "$SOURCES_DIR/kio-extras-25.08.0.tar.xz"
-    else
-        log_info "[SKIP] kio-extras-25.08.0.tar.xz (already exists)"
-    fi
-
-    # lm-sensors-3.6.2 (hardware monitoring - required by libksysguard)
-    if [ ! -f "$SOURCES_DIR/lm-sensors-3-6-2.tar.gz" ]; then
-        download_with_retry "https://github.com/hramrach/lm-sensors/archive/V3-6-2/lm-sensors-3-6-2.tar.gz" \
-            "$SOURCES_DIR/lm-sensors-3-6-2.tar.gz"
-    else
-        log_info "[SKIP] lm-sensors-3-6-2.tar.gz (already exists)"
-    fi
-
-    # libsass-3.6.6 (Sass CSS compiler library - required by sassc)
-    if [ ! -f "$SOURCES_DIR/libsass-3.6.6.tar.gz" ]; then
-        download_with_retry "https://github.com/sass/libsass/archive/3.6.6/libsass-3.6.6.tar.gz" \
-            "$SOURCES_DIR/libsass-3.6.6.tar.gz"
-    else
-        log_info "[SKIP] libsass-3.6.6.tar.gz (already exists)"
-    fi
-
-    # sassc-3.6.2 (Sass CSS compiler - required by breeze-gtk)
-    if [ ! -f "$SOURCES_DIR/sassc-3.6.2.tar.gz" ]; then
-        download_with_retry "https://github.com/sass/sassc/archive/3.6.2/sassc-3.6.2.tar.gz" \
-            "$SOURCES_DIR/sassc-3.6.2.tar.gz"
-    else
-        log_info "[SKIP] sassc-3.6.2.tar.gz (already exists)"
-    fi
-
-    # hwdata-0.398 (hardware identification database - required by libdisplay-info)
-    if [ ! -f "$SOURCES_DIR/hwdata-0.398.tar.gz" ]; then
-        download_with_retry "https://github.com/vcrhonek/hwdata/archive/v0.398/hwdata-0.398.tar.gz" \
-            "$SOURCES_DIR/hwdata-0.398.tar.gz"
-    else
-        log_info "[SKIP] hwdata-0.398.tar.gz (already exists)"
-    fi
-
-    # libdisplay-info-0.3.0 (EDID and DisplayID library - required by kwin)
-    if [ ! -f "$SOURCES_DIR/libdisplay-info-0.3.0.tar.xz" ]; then
-        download_with_retry "https://gitlab.freedesktop.org/emersion/libdisplay-info/-/releases/0.3.0/downloads/libdisplay-info-0.3.0.tar.xz" \
-            "$SOURCES_DIR/libdisplay-info-0.3.0.tar.xz"
-    else
-        log_info "[SKIP] libdisplay-info-0.3.0.tar.xz (already exists)"
-    fi
-
-    # pulseaudio-qt-1.7.0 (Qt bindings for PulseAudio - required by plasma-pa)
-    if [ ! -f "$SOURCES_DIR/pulseaudio-qt-1.7.0.tar.xz" ]; then
-        download_with_retry "https://download.kde.org/stable/pulseaudio-qt/pulseaudio-qt-1.7.0.tar.xz" \
-            "$SOURCES_DIR/pulseaudio-qt-1.7.0.tar.xz"
-    else
-        log_info "[SKIP] pulseaudio-qt-1.7.0.tar.xz (already exists)"
-    fi
-
-    # libwacom-2.17.0 (Wacom tablet library - required by plasma-desktop)
-    if [ ! -f "$SOURCES_DIR/libwacom-2.17.0.tar.xz" ]; then
-        download_with_retry "https://github.com/linuxwacom/libwacom/releases/download/libwacom-2.17.0/libwacom-2.17.0.tar.xz" \
-            "$SOURCES_DIR/libwacom-2.17.0.tar.xz"
-    else
-        log_info "[SKIP] libwacom-2.17.0.tar.xz (already exists)"
-    fi
-
-    log_info "Tier 9: Plasma Prerequisites downloads complete"
-
-    # =========================================================================
-    # Tier 10: KDE Plasma 6.4.4 (56 packages)
-    # https://www.linuxfromscratch.org/blfs/view/12.4/kde/plasma-all.html
-    # =========================================================================
-    log_info "========================================="
-    log_info "Downloading Tier 10: KDE Plasma 6.4.4..."
-    log_info "========================================="
-
-    local PLASMA_URL="https://download.kde.org/stable/plasma/6.4.4"
-
-    # Download all Plasma 6.4.4 packages in build order
-    for pkg in kdecoration libkscreen libksysguard breeze breeze-gtk layer-shell-qt \
-               libplasma kscreenlocker kinfocenter kglobalacceld kwayland aurorae \
-               kwin plasma5support kpipewire plasma-workspace plasma-disks bluedevil \
-               kde-gtk-config kmenuedit kscreen kwallet-pam kwrited milou plasma-nm \
-               plasma-pa plasma-workspace-wallpapers polkit-kde-agent-1 powerdevil \
-               plasma-desktop kgamma ksshaskpass sddm-kcm kactivitymanagerd \
-               plasma-integration xdg-desktop-portal-kde drkonqi plasma-vault \
-               kde-cli-tools systemsettings plasma-thunderbolt plasma-firewall \
-               plasma-systemmonitor qqc2-breeze-style ksystemstats oxygen-sounds \
-               kdeplasma-addons plasma-welcome ocean-sound-theme print-manager \
-               wacomtablet oxygen spectacle; do
-        if [ ! -f "$SOURCES_DIR/${pkg}-6.4.4.tar.xz" ]; then
-            download_with_retry "${PLASMA_URL}/${pkg}-6.4.4.tar.xz" \
-                "$SOURCES_DIR/${pkg}-6.4.4.tar.xz"
-        else
-            log_info "[SKIP] ${pkg}-6.4.4.tar.xz (already exists)"
-        fi
-    done
-
-    log_info "KDE Plasma 6.4.4 downloads complete (56 packages)"
-
-    # Check for any failures
-    if [ -s "$FAILED_DOWNLOADS_FILE" ]; then
-        log_error "========================================="
-        log_error "DOWNLOAD FAILED - The following files could not be downloaded:"
-        log_error "========================================="
-        while IFS= read -r failed_url; do
-            log_error "  - $failed_url"
-        done < "$FAILED_DOWNLOADS_FILE"
-        log_error "========================================="
-        exit 1
-    fi
-
-    # Summary
-    local downloaded_files=$(ls -1 *.tar.* *.tgz *.patch *.zip 2>/dev/null | wc -l)
-    local total_size=$(du -sh . 2>/dev/null | cut -f1)
-
-    echo ""
-    log_info "========================================="
-    log_info "Download Summary"
-    log_info "========================================="
-    log_info "LFS Version: $LFS_VERSION"
-    log_info "Files downloaded: $downloaded_files"
-    log_info "Total size: $total_size"
-    log_info "========================================="
-
-    log_info "All sources downloaded successfully!"
-
-    # Create completion checkpoint
-    create_global_checkpoint "download-complete" "download" "corvidae-mirrors"
-
-    exit 0
+    # Download all categories
+    download_category "LFS Base System" "${LFS_PACKAGES[@]}"
+    download_category "LFS Patches" "${LFS_PATCHES[@]}"
+    download_category "Security & Authentication" "${BLFS_SECURITY[@]}"
+    download_category "GnuPG PQC Stack" "${BLFS_GNUPG[@]}"
+    download_category "Networking" "${BLFS_NETWORKING[@]}"
+    download_category "Libraries" "${BLFS_LIBRARIES[@]}"
+    download_category "X11/Wayland" "${BLFS_DISPLAY[@]}"
+    download_category "Qt6" "${BLFS_QT6[@]}"
+    download_category "Multimedia" "${BLFS_MULTIMEDIA[@]}"
+    download_category "KDE Frameworks" "${BLFS_KDE_FRAMEWORKS[@]}"
+    download_category "KDE Plasma" "${BLFS_KDE_PLASMA[@]}"
+    download_category "SDDM" "${BLFS_SDDM[@]}"
+    download_category "Storage" "${BLFS_STORAGE[@]}"
+    download_category "Development Tools" "${BLFS_DEVEL[@]}"
+    download_category "Python Modules" "${BLFS_PYTHON[@]}"
+    download_category "Miscellaneous" "${BLFS_MISC[@]}"
+    download_category "BLFS Patches" "${BLFS_PATCHES[@]}"
+
+    log_info "=========================================="
+    log_info "Download Complete!"
+    log_info "=========================================="
+    log_info "All packages downloaded to: $SOURCES_DIR"
+    log_info "=========================================="
 }
 
-# Run main function
 main "$@"

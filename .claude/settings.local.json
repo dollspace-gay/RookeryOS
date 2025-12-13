@@ -39,7 +39,9 @@
       "Bash(find:*)",
       "Bash(bash -n:*)",
       "Bash(dir:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(wsl -d Ubuntu bash:*)",
+      "Bash(wsl -d FedoraLinux-42 bash:*)"
     ],
     "deny": [],
     "ask": []

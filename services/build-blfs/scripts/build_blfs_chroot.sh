@@ -8758,21 +8758,21 @@ log_info "pulseaudio-qt-1.7.0 installed successfully"
 create_checkpoint "pulseaudio-qt"
 }
 
-# libwacom-2.16.1 (Wacom tablet library - required by plasma-desktop)
+# libwacom-2.17.0 (Wacom tablet library - required by plasma-desktop)
 # https://www.linuxfromscratch.org/blfs/view/svn/general/libwacom.html
 
 build_libwacom() {
 should_skip_package "libwacom" && { log_info "Skipping libwacom (already built)"; return 0; }
-log_step "Building libwacom-2.16.1..."
+log_step "Building libwacom-2.17.0..."
 
-if [ ! -f /sources/libwacom-2.16.1.tar.xz ]; then
-    log_error "libwacom-2.16.1.tar.xz not found in /sources"
+if [ ! -f /sources/libwacom-2.17.0.tar.xz ]; then
+    log_error "libwacom-2.17.0.tar.xz not found in /sources"
     exit 1
 fi
 
 cd "$BUILD_DIR"
 rm -rf libwacom-*
-tar -xf /sources/libwacom-2.16.1.tar.xz
+tar -xf /sources/libwacom-2.17.0.tar.xz
 cd libwacom-*
 
 mkdir build
@@ -8790,7 +8790,7 @@ cd "$BUILD_DIR"
 rm -rf libwacom-*
 ldconfig
 
-log_info "libwacom-2.16.1 installed successfully"
+log_info "libwacom-2.17.0 installed successfully"
 create_checkpoint "libwacom"
 }
 
