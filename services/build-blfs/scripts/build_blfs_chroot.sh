@@ -4999,6 +4999,38 @@ build_docbook_xsl() {
     create_checkpoint "docbook-xsl"
 }
 
+# itstool-2.0.7 (XML translation tool)
+# https://www.linuxfromscratch.org/blfs/view/stable/pst/itstool.html
+# Requires: docbook-xml
+build_itstool() {
+    should_skip_package "itstool" && { log_info "Skipping itstool"; return 0; }
+    log_step "Building itstool-2.0.7..."
+
+    if [ ! -f /sources/itstool-2.0.7.tar.bz2 ]; then
+        log_error "itstool-2.0.7.tar.bz2 not found in /sources"
+        exit 1
+    fi
+
+    cd "$BUILD_DIR"
+    rm -rf itstool-*
+    tar -xf /sources/itstool-2.0.7.tar.bz2
+    cd itstool-*
+
+    # Fix compatibility problems with Python-3.12 and later
+    sed -i 's/re.sub(/re.sub(r/'         itstool.in
+    sed -i 's/re.compile(/re.compile(r/' itstool.in
+
+    PYTHON=/usr/bin/python3 ./configure --prefix=/usr
+    make
+    make install
+
+    cd "$BUILD_DIR"
+    rm -rf itstool-*
+
+    log_info "itstool-2.0.7 installed successfully"
+    create_checkpoint "itstool"
+}
+
 # ========================================
 # Python Test Dependencies (for PyGObject tests)
 # Build order: setuptools_scm → editables, pathspec, trove-classifiers → pluggy, hatchling → hatch_vcs → iniconfig → pytest
@@ -5251,7 +5283,8 @@ build_hicolor_icon_theme
 build_gsettings_desktop_schemas
 
 log_info "Phase 4: Documentation & Test Infrastructure"
-build_docbook_xml     # Required by docbook-xsl
+build_docbook_xml     # Required by docbook-xsl, itstool
+build_itstool         # Required by appstream
 build_docbook_xsl
 build_shaderc
 
