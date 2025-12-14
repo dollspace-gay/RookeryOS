@@ -37,6 +37,12 @@ create_checkpoint() {
 # Environment
 export MAKEFLAGS="${MAKEFLAGS:--j$(nproc)}"
 
+# Set UTF-8 locale for Qt and other packages that require it
+# This overrides LC_ALL=POSIX from docker-compose
+# Using C.UTF-8 which is built into glibc and doesn't require locale generation
+export LANG=C.UTF-8
+export LC_ALL=C.UTF-8
+
 # Build directory
 BUILD_DIR="/build"
 mkdir -p "$BUILD_DIR"
