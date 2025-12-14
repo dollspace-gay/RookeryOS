@@ -6606,8 +6606,8 @@ else
     # BLFS recommends ~1 core per 1.5GB RAM to avoid OOM
     # With 64GB RAM: 64/1.5 ≈ 42 jobs possible, but CPU-limited to ~20 cores
     # Use NINJAJOBS env var which nested chromium ninja builds will respect
-    export NINJAJOBS=35
-    export NINJAFLAGS="-j35"
+    export NINJAJOBS=25
+    export NINJAFLAGS="-j25"
     log_info "Building QtWebEngine with NINJAJOBS=$NINJAJOBS (i7-14700K + 64GB RAM)"
 
     cmake -DCMAKE_MESSAGE_LOG_LEVEL=STATUS \
@@ -6623,12 +6623,12 @@ else
 fi
 
 # Set NINJAJOBS for the actual build (both fresh and resumed)
-export NINJAJOBS=35
-export NINJAFLAGS="-j35"
+export NINJAJOBS=25
+export NINJAFLAGS="-j25"
 
 # Run with NINJAJOBS environment variable set for nested builds
 log_info "Running ninja build with NINJAJOBS=$NINJAJOBS..."
-if ! NINJAJOBS=40 ninja -j35; then
+if ! NINJAJOBS=40 ninja -j25; then
     log_error "QtWebEngine ninja build failed - you can resume by re-running the build"
     return 1
 fi
