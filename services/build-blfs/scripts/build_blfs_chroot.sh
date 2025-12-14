@@ -8921,6 +8921,52 @@ create_checkpoint "glu"
 }
 
 # =====================================================================
+# CrackLib-2.10.3 (Password Strength Checking Library)
+# https://www.linuxfromscratch.org/blfs/view/stable/postlfs/cracklib.html
+# Required by: libpwquality
+# =====================================================================
+build_cracklib() {
+should_skip_package "cracklib" && { log_info "Skipping CrackLib (already built)"; return 0; }
+log_step "Building CrackLib-2.10.3..."
+
+if [ ! -f /sources/cracklib-2.10.3.tar.xz ]; then
+    log_error "cracklib-2.10.3.tar.xz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf cracklib-*
+tar -xf /sources/cracklib-2.10.3.tar.xz
+cd cracklib-*
+
+# Build with Python bindings disabled (not needed for libpwquality)
+autoreconf -fiv
+
+PYTHON=python3 ./configure --prefix=/usr \
+            --disable-static \
+            --with-default-dict=/usr/lib/cracklib/pw_dict
+
+make $MAKEFLAGS
+make install
+
+# Install the recommended cracklib dictionary
+install -v -m644 -D dicts/cracklib-small \
+    /usr/share/dict/cracklib-small
+ln -sfv cracklib-small /usr/share/dict/words
+
+# Create the word list and dictionary
+install -v -m755 -d /usr/lib/cracklib
+create-cracklib-dict /usr/share/dict/cracklib-small
+
+cd "$BUILD_DIR"
+rm -rf cracklib-*
+ldconfig
+
+log_info "CrackLib-2.10.3 installed successfully"
+create_checkpoint "cracklib"
+}
+
+# =====================================================================
 # libpwquality-1.4.5 (Password Quality Checking Library)
 # https://www.linuxfromscratch.org/blfs/view/stable/postlfs/libpwquality.html
 # =====================================================================
@@ -9669,6 +9715,7 @@ build_libdisplay_info
 
 log_info "Phase 9: Additional Plasma Dependencies"
 build_glu
+build_cracklib
 build_libpwquality
 build_libqalculate
 build_taglib
