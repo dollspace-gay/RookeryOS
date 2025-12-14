@@ -5031,39 +5031,57 @@ build_itstool() {
     create_checkpoint "itstool"
 }
 
-# UnZip-6.0 (ZIP archive extraction utility)
-# https://www.linuxfromscratch.org/blfs/view/cvs/general/unzip.html
-# Required by: ibus (for UCD.zip extraction)
-build_unzip() {
-    should_skip_package "unzip" && { log_info "Skipping unzip"; return 0; }
-    log_step "Building UnZip-6.0..."
+# 7zip-25.01 (File archiver utility - handles ZIP, 7z, and many other formats)
+# https://www.linuxfromscratch.org/blfs/view/12.4/general/7zip.html
+# Required for: ibus (UCD.zip extraction)
+build_7zip() {
+    should_skip_package "7zip" && { log_info "Skipping 7zip"; return 0; }
+    log_step "Building 7zip-25.01..."
 
-    if [ ! -f /sources/unzip60.tar.gz ]; then
-        log_error "unzip60.tar.gz not found in /sources"
+    if [ ! -f /sources/7zip-25.01.tar.gz ]; then
+        log_error "7zip-25.01.tar.gz not found in /sources"
         exit 1
     fi
 
     cd "$BUILD_DIR"
-    rm -rf unzip60
-    tar -xf /sources/unzip60.tar.gz
-    cd unzip60
+    rm -rf 7zip-*
+    tar -xf /sources/7zip-25.01.tar.gz
+    cd 7zip-*
 
-    # Apply BLFS consolidated fixes patch
-    patch -Np1 -i /sources/unzip-6.0-consolidated_fixes-1.patch
+    # Build all components
+    (for i in Bundles/{Alone,Alone7z,Format7zF,SFXCon} UI/Console; do
+        make -C CPP/7zip/$i -f ../../cmpl_gcc.mak || exit
+    done)
 
-    # Fix conflicting gmtime/localtime declarations with modern glibc (2.38+)
-    # See: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=1098043
-    sed -i 's/struct tm \*gmtime(), \*localtime();//' unix/unxcfg.h
+    # Install binaries and library
+    install -vDm755 CPP/7zip/Bundles/Alone/b/g/7za \
+                    CPP/7zip/Bundles/Alone7z/b/g/7zr \
+                    CPP/7zip/Bundles/Format7zF/b/g/7z.so \
+                    CPP/7zip/UI/Console/b/g/7z \
+                    -t /usr/lib/7zip/
 
-    make -f unix/Makefile generic
-    make prefix=/usr MANDIR=/usr/share/man/man1 -f unix/Makefile install
+    install -vm755 CPP/7zip/Bundles/SFXCon/b/g/7zCon \
+                   /usr/lib/7zip/7zCon.sfx
+
+    # Create wrapper scripts in /usr/bin
+    for i in 7z 7za 7zr; do
+        cat > /usr/bin/$i << 'EOF'
+#!/bin/sh
+exec /usr/lib/7zip/$i "$@"
+EOF
+        chmod 755 /usr/bin/$i
+    done
+
+    # Install documentation
+    cp -rv DOC -T /usr/share/doc/7zip-25.01
 
     cd "$BUILD_DIR"
-    rm -rf unzip60
+    rm -rf 7zip-*
 
-    log_info "UnZip-6.0 installed successfully"
-    create_checkpoint "unzip"
+    log_info "7zip-25.01 installed successfully"
+    create_checkpoint "7zip"
 }
+
 
 # ========================================
 # Python Test Dependencies (for PyGObject tests)
@@ -5320,7 +5338,7 @@ log_info "Phase 4: Documentation & Test Infrastructure"
 build_docbook_xml     # Required by docbook-xsl, itstool
 build_itstool         # Required by appstream
 build_docbook_xsl
-build_unzip           # Required by ibus (for UCD.zip)
+build_7zip            # Required by ibus (for UCD.zip)
 build_shaderc
 
 # Python test dependencies (for PyGObject tests)
@@ -9526,7 +9544,7 @@ fi
 # Install Unicode Character Database (required by ibus)
 if [ -f /sources/UCD.zip ]; then
     mkdir -p /usr/share/unicode/ucd
-    unzip -o /sources/UCD.zip -d /usr/share/unicode/ucd
+    7z x /sources/UCD.zip -o/usr/share/unicode/ucd -y
 fi
 
 cd "$BUILD_DIR"
