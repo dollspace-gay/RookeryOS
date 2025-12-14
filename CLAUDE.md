@@ -1,5 +1,5 @@
 # Rookery OS Project Guide
-
+PRIMARY DIRECTIVE: NO SHORTCUTS. NO LAZY FIXES. 
 Custom Linux distro for the **Friendly Society of Corvids** (trans fraternal society). Built on LFS 12.4 + systemd + grsecurity kernel.
 
 ## Issue Tracking (Beads)

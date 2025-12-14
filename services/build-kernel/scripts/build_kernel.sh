@@ -230,16 +230,17 @@ main() {
     scripts/config --module CONFIG_VIRTIO_MMIO
 
     # --- Network drivers ---
-    scripts/config --module CONFIG_NET_VENDOR_INTEL
+    # Vendor options are bool (y/n), individual drivers can be modules
+    scripts/config --enable CONFIG_NET_VENDOR_INTEL
     scripts/config --module CONFIG_E1000
     scripts/config --module CONFIG_E1000E
     scripts/config --module CONFIG_IGB
     scripts/config --module CONFIG_IXGBE
-    scripts/config --module CONFIG_NET_VENDOR_REALTEK
+    scripts/config --enable CONFIG_NET_VENDOR_REALTEK
     scripts/config --module CONFIG_8139TOO
     scripts/config --module CONFIG_8139CP
     scripts/config --module CONFIG_R8169
-    scripts/config --module CONFIG_NET_VENDOR_BROADCOM
+    scripts/config --enable CONFIG_NET_VENDOR_BROADCOM
     scripts/config --module CONFIG_BNX2
     scripts/config --module CONFIG_TIGON3
 
@@ -253,18 +254,18 @@ main() {
     scripts/config --module CONFIG_USB_OHCI_HCD
     scripts/config --module CONFIG_USB_STORAGE
     scripts/config --module CONFIG_USB_HID
-    scripts/config --module CONFIG_USB_HIDDEV
+    scripts/config --enable CONFIG_USB_HIDDEV
 
     # --- HID (input devices) ---
     scripts/config --module CONFIG_HID
     scripts/config --module CONFIG_HID_GENERIC
-    scripts/config --module CONFIG_INPUT_KEYBOARD
-    scripts/config --module CONFIG_INPUT_MOUSE
+    scripts/config --enable CONFIG_INPUT_KEYBOARD
+    scripts/config --enable CONFIG_INPUT_MOUSE
     scripts/config --module CONFIG_INPUT_EVDEV
 
     # --- Audio ---
     scripts/config --module CONFIG_SND
-    scripts/config --module CONFIG_SND_PCI
+    scripts/config --enable CONFIG_SND_PCI
     scripts/config --module CONFIG_SND_HDA_INTEL
     scripts/config --module CONFIG_SND_HDA_CODEC_HDMI
     scripts/config --module CONFIG_SND_HDA_CODEC_REALTEK
@@ -280,11 +281,11 @@ main() {
     scripts/config --module CONFIG_DRM_VIRTIO_GPU
     scripts/config --module CONFIG_DRM_BOCHS
     scripts/config --module CONFIG_DRM_QXL
-    scripts/config --module CONFIG_FB
-    scripts/config --module CONFIG_FB_VESA
+    scripts/config --enable CONFIG_FB
+    scripts/config --enable CONFIG_FB_VESA
 
     # --- Wireless ---
-    scripts/config --module CONFIG_WLAN
+    scripts/config --enable CONFIG_WLAN
     scripts/config --module CONFIG_CFG80211
     scripts/config --module CONFIG_MAC80211
     scripts/config --module CONFIG_IWLWIFI
