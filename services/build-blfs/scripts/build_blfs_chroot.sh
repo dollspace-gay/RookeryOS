@@ -9218,22 +9218,22 @@ create_checkpoint "power-profiles-daemon"
 }
 
 # =====================================================================
-# AccountsService-23.13.9 (D-Bus interface for user account management)
+# accountsaervice-23.13.9 (D-Bus interface for user account management)
 # https://www.linuxfromscratch.org/blfs/view/stable/general/accountsservice.html
 # =====================================================================
 build_accountsservice() {
 should_skip_package "accountsservice" && { log_info "Skipping accountsservice (already built)"; return 0; }
-log_step "Building AccountsService-23.13.9..."
+log_step "Building accountsservice-23.13.9..."
 
-if [ ! -f /sources/AccountsService-23.13.9.tar.xz ]; then
-    log_error "AccountsService-23.13.9.tar.xz not found in /sources"
+if [ ! -f /sources/accountsservice-23.13.9.tar.xz ]; then
+    log_error "accountsservice-23.13.9.tar.xz not found in /sources"
     exit 1
 fi
 
 cd "$BUILD_DIR"
-rm -rf accountsservice-* AccountsService-*
-tar -xf /sources/AccountsService-23.13.9.tar.xz
-cd accountsservice-* || cd AccountsService-*
+rm -rf accountsservice-* accountsservice-*
+tar -xf /sources/accountsservice-23.13.9.tar.xz
+cd accountsservice-* || cd accountsservice-*
 
 mkdir build
 cd build
