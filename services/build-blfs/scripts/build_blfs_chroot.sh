@@ -6602,13 +6602,13 @@ else
     mkdir -p build
     cd    build
 
-    # QtWebEngine (Chromium) is memory-intensive
-    # BLFS recommends ~1 core per 1.5GB RAM to avoid OOM
-    # With 64GB RAM: 64/1.5 ≈ 42 jobs possible, but CPU-limited to ~20 cores
+    # QtWebEngine (Chromium) is EXTREMELY memory-intensive
+    # Chromium jumbo builds use ~3-4GB RAM per compilation job
+    # With 64GB RAM: 64/3.5 ≈ 18 jobs max to avoid OOM
     # Use NINJAJOBS env var which nested chromium ninja builds will respect
-    export NINJAJOBS=25
-    export NINJAFLAGS="-j25"
-    log_info "Building QtWebEngine with NINJAJOBS=$NINJAJOBS (i7-14700K + 64GB RAM)"
+    export NINJAJOBS=12
+    export NINJAFLAGS="-j12"
+    log_info "Building QtWebEngine with NINJAJOBS=$NINJAJOBS (conservative for OOM safety)"
 
     cmake -DCMAKE_MESSAGE_LOG_LEVEL=STATUS \
           -DCMAKE_PREFIX_PATH=/opt/qt6 \
@@ -6623,12 +6623,13 @@ else
 fi
 
 # Set NINJAJOBS for the actual build (both fresh and resumed)
-export NINJAJOBS=25
-export NINJAFLAGS="-j25"
+# Keep it conservative - Chromium Blink jumbo files use ~3-4GB RAM each
+export NINJAJOBS=12
+export NINJAFLAGS="-j12"
 
 # Run with NINJAJOBS environment variable set for nested builds
 log_info "Running ninja build with NINJAJOBS=$NINJAJOBS..."
-if ! NINJAJOBS=40 ninja -j25; then
+if ! NINJAJOBS=$NINJAJOBS ninja -j$NINJAJOBS; then
     log_error "QtWebEngine ninja build failed - you can resume by re-running the build"
     return 1
 fi
