@@ -9188,14 +9188,14 @@ build_power_profiles_daemon() {
 should_skip_package "power-profiles-daemon" && { log_info "Skipping power-profiles-daemon (already built)"; return 0; }
 log_step "Building power-profiles-daemon-0.30..."
 
-if [ ! -f /sources/power-profiles-daemon-0.30.tar.xz ]; then
-    log_error "power-profiles-daemon-0.30.tar.xz not found in /sources"
+if [ ! -f /sources/power-profiles-daemon-0.30.tar.gz ]; then
+    log_error "power-profiles-daemon-0.30.tar.gz not found in /sources"
     exit 1
 fi
 
 cd "$BUILD_DIR"
 rm -rf power-profiles-daemon-*
-tar -xf /sources/power-profiles-daemon-0.30.tar.xz
+tar -xf /sources/power-profiles-daemon-0.30.tar.gz
 cd power-profiles-daemon-*
 
 mkdir build
