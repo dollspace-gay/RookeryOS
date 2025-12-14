@@ -22,7 +22,6 @@ fi
 SOURCES_DIR="/sources"
 MAX_RETRIES=3
 RETRY_DELAY=2
-DOWNLOAD_TIMEOUT=180
 
 # Parallel download settings - tune for your connection
 # Starlink/fast connections can handle 8-16 parallel downloads
