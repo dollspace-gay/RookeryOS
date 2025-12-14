@@ -10,6 +10,7 @@ RUN apk add --no-cache \
     bash \
     grep \
     sed \
+    findutils \
     parallel
 
 WORKDIR /sources

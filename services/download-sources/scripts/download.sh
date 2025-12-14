@@ -3,7 +3,7 @@ set -euo pipefail
 
 # =============================================================================
 # RookeryOS Download Sources Script
-# Downloads ALL packages from Corvidae mirror
+# Downloads ALL packages from Corvidae mirror (PARALLEL)
 # =============================================================================
 
 # Load common utilities
@@ -21,8 +21,12 @@ fi
 # Configuration
 SOURCES_DIR="/sources"
 MAX_RETRIES=3
-RETRY_DELAY=5
-DOWNLOAD_TIMEOUT=300
+RETRY_DELAY=2
+DOWNLOAD_TIMEOUT=180
+
+# Parallel download settings - tune for your connection
+# Starlink/fast connections can handle 8-16 parallel downloads
+PARALLEL_JOBS="${PARALLEL_JOBS:-10}"
 
 # Corvidae Mirror - single source for all packages
 MIRROR="http://corvidae.social/RookerySource"
@@ -30,13 +34,16 @@ MIRROR="http://corvidae.social/RookerySource"
 # Note: ROOKERY for download-sources points to /sources since we don't have /rookery yet
 export ROOKERY="${ROOKERY:-/rookery}"
 
+# Export for use in subprocesses
+export SOURCES_DIR MIRROR MAX_RETRIES RETRY_DELAY DOWNLOAD_TIMEOUT
+
 # Setup logging trap
 trap 'finalize_logging $?' EXIT
 
 # =============================================================================
-# Download with retry
+# Download single file (called in parallel)
 # =============================================================================
-download_with_retry() {
+download_single() {
     local filename="$1"
     local output="$SOURCES_DIR/$filename"
     local url="$MIRROR/$filename"
@@ -44,46 +51,43 @@ download_with_retry() {
 
     # Skip if already exists
     if [ -f "$output" ]; then
-        log_info "[SKIP] $filename (already exists)"
+        echo "[SKIP] $filename"
         return 0
     fi
 
     while [ $attempt -le $MAX_RETRIES ]; do
-        log_info "Downloading $filename (attempt $attempt/$MAX_RETRIES)..."
-
-        if wget --continue \
-                --progress=dot:giga \
-                --timeout=$DOWNLOAD_TIMEOUT \
-                --read-timeout=60 \
-                --dns-timeout=20 \
-                --tries=2 \
-                -O "$output" \
-                "$url" 2>&1; then
-            log_info "[OK] $filename"
-            # Create checkpoint for this download
-            create_checkpoint "dl-$filename" "$SOURCES_DIR" "download"
+        # Use curl for better performance (connection reuse)
+        if curl -fSL \
+                --connect-timeout 15 \
+                --max-time $DOWNLOAD_TIMEOUT \
+                --retry 2 \
+                --retry-delay 1 \
+                -o "$output" \
+                "$url" 2>/dev/null; then
+            echo "[OK] $filename"
             return 0
         fi
 
-        log_warn "Download failed, retrying in $RETRY_DELAY seconds..."
         rm -f "$output"  # Remove partial download
         sleep $RETRY_DELAY
         attempt=$((attempt + 1))
     done
 
-    log_error "FAILED: $filename after $MAX_RETRIES attempts"
+    echo "[FAIL] $filename"
     return 1
 }
+export -f download_single
 
 # =============================================================================
 # Main
 # =============================================================================
 main() {
     log_info "=========================================="
-    log_info "RookeryOS Source Download"
+    log_info "RookeryOS Source Download (PARALLEL)"
     log_info "=========================================="
     log_info "Mirror: $MIRROR"
     log_info "Target: $SOURCES_DIR"
+    log_info "Parallel jobs: $PARALLEL_JOBS"
     log_info "=========================================="
 
     # Create sources directory
@@ -93,8 +97,7 @@ main() {
     log_info "Fetching file list from mirror..."
 
     # Fetch HTML and extract filenames
-    # Uses GNU grep (-oE for extended regex with -o output)
-    FILE_LIST=$(wget -q -O - "$MIRROR/" | \
+    FILE_LIST=$(curl -sfL "$MIRROR/" | \
         grep -oE 'href="[^"]+\.(tar\.gz|tar\.xz|tar\.bz2|tar\.lz|tgz|patch|zip)"' | \
         sed 's/href="//;s/"$//' | \
         sort -u)
@@ -107,37 +110,46 @@ main() {
     TOTAL_FILES=$(echo "$FILE_LIST" | wc -l)
     log_info "Found $TOTAL_FILES files on mirror"
 
-    # Download all files
-    local failed=0
-    local downloaded=0
-    local skipped=0
-    local current=0
-
-    while IFS= read -r filename; do
-        current=$((current + 1))
-        log_info "[$current/$TOTAL_FILES] Processing: $filename"
-
-        if [ -f "$SOURCES_DIR/$filename" ]; then
-            log_info "[SKIP] $filename (already exists)"
-            skipped=$((skipped + 1))
-        elif download_with_retry "$filename"; then
-            downloaded=$((downloaded + 1))
-        else
-            failed=$((failed + 1))
-        fi
+    # Count already downloaded
+    local existing=0
+    while IFS= read -r f; do
+        [ -f "$SOURCES_DIR/$f" ] && existing=$((existing + 1))
     done <<< "$FILE_LIST"
 
+    local to_download=$((TOTAL_FILES - existing))
+    log_info "Already downloaded: $existing"
+    log_info "To download: $to_download"
+    log_info ""
+    log_info "Starting parallel downloads ($PARALLEL_JOBS at a time)..."
+    log_info "=========================================="
+
+    # Create temp file for results
+    RESULTS_FILE=$(mktemp)
+    trap "rm -f $RESULTS_FILE; finalize_logging \$?" EXIT
+
+    # Run parallel downloads using xargs
+    # -P = parallel jobs, -I = replacement string
+    echo "$FILE_LIST" | xargs -P "$PARALLEL_JOBS" -I {} bash -c 'download_single "$@"' _ {} 2>&1 | tee "$RESULTS_FILE"
+
+    # Count results
+    local ok_count=$(grep -c '^\[OK\]' "$RESULTS_FILE" 2>/dev/null || echo 0)
+    local skip_count=$(grep -c '^\[SKIP\]' "$RESULTS_FILE" 2>/dev/null || echo 0)
+    local fail_count=$(grep -c '^\[FAIL\]' "$RESULTS_FILE" 2>/dev/null || echo 0)
+
+    log_info ""
     log_info "=========================================="
     log_info "Download Complete!"
     log_info "=========================================="
     log_info "Total files: $TOTAL_FILES"
-    log_info "Downloaded: $downloaded"
-    log_info "Skipped (existing): $skipped"
-    log_info "Failed: $failed"
+    log_info "Downloaded: $ok_count"
+    log_info "Skipped (existing): $skip_count"
+    log_info "Failed: $fail_count"
     log_info "=========================================="
 
-    if [ $failed -gt 0 ]; then
-        log_warn "$failed files failed to download"
+    # Show failed files if any
+    if [ "$fail_count" -gt 0 ]; then
+        log_warn "Failed downloads:"
+        grep '^\[FAIL\]' "$RESULTS_FILE" | sed 's/\[FAIL\] /  - /'
         exit 1
     fi
 }
