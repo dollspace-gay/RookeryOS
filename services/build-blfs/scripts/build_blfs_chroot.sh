@@ -9306,6 +9306,40 @@ create_checkpoint "smartmontools"
 }
 
 # =====================================================================
+# Bubblewrap-0.11.0 (Sandboxing tool for unprivileged containers)
+# https://www.linuxfromscratch.org/blfs/view/stable/general/bubblewrap.html
+# Required by: xdg-desktop-portal (recommended for security)
+# =====================================================================
+build_bubblewrap() {
+should_skip_package "bubblewrap" && { log_info "Skipping bubblewrap (already built)"; return 0; }
+log_step "Building Bubblewrap-0.11.0..."
+
+if [ ! -f /sources/bubblewrap-0.11.0.tar.xz ]; then
+    log_error "bubblewrap-0.11.0.tar.xz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf bubblewrap-*
+tar -xf /sources/bubblewrap-0.11.0.tar.xz
+cd bubblewrap-*
+
+mkdir build
+cd build
+
+meson setup --prefix=/usr --buildtype=release ..
+ninja
+ninja install
+
+cd "$BUILD_DIR"
+rm -rf bubblewrap-*
+ldconfig
+
+log_info "Bubblewrap-0.11.0 installed successfully"
+create_checkpoint "bubblewrap"
+}
+
+# =====================================================================
 # xdg-desktop-portal-1.20.3 (Portal frontend service - desktop integration)
 # https://www.linuxfromscratch.org/blfs/view/stable/general/xdg-desktop-portal.html
 # =====================================================================
@@ -9366,8 +9400,7 @@ cd build
 meson setup --prefix=/usr \
             --buildtype=release \
             -D apidocs=false \
-            -D docs=false \
-            -D qt=true \
+            -D stemming=false \
             ..
 ninja
 ninja install
@@ -9397,8 +9430,9 @@ rm -rf xdotool-*
 tar -xf /sources/xdotool-3.20211022.1.tar.gz
 cd xdotool-*
 
-make PREFIX=/usr $MAKEFLAGS
-make PREFIX=/usr install
+# BLFS instructions
+make WITHOUT_RPATH_FIX=1
+make PREFIX=/usr INSTALLMAN=/usr/share/man install
 
 cd "$BUILD_DIR"
 rm -rf xdotool-*
@@ -9421,20 +9455,44 @@ if [ ! -f /sources/ibus-1.5.32.tar.gz ]; then
     exit 1
 fi
 
+# Install Unicode Character Database (required by ibus)
+if [ -f /sources/UCD.zip ]; then
+    mkdir -p /usr/share/unicode/ucd
+    unzip -o /sources/UCD.zip -d /usr/share/unicode/ucd
+fi
+
 cd "$BUILD_DIR"
 rm -rf ibus-*
 tar -xf /sources/ibus-1.5.32.tar.gz
 cd ibus-*
 
-./configure --prefix=/usr \
-            --sysconfdir=/etc \
-            --disable-unicode-dict \
-            --disable-emoji-dict \
-            --enable-wayland \
-            --with-python=/usr/bin/python3
+# Fix issue with deprecated schema entries
+sed -e 's@/desktop/ibus@/org/freedesktop/ibus@g' \
+    -i data/dconf/org.freedesktop.ibus.gschema.xml
+
+# Remove gtk-doc references if not installed
+if ! [ -e /usr/bin/gtkdocize ]; then
+    sed '/docs/d;/GTK_DOC/d' -i Makefile.am configure.ac
+fi
+
+# Run autogen.sh per BLFS
+SAVE_DIST_FILES=1 NOCONFIGURE=1 ./autogen.sh
+
+PYTHON=python3                     \
+./configure --prefix=/usr          \
+            --sysconfdir=/etc      \
+            --disable-python2      \
+            --disable-appindicator \
+            --disable-gtk2         \
+            --disable-emoji-dict
 
 make $MAKEFLAGS
 make install
+
+# Update GTK+ immodules cache if gtk3 is installed
+if [ -x /usr/bin/gtk-query-immodules-3.0 ]; then
+    gtk-query-immodules-3.0 --update-cache
+fi
 
 cd "$BUILD_DIR"
 rm -rf ibus-*
@@ -9743,6 +9801,7 @@ build_fuse3
 build_power_profiles_daemon
 build_accountsservice
 build_smartmontools
+build_bubblewrap
 build_xdg_desktop_portal
 build_appstream
 build_xdotool
