@@ -5065,9 +5065,9 @@ build_7zip() {
 
     # Create wrapper scripts in /usr/bin
     for i in 7z 7za 7zr; do
-        cat > /usr/bin/$i << 'EOF'
+        cat > /usr/bin/$i << EOF
 #!/bin/sh
-exec /usr/lib/7zip/$i "$@"
+exec /usr/lib/7zip/$i "\$@"
 EOF
         chmod 755 /usr/bin/$i
     done
