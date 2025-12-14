@@ -5031,6 +5031,34 @@ build_itstool() {
     create_checkpoint "itstool"
 }
 
+# UnZip-6.0 (ZIP archive extraction utility)
+# https://infozip.sourceforge.net/UnZip.html
+# Required by: ibus (for UCD.zip extraction)
+build_unzip() {
+    should_skip_package "unzip" && { log_info "Skipping unzip"; return 0; }
+    log_step "Building UnZip-6.0..."
+
+    if [ ! -f /sources/unzip60.tar.gz ]; then
+        log_error "unzip60.tar.gz not found in /sources"
+        exit 1
+    fi
+
+    cd "$BUILD_DIR"
+    rm -rf unzip60
+    tar -xf /sources/unzip60.tar.gz
+    cd unzip60
+
+    # Use linux_noasm target for 64-bit systems (can't assemble 32-bit code)
+    make -f unix/Makefile linux_noasm
+    make prefix=/usr MANDIR=/usr/share/man/man1 -f unix/Makefile install
+
+    cd "$BUILD_DIR"
+    rm -rf unzip60
+
+    log_info "UnZip-6.0 installed successfully"
+    create_checkpoint "unzip"
+}
+
 # ========================================
 # Python Test Dependencies (for PyGObject tests)
 # Build order: setuptools_scm → editables, pathspec, trove-classifiers → pluggy, hatchling → hatch_vcs → iniconfig → pytest
@@ -5286,6 +5314,7 @@ log_info "Phase 4: Documentation & Test Infrastructure"
 build_docbook_xml     # Required by docbook-xsl, itstool
 build_itstool         # Required by appstream
 build_docbook_xsl
+build_unzip           # Required by ibus (for UCD.zip)
 build_shaderc
 
 # Python test dependencies (for PyGObject tests)
