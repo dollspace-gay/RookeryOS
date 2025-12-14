@@ -9326,10 +9326,10 @@ cd xdg-desktop-portal-*
 mkdir build
 cd build
 
+# BLFS: Use -D tests=disabled to avoid requiring optional test dependencies
 meson setup --prefix=/usr \
             --buildtype=release \
-            -D docbook-docs=disabled \
-            -D man-pages=disabled \
+            -D tests=disabled \
             ..
 ninja
 ninja install
