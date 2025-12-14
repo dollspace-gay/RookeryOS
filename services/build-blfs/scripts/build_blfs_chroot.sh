@@ -37,9 +37,17 @@ create_checkpoint() {
 # Environment
 export MAKEFLAGS="${MAKEFLAGS:--j$(nproc)}"
 
+# Ensure UTF-8 locales are generated (may have been missed in base build)
+if [ ! -d /usr/lib/locale ] || [ ! -f /usr/lib/locale/locale-archive ]; then
+    log_info "Generating UTF-8 locales..."
+    mkdir -p /usr/lib/locale
+    localedef -i C -f UTF-8 C.UTF-8 2>/dev/null || true
+    localedef -i en_US -f UTF-8 en_US.UTF-8 2>/dev/null || true
+    localedef -i en_GB -f UTF-8 en_GB.UTF-8 2>/dev/null || true
+fi
+
 # Set UTF-8 locale for Qt and other packages that require it
 # This overrides LC_ALL=POSIX from docker-compose
-# Using C.UTF-8 which is built into glibc and doesn't require locale generation
 export LANG=C.UTF-8
 export LC_ALL=C.UTF-8
 
