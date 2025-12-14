@@ -19,11 +19,11 @@ bd sync --from-main         # Sync at session end
 
 | Stage | Service | What it does |
 |-------|---------|--------------|
-| 1 | `download-sources` | Downloads LFS + BLFS packages |
+| 1 | `download-sources` | Downloads Rookery Core + Extended packages |
 | 2 | `build-toolchain` | Cross-compiler (Ch 5-6) |
-| 3 | `build-basesystem` | 42 LFS packages in chroot (Ch 7-8) |
+| 3 | `build-basesystem` | 42 Rookery Core packages in chroot (Ch 7-8) |
 | 4 | `configure-system` | systemd configs, network (Ch 9) |
-| 5 | `build-blfs` | BLFS packages (PAM, polkit, X11, etc.) |
+| 5 | `build-extended` | Rookery Extended packages (PAM, polkit, X11, etc.) |
 | 6 | `build-kernel` | grsec kernel + modules |
 | 7 | `package-image` | Bootable .img and .iso |
 
@@ -32,8 +32,8 @@ bd sync --from-main         # Sync at session end
 ```
 services/
 ├── download-sources/scripts/download.sh     # Package downloads
-├── build-basesystem/scripts/build_in_chroot.sh  # LFS build
-├── build-blfs/scripts/build_blfs_chroot.sh      # BLFS build
+├── build-basesystem/scripts/build_in_chroot.sh  # Rookery Core build
+├── build-blfs/scripts/build_blfs_chroot.sh      # Rookery Extended build
 ├── build-kernel/scripts/build_kernel.sh         # Kernel
 └── package-image/scripts/package_image.sh       # Image creation
 ```
@@ -63,29 +63,29 @@ should_skip_package "pkg" && { log_info "Skipping"; } || {
 
 | Volume | Purpose |
 |--------|---------|
-| `easylfs_lfs-sources` | Downloaded packages |
-| `easylfs_lfs-tools` | Cross-compiler |
-| `easylfs_lfs-rootfs` | Main filesystem |
-| `easylfs_lfs-dist` | Final images |
+| `rookery_sources` | Downloaded packages |
+| `rookery_tools` | Cross-compiler |
+| `rookery_rootfs` | Main filesystem |
+| `rookery_dist` | Final images |
 
 ## Common Commands
 
 ```bash
 make build                           # Full build
-docker-compose run --rm build-blfs   # Single stage
-docker-compose build --no-cache build-blfs  # Rebuild container
+docker-compose run --rm build-extended   # Single stage
+docker-compose build --no-cache build-extended  # Rebuild container
 
 # View logs
-docker run --rm -v easylfs_lfs-logs:/logs ubuntu:22.04 tail -100 /logs/build-basesystem.log
+docker run --rm -v rookery_logs:/logs ubuntu:22.04 tail -100 /logs/build-basesystem.log
 
 # Force rebuild package
-docker run --rm -v easylfs_lfs-rootfs:/lfs ubuntu:22.04 rm -f /lfs/.checkpoints/blfs-<pkg>.checkpoint
+docker run --rm -v rookery_rootfs:/rookery ubuntu:22.04 rm -f /rookery/.checkpoints/blfs-<pkg>.checkpoint
 
 # Test image
 qemu-system-x86_64 -m 2G -drive file=dist/rookery-os-1.0.img,format=raw -nographic -serial mon:stdio
 ```
 
-## Adding BLFS Packages
+## Adding Rookery Extended Packages
 
 1. Add download to `download.sh`:
 ```bash
@@ -108,7 +108,7 @@ create_checkpoint "pkg"
 
 | Variable | Default |
 |----------|---------|
-| `LFS` | `/lfs` |
+| `ROOKERY` | `/rookery` |
 | `MAKEFLAGS` | `-j4` |
 | `KERNEL_VERSION` | `6.6.102-grsec` |
 | `IMAGE_NAME` | `rookery-os-1.0` |

@@ -2,20 +2,20 @@
 set -euo pipefail
 
 # =============================================================================
-# EasyLFS Chroot Build Script
-# Builds LFS system packages inside chroot environment (LFS Chapters 7-8)
+# Rookery OS Chroot Build Script
+# Builds Rookery OS system packages inside chroot environment (LFS Chapters 7-8)
 # This script is executed inside the chroot, NOT on the host
 # =============================================================================
 
 # Chroot environment setup
 export HOME=/root
 export TERM="${TERM:-linux}"
-export PS1='(lfs chroot) \u:\w\$ '
+export PS1='(rookery chroot) \u:\w\$ '
 export PATH=/usr/bin:/usr/sbin:/bin:/sbin:/tools/bin
 export MAKEFLAGS="-j$(nproc)"
 export LC_ALL=POSIX
 export BUILD_STAGE="${BUILD_STAGE:-all}"  # all, glibc, or remaining
-export LFS="/"  # Inside chroot, LFS root is /
+export ROOKERY="/"  # Inside chroot, ROOKERY root is /
 export SERVICE_NAME="${SERVICE_NAME:-build-basesystem}"
 
 GREEN='\033[0;32m'
@@ -30,7 +30,7 @@ log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 # Load common utilities from chroot
-CHROOT_COMMON_DIR="/tmp/easylfs-common"
+CHROOT_COMMON_DIR="/tmp/rookery-common"
 
 # Load checkpointing module if available
 if [ -f "$CHROOT_COMMON_DIR/checkpointing.sh" ]; then
@@ -1876,10 +1876,10 @@ if [ "$VERIFICATION_FAILED" -eq 1 ]; then
     log_error "The build stopped before completion"
     log_error ""
     log_error "To debug, check the build log for errors:"
-    log_error "  docker run --rm -v easylfs_lfs-logs:/logs ubuntu:22.04 cat /logs/build-basesystem.log"
+    log_error "  docker run --rm -v rookery_logs:/logs ubuntu:22.04 cat /logs/build-basesystem.log"
     log_error ""
     log_error "Or view recent log entries:"
-    log_error "  docker run --rm -v easylfs_lfs-logs:/logs ubuntu:22.04 tail -100 /logs/build-basesystem.log"
+    log_error "  docker run --rm -v rookery_logs:/logs ubuntu:22.04 tail -100 /logs/build-basesystem.log"
     log_error "=========================================="
     exit 1
 fi

@@ -29,7 +29,7 @@ RUN apt-get update && apt-get install -y \
 
 # Copy packaging script
 # Copy common utilities
-COPY common /usr/local/lib/easylfs-common
+COPY common /usr/local/lib/rookery-common
 
 COPY package-image/scripts/package_image.sh /usr/local/bin/package_image.sh
 RUN chmod +x /usr/local/bin/package_image.sh

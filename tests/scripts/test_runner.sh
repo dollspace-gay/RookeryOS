@@ -2,8 +2,8 @@
 set -e
 
 # =============================================================================
-# EasyLFS Test Runner - Main Entry Point
-# Runs containerized tests for the EasyLFS pipeline
+# Rookery OS Test Runner - Main Entry Point
+# Runs containerized tests for the Rookery OS pipeline
 # =============================================================================
 
 # Colors
@@ -20,8 +20,8 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 # Display banner
 echo "=============================================="
-echo "  EasyLFS Automated Test Suite"
-echo "  LFS 12.4 (SystemD) Pipeline Validation"
+echo "  Rookery OS Automated Test Suite"
+echo "  Rookery OS 1.0 (SystemD) Pipeline Validation"
 echo "=============================================="
 echo ""
 
@@ -51,7 +51,7 @@ case "$TEST_TYPE" in
 
     help|--help|-h)
         cat << EOF
-EasyLFS Test Runner
+Rookery OS Test Runner
 
 Usage: docker compose run --rm test [COMMAND]
 

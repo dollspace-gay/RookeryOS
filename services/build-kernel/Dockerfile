@@ -21,7 +21,7 @@ RUN apt-get update && apt-get install -y \
 
 # Copy build script
 # Copy common utilities
-COPY common /usr/local/lib/easylfs-common
+COPY common /usr/local/lib/rookery-common
 
 COPY build-kernel/scripts/build_kernel.sh /usr/local/bin/build_kernel.sh
 RUN chmod +x /usr/local/bin/build_kernel.sh

@@ -2,7 +2,7 @@
 set -e
 
 # =============================================================================
-# EasyLFS Full Pipeline Test
+# Rookery OS Full Pipeline Test
 # Runs complete build and validation
 # Duration: 6-11 hours
 # =============================================================================
@@ -22,7 +22,7 @@ log_pass() { echo -e "${GREEN}[PASS]${NC} $1"; ((PASSED++)); }
 log_fail() { echo -e "${RED}[FAIL]${NC} $1"; ((FAILED++)); }
 
 echo "=========================================="
-echo "EasyLFS Full Pipeline Test"
+echo "Rookery OS Full Pipeline Test"
 echo "=========================================="
 echo "Start time: $(date)"
 echo ""
@@ -45,7 +45,7 @@ if docker compose run --rm download-sources; then
     log_pass "download-sources completed in ${duration}s"
 
     # Validate
-    file_count=$(docker run --rm -v easylfs_lfs-sources:/sources ubuntu:22.04 \
+    file_count=$(docker run --rm -v rookery_sources:/sources ubuntu:22.04 \
         sh -c 'ls /sources/*.tar.* 2>/dev/null | wc -l')
 
     if [ "$file_count" -ge 90 ]; then
@@ -73,7 +73,7 @@ if docker compose run --rm build-toolchain; then
     log_pass "build-toolchain completed in ${hours}h ${minutes}m"
 
     # Validate
-    if docker run --rm -v easylfs_lfs-tools:/tools ubuntu:22.04 test -f /tools/bin/gcc; then
+    if docker run --rm -v rookery_tools:/tools ubuntu:22.04 test -f /tools/bin/gcc; then
         log_pass "Cross-compiler found"
     else
         log_fail "Cross-compiler not found"
@@ -98,7 +98,7 @@ if docker compose run --rm build-basesystem; then
     log_pass "build-basesystem completed in ${hours}h ${minutes}m"
 
     # Validate
-    if docker run --rm -v easylfs_lfs-rootfs:/lfs ubuntu:22.04 test -f /lfs/bin/bash; then
+    if docker run --rm -v rookery_rootfs:/rookery ubuntu:22.04 test -f /rookery/bin/bash; then
         log_pass "Bash found in base system"
     else
         log_fail "Bash not found"
@@ -121,7 +121,7 @@ if docker compose run --rm configure-system; then
     log_pass "configure-system completed in ${duration}s"
 
     # Validate
-    if docker run --rm -v easylfs_lfs-rootfs:/lfs ubuntu:22.04 test -f /lfs/etc/fstab; then
+    if docker run --rm -v rookery_rootfs:/rookery ubuntu:22.04 test -f /rookery/etc/fstab; then
         log_pass "System configuration files created"
     else
         log_fail "Configuration files missing"
@@ -145,7 +145,7 @@ if docker compose run --rm build-kernel; then
     log_pass "build-kernel completed in ${minutes}m"
 
     # Validate
-    if docker run --rm -v easylfs_lfs-rootfs:/lfs ubuntu:22.04 test -f /lfs/boot/vmlinuz; then
+    if docker run --rm -v rookery_rootfs:/rookery ubuntu:22.04 test -f /rookery/boot/vmlinuz; then
         log_pass "Kernel image created"
     else
         log_fail "Kernel image not found"
@@ -169,7 +169,7 @@ if docker compose run --rm package-image; then
     log_pass "package-image completed in ${minutes}m"
 
     # Validate
-    if docker run --rm -v easylfs_lfs-dist:/dist ubuntu:22.04 test -f /dist/lfs-12.4-sysv.img.gz; then
+    if docker run --rm -v rookery_dist:/dist ubuntu:22.04 test -f /dist/rookery-os-1.0.img.gz; then
         log_pass "Bootable image created"
     else
         log_fail "Bootable image not found"

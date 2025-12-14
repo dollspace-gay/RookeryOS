@@ -1,6 +1,6 @@
-# EasyLFS Automated Test Suite
+# Rookery OS Automated Test Suite
 
-Containerized testing framework for the EasyLFS pipeline.
+Containerized testing framework for the Rookery OS pipeline.
 
 ## Quick Start
 
@@ -93,7 +93,7 @@ Located in `tests/scripts/`:
 Use in GitHub Actions or similar:
 
 ```yaml
-- name: Run EasyLFS Tests
+- name: Run Rookery OS Tests
   run: docker compose run --rm test quick
 ```
 
@@ -145,7 +145,7 @@ docker compose run --rm test quick
 #!/bin/bash
 # .git/hooks/pre-commit
 
-echo "Running EasyLFS quick tests..."
+echo "Running Rookery OS quick tests..."
 docker compose run --rm test quick || {
     echo "Tests failed! Commit aborted."
     exit 1
@@ -177,7 +177,7 @@ docker compose run --rm test full > test-$(date +%Y%m%d).log 2>&1
 
 The test container has access to:
 - Docker socket (to run docker commands)
-- All EasyLFS volumes (read-only)
+- All Rookery OS volumes (read-only)
 - docker compose.yml (to introspect services)
 
 ## Performance

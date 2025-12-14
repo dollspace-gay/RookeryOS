@@ -2,8 +2,8 @@
 set -e
 
 # =============================================================================
-# EasyLFS BLFS Chroot Build Script
-# Builds Beyond LFS packages inside the chroot environment
+# Rookery OS Extended Packages Chroot Build Script
+# Builds Rookery Extended packages inside the chroot environment
 # =============================================================================
 
 # Simple logging for chroot environment (no file logging - stdout only)
@@ -18,8 +18,8 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 log_step() { echo -e "${BLUE}[STEP]${NC} $1"; }
 
 # Load checkpointing (doesn't need file logging)
-if [ -f /tmp/easylfs-common/checkpointing.sh ]; then
-    source /tmp/easylfs-common/checkpointing.sh
+if [ -f /tmp/rookery-common/checkpointing.sh ]; then
+    source /tmp/rookery-common/checkpointing.sh
 fi
 
 # Checkpointing for BLFS (always use these, simpler than LFS checkpointing)
@@ -43,7 +43,7 @@ mkdir -p "$BUILD_DIR"
 cd "$BUILD_DIR"
 
 log_info "=========================================="
-log_info "BLFS Package Build - Chroot Environment"
+log_info "Rookery Extended Package Build - Chroot Environment"
 log_info "=========================================="
 log_info "Build directory: $BUILD_DIR"
 log_info "MAKEFLAGS: $MAKEFLAGS"

@@ -8,7 +8,7 @@ set -euo pipefail
 # Duration: 30-90 minutes (grsec adds compile-time overhead)
 # =============================================================================
 
-export LFS="${LFS:-/lfs}"
+export ROOKERY="${ROOKERY:-/rookery}"
 export MAKEFLAGS="${MAKEFLAGS:--j$(nproc)}"
 export KERNEL_VERSION="${KERNEL_VERSION:-6.6.102-grsec}"
 export USE_LOCAL_KERNEL="${USE_LOCAL_KERNEL:-true}"
@@ -19,7 +19,7 @@ BUILD_DIR="/tmp/kernel-build"
 
 # Load common utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COMMON_DIR="/usr/local/lib/easylfs-common"
+COMMON_DIR="/usr/local/lib/rookery-common"
 if [ -d "$COMMON_DIR" ]; then
     source "$COMMON_DIR/logging.sh" 2>/dev/null || true
     source "$COMMON_DIR/checkpointing.sh" 2>/dev/null || true
@@ -352,7 +352,7 @@ main() {
     # Install modules
     # =========================================================================
     log_step "Installing kernel modules..."
-    make INSTALL_MOD_PATH=$LFS modules_install
+    make INSTALL_MOD_PATH=$ROOKERY modules_install
 
     # Get the actual kernel version from the build
     ACTUAL_VERSION=$(make -s kernelrelease)
@@ -360,23 +360,23 @@ main() {
 
     # Run depmod to generate module dependencies
     log_step "Running depmod..."
-    depmod -a -b $LFS "$ACTUAL_VERSION" || log_warn "depmod failed (may need to run after boot)"
+    depmod -a -b $ROOKERY "$ACTUAL_VERSION" || log_warn "depmod failed (may need to run after boot)"
 
     # =========================================================================
     # Install kernel
     # =========================================================================
     log_step "Installing kernel image..."
-    mkdir -p $LFS/boot
+    mkdir -p $ROOKERY/boot
 
-    cp -fv arch/x86/boot/bzImage $LFS/boot/vmlinuz-$ACTUAL_VERSION
-    cp -fv System.map $LFS/boot/System.map-$ACTUAL_VERSION
-    cp -fv .config $LFS/boot/config-$ACTUAL_VERSION
+    cp -fv arch/x86/boot/bzImage $ROOKERY/boot/vmlinuz-$ACTUAL_VERSION
+    cp -fv System.map $ROOKERY/boot/System.map-$ACTUAL_VERSION
+    cp -fv .config $ROOKERY/boot/config-$ACTUAL_VERSION
 
     # Create symlinks
-    rm -f $LFS/boot/vmlinuz $LFS/boot/System.map $LFS/boot/config
-    ln -sf vmlinuz-$ACTUAL_VERSION $LFS/boot/vmlinuz
-    ln -sf System.map-$ACTUAL_VERSION $LFS/boot/System.map
-    ln -sf config-$ACTUAL_VERSION $LFS/boot/config
+    rm -f $ROOKERY/boot/vmlinuz $ROOKERY/boot/System.map $ROOKERY/boot/config
+    ln -sf vmlinuz-$ACTUAL_VERSION $ROOKERY/boot/vmlinuz
+    ln -sf System.map-$ACTUAL_VERSION $ROOKERY/boot/System.map
+    ln -sf config-$ACTUAL_VERSION $ROOKERY/boot/config
 
     # =========================================================================
     # Install linux-firmware
@@ -396,12 +396,12 @@ main() {
         tar -xf "$firmware_tarball"
         cd linux-firmware-*
 
-        mkdir -p $LFS/lib/firmware
+        mkdir -p $ROOKERY/lib/firmware
         # Install all firmware files
-        cp -a * $LFS/lib/firmware/ 2>/dev/null || true
+        cp -a * $ROOKERY/lib/firmware/ 2>/dev/null || true
 
-        FIRMWARE_SIZE=$(du -sh $LFS/lib/firmware | cut -f1)
-        log_info "Firmware installed to $LFS/lib/firmware ($FIRMWARE_SIZE)"
+        FIRMWARE_SIZE=$(du -sh $ROOKERY/lib/firmware | cut -f1)
+        log_info "Firmware installed to $ROOKERY/lib/firmware ($FIRMWARE_SIZE)"
 
         cd /tmp
         rm -rf linux-firmware-*
@@ -414,9 +414,9 @@ main() {
     # Configure automatic module loading
     # =========================================================================
     log_step "Configuring automatic module loading..."
-    mkdir -p $LFS/etc/modules-load.d
+    mkdir -p $ROOKERY/etc/modules-load.d
 
-    cat > $LFS/etc/modules-load.d/virtio.conf << "EOF"
+    cat > $ROOKERY/etc/modules-load.d/virtio.conf << "EOF"
 # VirtIO modules for QEMU/KVM
 virtio_pci
 virtio_blk
@@ -424,7 +424,7 @@ virtio_net
 virtio_console
 EOF
 
-    cat > $LFS/etc/modules-load.d/usb.conf << "EOF"
+    cat > $ROOKERY/etc/modules-load.d/usb.conf << "EOF"
 # USB modules
 xhci_hcd
 ehci_hcd
@@ -445,14 +445,14 @@ EOF
     log_info "=========================================="
     log_info "Rookery OS Grsec Kernel Build Complete!"
     log_info "=========================================="
-    log_info "Kernel:   $LFS/boot/vmlinuz-$ACTUAL_VERSION"
-    log_info "System.map: $LFS/boot/System.map-$ACTUAL_VERSION"
-    log_info "Config:   $LFS/boot/config-$ACTUAL_VERSION"
-    log_info "Modules:  $LFS/lib/modules/$ACTUAL_VERSION"
-    log_info "Firmware: $LFS/lib/firmware"
+    log_info "Kernel:   $ROOKERY/boot/vmlinuz-$ACTUAL_VERSION"
+    log_info "System.map: $ROOKERY/boot/System.map-$ACTUAL_VERSION"
+    log_info "Config:   $ROOKERY/boot/config-$ACTUAL_VERSION"
+    log_info "Modules:  $ROOKERY/lib/modules/$ACTUAL_VERSION"
+    log_info "Firmware: $ROOKERY/lib/firmware"
     log_info ""
-    log_info "Kernel size: $(du -h $LFS/boot/vmlinuz-$ACTUAL_VERSION | cut -f1)"
-    log_info "Modules size: $(du -sh $LFS/lib/modules/$ACTUAL_VERSION 2>/dev/null | cut -f1 || echo 'N/A')"
+    log_info "Kernel size: $(du -h $ROOKERY/boot/vmlinuz-$ACTUAL_VERSION | cut -f1)"
+    log_info "Modules size: $(du -sh $ROOKERY/lib/modules/$ACTUAL_VERSION 2>/dev/null | cut -f1 || echo 'N/A')"
 
     # Create checkpoint
     create_checkpoint "linux-grsec" "$SOURCES_DIR" "kernel"

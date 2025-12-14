@@ -1,11 +1,11 @@
 #!/bin/bash
-# EasyLFS Setup Script
+# Rookery OS Setup Script
 # Automatically initializes Docker volumes and prepares the environment
 
 set -e
 
 echo "========================================="
-echo "EasyLFS - Easy Linux From Scratch"
+echo "Rookery OS Build System"
 echo "Environment Setup"
 echo "========================================="
 echo ""
@@ -31,11 +31,11 @@ echo -e "${YELLOW}[1/3]${NC} Checking Docker volumes..."
 
 # List of required volumes
 VOLUMES=(
-    "easylfs_lfs-sources"
-    "easylfs_lfs-tools"
-    "easylfs_lfs-rootfs"
-    "easylfs_lfs-dist"
-    "easylfs_lfs-logs"
+    "rookery_sources"
+    "rookery_tools"
+    "rookery_rootfs"
+    "rookery_dist"
+    "rookery_logs"
 )
 
 # Create volumes if they don't exist
@@ -53,14 +53,14 @@ echo ""
 echo -e "${YELLOW}[2/3]${NC} Setting volume permissions..."
 
 # Set correct permissions on logs volume (recursive)
-docker run --rm -v easylfs_lfs-logs:/logs ubuntu:22.04 chmod -R 777 /logs 2>/dev/null
+docker run --rm -v rookery_logs:/logs ubuntu:22.04 chmod -R 777 /logs 2>/dev/null
 echo -e "  ${GREEN}✓${NC} Log volume permissions set"
 
 echo ""
 echo -e "${YELLOW}[3/3]${NC} Building Docker images (no cache to ensure fresh common scripts)..."
 
 # Build each service image individually to show progress
-SERVICES=("download-sources" "build-toolchain" "build-basesystem" "configure-system" "build-kernel" "package-image")
+SERVICES=("download-sources" "build-toolchain" "build-basesystem" "configure-system" "build-extended" "build-kernel" "package-image")
 for service in "${SERVICES[@]}"; do
     echo -e "  ${YELLOW}→${NC} Building $service..."
     docker compose build --no-cache "$service" > /dev/null 2>&1
@@ -86,6 +86,7 @@ echo "  docker compose run --rm download-sources"
 echo "  docker compose run --rm build-toolchain"
 echo "  docker compose run --rm build-basesystem"
 echo "  docker compose run --rm configure-system"
+echo "  docker compose run --rm build-extended"
 echo "  docker compose run --rm build-kernel"
 echo "  docker compose run --rm package-image"
 echo ""

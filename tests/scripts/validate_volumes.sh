@@ -2,7 +2,7 @@
 set -e
 
 # =============================================================================
-# EasyLFS Volume Validator
+# Rookery OS Volume Validator
 # Provides detailed information about Docker volumes
 # =============================================================================
 
@@ -11,12 +11,12 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 echo "=========================================="
-echo "EasyLFS Volume Validation Report"
+echo "Rookery OS Volume Validation Report"
 echo "=========================================="
 echo ""
 
-for vol in lfs-sources lfs-tools lfs-rootfs lfs-dist; do
-    full_name="easylfs_${vol}"
+for vol in sources tools rootfs dist; do
+    full_name="rookery_${vol}"
 
     echo -e "${BLUE}Volume: ${full_name}${NC}"
 
@@ -44,4 +44,4 @@ done
 echo "=========================================="
 echo "Total Docker Volume Usage"
 echo "=========================================="
-docker system df -v | grep "easylfs_" || echo "No EasyLFS volumes found"
+docker system df -v | grep "rookery_" || echo "No Rookery OS volumes found"

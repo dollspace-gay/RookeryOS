@@ -1,7 +1,7 @@
-# EasyLFS Makefile
-# Simplified interface for building Linux From Scratch
+# Rookery OS Makefile
+# Simplified interface for building Rookery OS
 
-.PHONY: help setup build clean clean-all clean-basesystem clean-basesystem-light status logs inspect test rerun-download rerun-toolchain rerun-basesystem rerun-configure rerun-kernel rerun-package web-terminal web-screen web web-stop publish publish-dry-run publish-setup
+.PHONY: help setup build clean clean-all clean-basesystem clean-basesystem-light status logs inspect test rerun-download rerun-toolchain rerun-basesystem rerun-configure rerun-extended rerun-kernel rerun-package web-terminal web-screen web web-stop publish publish-dry-run publish-setup
 
 # Docker Compose command (using v2 syntax)
 DOCKER_COMPOSE := docker compose
@@ -13,7 +13,7 @@ BLUE := \033[0;34m
 NC := \033[0m # No Color
 
 help:
-	@echo -e "$(BLUE)EasyLFS - Easy Linux From Scratch$(NC)"
+	@echo -e "$(BLUE)Rookery OS Build System$(NC)"
 	@echo ""
 	@echo -e "$(YELLOW)Available targets:$(NC)"
 	@echo "  make setup       - Initialize Docker volumes and build images"
@@ -31,8 +31,9 @@ help:
 	@echo -e "$(YELLOW)Individual stages (with dependencies):$(NC)"
 	@echo "  make download    - Download source packages only"
 	@echo "  make toolchain   - Build toolchain only"
-	@echo "  make basesystem  - Build base system only"
+	@echo "  make basesystem  - Build Rookery Core (base system) only"
 	@echo "  make configure   - Configure system only"
+	@echo "  make extended    - Build Rookery Extended packages only"
 	@echo "  make kernel      - Build kernel only"
 	@echo "  make package     - Create disk image only"
 	@echo ""
@@ -41,6 +42,7 @@ help:
 	@echo "  make rerun-toolchain   - Re-run build-toolchain only"
 	@echo "  make rerun-basesystem  - Re-run build-basesystem only"
 	@echo "  make rerun-configure   - Re-run configure-system only"
+	@echo "  make rerun-extended    - Re-run build-extended only"
 	@echo "  make rerun-kernel      - Re-run build-kernel only"
 	@echo "  make rerun-package     - Re-run package-image only"
 	@echo ""
@@ -48,7 +50,7 @@ help:
 	@echo "  FORCE=1 make rerun-<stage>  - Delete checkpoint and force rebuild"
 	@echo "  Example: FORCE=1 make rerun-configure"
 	@echo ""
-	@echo -e "$(YELLOW)Web Interface (access built LFS system):$(NC)"
+	@echo -e "$(YELLOW)Web Interface (access built Rookery OS system):$(NC)"
 	@echo "  make web-terminal    - Start web terminal (http://localhost:7681)"
 	@echo "  make web-screen      - Start web screen (http://localhost:6080)"
 	@echo "  make web             - Start both web interfaces"
@@ -84,6 +86,9 @@ basesystem:
 configure:
 	@$(DOCKER_COMPOSE) run --rm configure-system
 
+extended:
+	@$(DOCKER_COMPOSE) run --rm build-extended
+
 kernel:
 	@$(DOCKER_COMPOSE) run --rm build-kernel
 
@@ -107,6 +112,10 @@ rerun-configure:
 	@echo -e "$(YELLOW)Re-running configure-system (skipping dependencies)...$(NC)"
 	@$(DOCKER_COMPOSE) run --rm --no-deps -e FORCE=$(FORCE) configure-system
 
+rerun-extended:
+	@echo -e "$(YELLOW)Re-running build-extended (skipping dependencies)...$(NC)"
+	@$(DOCKER_COMPOSE) run --rm --no-deps -e FORCE=$(FORCE) build-extended
+
 rerun-kernel:
 	@echo -e "$(YELLOW)Re-running build-kernel (skipping dependencies)...$(NC)"
 	@$(DOCKER_COMPOSE) run --rm --no-deps -e FORCE=$(FORCE) build-kernel
@@ -118,14 +127,14 @@ rerun-package:
 # Status and inspection
 status:
 	@echo -e "$(BLUE)=========================================$(NC)"
-	@echo -e "$(BLUE)EasyLFS Build Status$(NC)"
+	@echo -e "$(BLUE)Rookery OS Build Status$(NC)"
 	@echo -e "$(BLUE)=========================================$(NC)"
 	@echo ""
 	@echo -e "$(YELLOW)Docker Volumes:$(NC)"
-	@docker volume ls | grep easylfs || echo "  No EasyLFS volumes found - run 'make setup' first"
+	@docker volume ls | grep rookery || echo "  No Rookery volumes found - run 'make setup' first"
 	@echo ""
 	@echo -e "$(YELLOW)Volume Sizes:$(NC)"
-	@for vol in easylfs_lfs-sources easylfs_lfs-tools easylfs_lfs-rootfs easylfs_lfs-dist easylfs_lfs-logs; do \
+	@for vol in rookery_sources rookery_tools rookery_rootfs rookery_dist rookery_logs; do \
 		if docker volume inspect $$vol &> /dev/null; then \
 			size=$$(docker run --rm -v $$vol:/data ubuntu:22.04 du -sh /data 2>/dev/null | cut -f1); \
 			printf "  %-20s %s\n" "$$vol:" "$$size"; \
@@ -133,27 +142,27 @@ status:
 	done
 	@echo ""
 	@echo -e "$(YELLOW)Checkpoints:$(NC)"
-	@docker run --rm -v easylfs_lfs-rootfs:/lfs ubuntu:22.04 sh -c 'if [ -d /lfs/.checkpoints ]; then ls -1 /lfs/.checkpoints 2>/dev/null | wc -l; else echo 0; fi' | xargs -I {} echo "  {} checkpoints found"
+	@docker run --rm -v rookery_rootfs:/rookery ubuntu:22.04 sh -c 'if [ -d /rookery/.checkpoints ]; then ls -1 /rookery/.checkpoints 2>/dev/null | wc -l; else echo 0; fi' | xargs -I {} echo "  {} checkpoints found"
 	@echo ""
 
 logs:
 	@echo -e "$(YELLOW)Available logs:$(NC)"
-	@docker run --rm -v easylfs_lfs-logs:/logs ubuntu:22.04 ls -lh /logs 2>/dev/null || echo "  No logs found"
+	@docker run --rm -v rookery_logs:/logs ubuntu:22.04 ls -lh /logs 2>/dev/null || echo "  No logs found"
 	@echo ""
 	@echo "To view a specific log:"
-	@echo "  docker run --rm -v easylfs_lfs-logs:/logs ubuntu:22.04 cat /logs/<service>.log"
+	@echo "  docker run --rm -v rookery_logs:/logs ubuntu:22.04 cat /logs/<service>.log"
 
 inspect:
 	@echo -e "$(YELLOW)Inspecting volumes...$(NC)"
 	@echo ""
-	@echo -e "$(BLUE)lfs-sources (downloaded packages):$(NC)"
-	@docker run --rm -v easylfs_lfs-sources:/sources ubuntu:22.04 ls -lh /sources 2>/dev/null | head -20 || echo "  Empty or not created"
+	@echo -e "$(BLUE)rookery-sources (downloaded packages):$(NC)"
+	@docker run --rm -v rookery_sources:/sources ubuntu:22.04 ls -lh /sources 2>/dev/null | head -20 || echo "  Empty or not created"
 	@echo ""
-	@echo -e "$(BLUE)lfs-rootfs (LFS filesystem):$(NC)"
-	@docker run --rm -v easylfs_lfs-rootfs:/lfs ubuntu:22.04 ls -la /lfs 2>/dev/null || echo "  Empty or not created"
+	@echo -e "$(BLUE)rookery-rootfs (Rookery filesystem):$(NC)"
+	@docker run --rm -v rookery_rootfs:/rookery ubuntu:22.04 ls -la /rookery 2>/dev/null || echo "  Empty or not created"
 	@echo ""
-	@echo -e "$(BLUE)lfs-dist (final images):$(NC)"
-	@docker run --rm -v easylfs_lfs-dist:/dist ubuntu:22.04 ls -lh /dist 2>/dev/null || echo "  Empty or not created"
+	@echo -e "$(BLUE)rookery-dist (final images):$(NC)"
+	@docker run --rm -v rookery_dist:/dist ubuntu:22.04 ls -lh /dist 2>/dev/null || echo "  Empty or not created"
 
 test:
 	@echo -e "$(YELLOW)Running validation tests...$(NC)"
@@ -167,9 +176,9 @@ clean:
 clean-basesystem-light:
 	@echo -e "$(YELLOW)Cleaning build-basesystem checkpoints & temp files...$(NC)"
 	@echo "This will remove:"
-	@echo "  - All checkpoints in /lfs/.checkpoints"
-	@echo "  - Build logs in /lfs/tmp"
-	@echo "  - Temporary build directories in /lfs/build"
+	@echo "  - All checkpoints in /rookery/.checkpoints"
+	@echo "  - Build logs in /rookery/tmp"
+	@echo "  - Temporary build directories in /rookery/build"
 	@echo ""
 	@echo "Installed binaries will be preserved."
 	@echo ""
@@ -177,9 +186,9 @@ clean-basesystem-light:
 	echo; \
 	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
 		echo "Cleaning checkpoints..."; \
-		docker run --rm -v easylfs_lfs-rootfs:/lfs ubuntu:22.04 sh -c 'rm -rf /lfs/.checkpoints/*' 2>/dev/null || true; \
+		docker run --rm -v rookery_rootfs:/rookery ubuntu:22.04 sh -c 'rm -rf /rookery/.checkpoints/*' 2>/dev/null || true; \
 		echo "Cleaning temp files..."; \
-		docker run --rm -v easylfs_lfs-rootfs:/lfs ubuntu:22.04 sh -c 'rm -rf /lfs/tmp/* /lfs/build/*' 2>/dev/null || true; \
+		docker run --rm -v rookery_rootfs:/rookery ubuntu:22.04 sh -c 'rm -rf /rookery/tmp/* /rookery/build/*' 2>/dev/null || true; \
 		echo -e "$(GREEN)Light clean complete.$(NC)"; \
 		echo ""; \
 		echo "Next: make rerun-basesystem"; \
@@ -188,9 +197,9 @@ clean-basesystem-light:
 clean-basesystem:
 	@echo -e "$(YELLOW)Resetting rootfs volume (preserving sources & toolchain)...$(NC)"
 	@echo "This will:"
-	@echo "  - Remove the lfs-rootfs volume (build-basesystem state)"
-	@echo "  - Preserve lfs-sources (downloaded packages)"
-	@echo "  - Preserve lfs-tools (toolchain - 2-4 hours of work)"
+	@echo "  - Remove the rookery-rootfs volume (build-basesystem state)"
+	@echo "  - Preserve rookery-sources (downloaded packages)"
+	@echo "  - Preserve rookery-tools (toolchain - 2-4 hours of work)"
 	@echo ""
 	@echo "You can then run: make rerun-basesystem"
 	@echo ""
@@ -198,12 +207,12 @@ clean-basesystem:
 	echo; \
 	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
 		echo "Stopping build-basesystem container..."; \
-		docker stop easylfs-build-basesystem 2>/dev/null || true; \
-		docker rm easylfs-build-basesystem 2>/dev/null || true; \
-		echo "Removing lfs-rootfs volume..."; \
-		docker volume rm easylfs_lfs-rootfs 2>/dev/null || echo "Volume already removed"; \
-		echo "Recreating lfs-rootfs volume..."; \
-		docker volume create easylfs_lfs-rootfs; \
+		docker stop rookery-build-basesystem 2>/dev/null || true; \
+		docker rm rookery-build-basesystem 2>/dev/null || true; \
+		echo "Removing rookery-rootfs volume..."; \
+		docker volume rm rookery_rootfs 2>/dev/null || echo "Volume already removed"; \
+		echo "Recreating rookery-rootfs volume..."; \
+		docker volume create rookery_rootfs; \
 		echo -e "$(GREEN)Rootfs volume reset complete.$(NC)"; \
 		echo ""; \
 		echo "Next steps:"; \
@@ -221,11 +230,11 @@ ifndef FORCE_CLEAN
 	fi
 else
 	@echo "Stopping and removing all containers..."
-	@docker ps -a --filter "name=easylfs-" -q | xargs -r docker stop 2>/dev/null || true
-	@docker ps -a --filter "name=easylfs-" -q | xargs -r docker rm 2>/dev/null || true
+	@docker ps -a --filter "name=rookery-" -q | xargs -r docker stop 2>/dev/null || true
+	@docker ps -a --filter "name=rookery-" -q | xargs -r docker rm 2>/dev/null || true
 	@$(DOCKER_COMPOSE) down -v 2>/dev/null || true
 	@echo "Removing volumes..."
-	@docker volume rm easylfs_lfs-sources easylfs_lfs-tools easylfs_lfs-rootfs easylfs_lfs-dist easylfs_lfs-logs 2>/dev/null || true
+	@docker volume rm rookery_sources rookery_tools rookery_rootfs rookery_dist rookery_logs 2>/dev/null || true
 	@echo -e "$(GREEN)Complete reset done.$(NC)"
 endif
 
@@ -235,7 +244,7 @@ IMAGE_NAME ?= rookery-os-1.0
 # Export final image to current directory
 export:
 	@echo -e "$(YELLOW)Exporting images to current directory...$(NC)"
-	@docker run --rm -v easylfs_lfs-dist:/dist -v $(PWD):/output ubuntu:22.04 sh -c '\
+	@docker run --rm -v rookery_dist:/dist -v $(PWD):/output ubuntu:22.04 sh -c '\
 		for f in /dist/$(IMAGE_NAME).img /dist/$(IMAGE_NAME).img.gz /dist/$(IMAGE_NAME).iso /dist/$(IMAGE_NAME).tar.gz; do \
 			if [ -f "$$f" ]; then cp "$$f" /output/; fi; \
 		done' 2>/dev/null || echo -e "$(RED)No images found. Run 'make build' first.$(NC)"
@@ -246,20 +255,20 @@ export:
 web-terminal:
 	@echo -e "$(YELLOW)Starting web terminal interface...$(NC)"
 	@echo "Access at: http://localhost:${WEB_TERMINAL_PORT:-7681}"
-	@$(DOCKER_COMPOSE) up -d lfs-web-terminal
+	@$(DOCKER_COMPOSE) up -d rookery-web-terminal
 	@echo -e "$(GREEN)Web terminal started!$(NC)"
-	@echo "View logs: docker compose logs -f lfs-web-terminal"
+	@echo "View logs: docker compose logs -f rookery-web-terminal"
 
 web-screen:
 	@echo -e "$(YELLOW)Starting web screen interface...$(NC)"
 	@echo "Access at: http://localhost:${WEB_SCREEN_PORT:-6080}/vnc.html"
-	@$(DOCKER_COMPOSE) up -d lfs-web-screen
+	@$(DOCKER_COMPOSE) up -d rookery-web-screen
 	@echo -e "$(GREEN)Web screen started!$(NC)"
-	@echo "View logs: docker compose logs -f lfs-web-screen"
+	@echo "View logs: docker compose logs -f rookery-web-screen"
 
 web:
 	@echo -e "$(YELLOW)Starting both web interfaces...$(NC)"
-	@$(DOCKER_COMPOSE) up -d lfs-web-terminal lfs-web-screen
+	@$(DOCKER_COMPOSE) up -d rookery-web-terminal rookery-web-screen
 	@echo ""
 	@echo -e "$(GREEN)Web interfaces started!$(NC)"
 	@echo ""
@@ -267,13 +276,13 @@ web:
 	@echo "Screen:   http://localhost:${WEB_SCREEN_PORT:-6080}/vnc.html"
 	@echo ""
 	@echo "View logs:"
-	@echo "  docker compose logs -f lfs-web-terminal"
-	@echo "  docker compose logs -f lfs-web-screen"
+	@echo "  docker compose logs -f rookery-web-terminal"
+	@echo "  docker compose logs -f rookery-web-screen"
 
 web-stop:
 	@echo -e "$(YELLOW)Stopping web interfaces...$(NC)"
-	@$(DOCKER_COMPOSE) stop lfs-web-terminal lfs-web-screen
-	@$(DOCKER_COMPOSE) rm -f lfs-web-terminal lfs-web-screen
+	@$(DOCKER_COMPOSE) stop rookery-web-terminal rookery-web-screen
+	@$(DOCKER_COMPOSE) rm -f rookery-web-terminal rookery-web-screen
 	@echo -e "$(GREEN)Web interfaces stopped.$(NC)"
 
 # ==============================================================================

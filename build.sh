@@ -1,11 +1,11 @@
 #!/bin/bash
-# EasyLFS Build Script
-# Executes the complete LFS build pipeline automatically
+# Rookery OS Build Script
+# Executes the complete Rookery OS build pipeline automatically
 
 set -e
 
 echo "========================================="
-echo "EasyLFS - Easy Linux From Scratch"
+echo "Rookery OS Build System"
 echo "Complete Build Pipeline"
 echo "========================================="
 echo ""
@@ -35,17 +35,18 @@ log_stage() {
 trap 'echo -e "${RED}ERROR: Build failed at stage: $CURRENT_STAGE${NC}"; exit 1' ERR
 
 # Run setup if volumes don't exist
-if ! docker volume inspect easylfs_lfs-sources &> /dev/null; then
+if ! docker volume inspect rookery_sources &> /dev/null; then
     echo -e "${YELLOW}Volumes not initialized. Running setup...${NC}"
     ./setup.sh
 fi
 
 # Build pipeline stages
 STAGES=(
-    "download-sources:Downloading LFS source packages (Chapter 3):5-10 minutes"
+    "download-sources:Downloading Rookery Core source packages (Chapter 3):5-10 minutes"
     "build-toolchain:Building cross-compilation toolchain (Chapters 5-6):2-4 hours"
-    "build-basesystem:Building base LFS system (Chapters 7-8):3-6 hours"
+    "build-basesystem:Building Rookery Core base system (Chapters 7-8):3-6 hours"
     "configure-system:Configuring system files (Chapter 9):10-20 minutes"
+    "build-extended:Building Rookery Extended packages:1-3 hours"
     "build-kernel:Compiling Linux kernel (Chapter 10):20-60 minutes"
     "package-image:Creating bootable disk image (Chapter 11):15-30 minutes"
 )
@@ -87,20 +88,20 @@ echo -e "${GREEN}=========================================${NC}"
 echo ""
 echo "Rookery OS has been built successfully!"
 echo ""
-echo "Final artifacts are in the 'lfs-dist' volume:"
-docker run --rm -v easylfs_lfs-dist:/dist ubuntu:22.04 ls -lh /dist 2>/dev/null || echo "  (No files yet - check logs)"
+echo "Final artifacts are in the 'rookery-dist' volume:"
+docker run --rm -v rookery_dist:/dist ubuntu:22.04 ls -lh /dist 2>/dev/null || echo "  (No files yet - check logs)"
 echo ""
 echo "To boot your system:"
 echo ""
 echo "  Option 1: Boot disk image with QEMU"
-echo "     docker run --rm -v easylfs_lfs-dist:/dist -v \$(pwd):/output ubuntu:22.04 cp /dist/${IMAGE_NAME}.img /output/"
+echo "     docker run --rm -v rookery_dist:/dist -v \$(pwd):/output ubuntu:22.04 cp /dist/${IMAGE_NAME}.img /output/"
 echo "     gunzip ${IMAGE_NAME}.img.gz  # if compressed"
 echo "     qemu-system-x86_64 -m 2G -smp 2 -drive file=${IMAGE_NAME}.img,format=raw -nographic -serial mon:stdio"
 echo ""
 echo "  Option 2: Boot ISO image with QEMU"
-echo "     docker run --rm -v easylfs_lfs-dist:/dist -v \$(pwd):/output ubuntu:22.04 cp /dist/${IMAGE_NAME}.iso /output/"
+echo "     docker run --rm -v rookery_dist:/dist -v \$(pwd):/output ubuntu:22.04 cp /dist/${IMAGE_NAME}.iso /output/"
 echo "     qemu-system-x86_64 -m 2G -smp 2 -cdrom ${IMAGE_NAME}.iso -boot d -nographic -serial mon:stdio"
 echo ""
 echo "To inspect build logs:"
-echo "     docker run --rm -v easylfs_lfs-logs:/logs ubuntu:22.04 ls -lh /logs"
+echo "     docker run --rm -v rookery_logs:/logs ubuntu:22.04 ls -lh /logs"
 echo ""

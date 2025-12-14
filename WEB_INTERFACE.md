@@ -1,19 +1,19 @@
-# EasyLFS Web Interface Guide
+# Rookery OS Web Interface Guide
 
-Access your built LFS system through a web browser!
+Access your built Rookery OS system through a web browser!
 
 ## Overview
 
-EasyLFS provides two web-based interfaces to interact with the built LFS system:
+Rookery OS provides two web-based interfaces to interact with the built system:
 
 1. **Web Terminal (ttyd)** - Text-based shell in your browser
 2. **Web Screen (noVNC)** - Full graphical console in your browser
 
-Both interfaces run the LFS system in QEMU and stream the output to your browser.
+Both interfaces run the Rookery OS system in QEMU and stream the output to your browser.
 
 ## Quick Start
 
-After building your LFS system (`make build`), start the web interfaces:
+After building your Rookery OS system (`make build`), start the web interfaces:
 
 ```bash
 # Start both interfaces
@@ -44,7 +44,7 @@ make web-terminal
 Open: **http://localhost:7681**
 
 ### Usage
-- The LFS system will boot automatically
+- The Rookery OS system will boot automatically
 - Login: `root` (no password)
 - Exit QEMU: Press `Ctrl+A` then `X`
 - Reload page to restart the system
@@ -76,7 +76,7 @@ Open: **http://localhost:6080/vnc.html**
 
 ### Usage
 - Click "Connect" in the noVNC interface
-- The LFS system will boot automatically
+- The Rookery OS system will boot automatically
 - Login: `root` (no password)
 - Full keyboard and mouse support
 
@@ -114,18 +114,18 @@ This stops and removes both web interface containers.
 
 ## What If Image Doesn't Exist?
 
-If you start the web interfaces before building the LFS system:
+If you start the web interfaces before building the Rookery OS system:
 
 ### Web Terminal
 Shows a helpful message:
 ```
 ╔════════════════════════════════════════════════════════════════╗
 ║                                                                ║
-║              LFS System Image Not Found                        ║
+║            Rookery OS System Image Not Found                   ║
 ║                                                                ║
-║  The LFS system image has not been built yet.                  ║
+║  The Rookery OS system image has not been built yet.           ║
 ║                                                                ║
-║  To build the LFS system, run:                                 ║
+║  To build the Rookery OS system, run:                          ║
 ║    make build                                                  ║
 ║                                                                ║
 ║  Then access this web terminal at:                             ║
@@ -143,12 +143,12 @@ Waits for the image to appear and shows status messages.
 
 **Web Terminal (ttyd)**:
 ```
-Browser → ttyd (port 7681) → QEMU -nographic → LFS System
+Browser → ttyd (port 7681) → QEMU -nographic → Rookery OS
 ```
 
 **Web Screen (noVNC)**:
 ```
-Browser → noVNC (port 6080) → websockify → VNC Server → QEMU -vnc → LFS System
+Browser → noVNC (port 6080) → websockify → VNC Server → QEMU -vnc → Rookery OS
 ```
 
 ### Docker Services
@@ -156,12 +156,12 @@ Browser → noVNC (port 6080) → websockify → VNC Server → QEMU -vnc → LF
 Both services are defined in `docker-compose.yml`:
 
 ```yaml
-lfs-web-terminal:
+rookery-web-terminal:
   - Runs ttyd web server
   - Executes QEMU with serial console
   - Streams to browser via WebSocket
 
-lfs-web-screen:
+rookery-web-screen:
   - Runs VNC server (Xvnc)
   - Runs noVNC/websockify
   - Executes QEMU with VNC output
@@ -189,13 +189,13 @@ WEB_TERMINAL_PORT=7777 make web-terminal
 
 2. Check logs:
    ```bash
-   docker compose logs lfs-web-terminal
-   docker compose logs lfs-web-screen
+   docker compose logs rookery-web-terminal
+   docker compose logs rookery-web-screen
    ```
 
 3. Ensure image exists:
    ```bash
-   docker run --rm -v easylfs_lfs-dist:/dist ubuntu:22.04 ls -lh /dist
+   docker run --rm -v rookery_dist:/dist ubuntu:22.04 ls -lh /dist
    ```
 
 ### Performance Issues
@@ -210,17 +210,17 @@ For better performance:
 ## Integration with Build Pipeline
 
 The web interfaces are independent of the build pipeline. They:
-- Read the built image from `lfs-dist` volume (read-only)
+- Read the built image from `rookery-dist` volume (read-only)
 - Do not modify any build artifacts
 - Can run while builds are in progress (different containers)
 
 ## Network Configuration
 
-The LFS system boots with DHCP enabled on `eth0` via `/etc/sysconfig/ifconfig.eth0`.
+The Rookery OS system boots with DHCP enabled on `eth0` via `/etc/sysconfig/ifconfig.eth0`.
 
 Inside QEMU's virtual network:
 - QEMU provides DHCP
-- LFS system gets an IP automatically
+- Rookery OS system gets an IP automatically
 - No external network access (isolated)
 
 ## Advanced Usage
@@ -231,7 +231,7 @@ You can run multiple instances with different ports:
 
 ```bash
 # Terminal instance 1
-WEB_TERMINAL_PORT=7681 docker compose up -d lfs-web-terminal
+WEB_TERMINAL_PORT=7681 docker compose up -d rookery-web-terminal
 
 # Terminal instance 2 (need to edit service name in compose)
 # Not supported by default - requires manual compose modification
@@ -257,18 +257,18 @@ http://<your-machine-ip>:6080      # Screen
 ### Customizing QEMU Parameters
 
 Edit the startup scripts:
-- `services/lfs-web-terminal/scripts/start-web-terminal.sh`
-- `services/lfs-web-screen/scripts/start-web-screen.sh`
+- `services/rookery-web-terminal/scripts/start-web-terminal.sh`
+- `services/rookery-web-screen/scripts/start-web-screen.sh`
 
 Then rebuild the images:
 ```bash
-docker compose build lfs-web-terminal lfs-web-screen
+docker compose build rookery-web-terminal rookery-web-screen
 ```
 
 ## Educational Use
 
 The web interfaces are perfect for:
-- **Live Demos**: Show LFS boot process to an audience
+- **Live Demos**: Show Rookery OS boot process to an audience
 - **Remote Teaching**: Share browser access with students
 - **Testing**: Quick access without local QEMU installation
 - **Debugging**: Easy log capture via browser tools
@@ -288,15 +288,15 @@ The web interfaces are perfect for:
 
 - [README.md](README.md) - Main project documentation
 - [QUICKSTART.md](QUICKSTART.md) - Quick start guide
-- [run-lfs.sh](run-lfs.sh) - Local QEMU script (no web interface)
+- [run-rookery.sh](run-rookery.sh) - Local QEMU script (no web interface)
 
 ## Support
 
 For issues or questions:
-- Check logs: `docker compose logs lfs-web-terminal lfs-web-screen`
+- Check logs: `docker compose logs rookery-web-terminal rookery-web-screen`
 - Review troubleshooting section above
 - Open an issue on GitHub
 
 ---
 
-**Happy exploring your LFS system!** 🎉
+**Happy exploring your Rookery OS system!** 🎉

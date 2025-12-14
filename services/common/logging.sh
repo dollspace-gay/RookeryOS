@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# EasyLFS Common Logging Utility
+# Rookery OS Common Logging Utility
 # Provides centralized logging functions for all services
 # =============================================================================
 
@@ -15,7 +15,7 @@ NC='\033[0m'
 LOG_DIR="${LOG_DIR:-/logs}"
 SERVICE_NAME="${SERVICE_NAME:-unknown}"
 LOG_FILE="$LOG_DIR/${SERVICE_NAME}.log"
-MASTER_LOG="$LOG_DIR/easylfs-master.log"
+MASTER_LOG="$LOG_DIR/rookery-master.log"
 
 # Initialize logging
 init_logging() {
@@ -25,7 +25,7 @@ init_logging() {
     # Create service log with header
     {
         echo "========================================================================"
-        echo "EasyLFS Build Log - Service: $SERVICE_NAME"
+        echo "Rookery OS Build Log - Service: $SERVICE_NAME"
         echo "Started: $(date '+%Y-%m-%d %H:%M:%S %Z')"
         echo "Hostname: $(hostname)"
         echo "User: $(whoami) (UID: $(id -u))"

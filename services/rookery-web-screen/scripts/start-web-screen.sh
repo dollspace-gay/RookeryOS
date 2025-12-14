@@ -3,24 +3,24 @@ set -e
 
 # Configuration
 IMAGE_NAME="${IMAGE_NAME:-rookery-os-1.0}"
-IMAGE_PATH="/lfs-dist/${IMAGE_NAME}.img"
+IMAGE_PATH="/rookery-dist/${IMAGE_NAME}.img"
 VNC_PORT="${VNC_PORT:-5900}"
 WEB_PORT="${WEB_SCREEN_PORT:-6080}"
 DISPLAY=":0"
 
 echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║                 Rookery OS - Linux From Scratch                   ║"
+echo "║                       Rookery OS                               ║"
 echo "║                    Web Screen Interface                        ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
 
-# Check if LFS image exists
+# Check if Rookery OS image exists
 if [ ! -f "$IMAGE_PATH" ]; then
-    echo "ERROR: LFS system image not found at: $IMAGE_PATH"
+    echo "ERROR: Rookery OS system image not found at: $IMAGE_PATH"
     echo ""
-    echo "The LFS system image has not been built yet."
+    echo "The Rookery OS system image has not been built yet."
     echo ""
-    echo "To build the LFS system, run:"
+    echo "To build the Rookery OS system, run:"
     echo "  make build"
     echo ""
     echo "Waiting for image to be created..."
@@ -32,11 +32,11 @@ if [ ! -f "$IMAGE_PATH" ]; then
         sleep 30
     done
 
-    echo "Image found! Starting LFS system..."
+    echo "Image found! Starting Rookery OS system..."
 fi
 
 # Start QEMU with VNC output in background
-echo "Starting LFS system in QEMU with VNC on port $VNC_PORT..."
+echo "Starting Rookery OS system in QEMU with VNC on port $VNC_PORT..."
 qemu-system-x86_64 \
     -m 2G \
     -smp 2 \

@@ -10,19 +10,19 @@
 services:
   # ============================================================================
   # Service 1: Download Sources (Chapter 3)
-  # Downloads all LFS source packages and patches
+  # Downloads all Rookery Core source packages and patches
   # ============================================================================
   download-sources:
     build:
       context: ./services
       dockerfile: download-sources/Dockerfile
-    container_name: easylfs-download-sources
+    container_name: rookery-download-sources
     volumes:
-      - lfs-sources:/sources
-      - lfs-logs:/logs
+      - rookery-sources:/sources
+      - rookery-logs:/logs
     environment:
-      - LFS_VERSION=12.4
-      - LFS_MIRROR=https://www.linuxfromscratch.org
+      - ROOKERY_CORE_VERSION=12.4
+      - ROOKERY_MIRROR=https://www.linuxfromscratch.org
       - SERVICE_NAME=download-sources
     restart: "no"
 
@@ -35,18 +35,18 @@ services:
     build:
       context: ./services
       dockerfile: build-toolchain/Dockerfile
-    container_name: easylfs-build-toolchain
+    container_name: rookery-build-toolchain
     cap_add:
       - SYS_CHROOT
     volumes:
-      - lfs-sources:/sources:ro
-      - lfs-tools:/tools
-      - lfs-rootfs:/lfs
-      - lfs-logs:/logs
+      - rookery-sources:/sources:ro
+      - rookery-tools:/tools
+      - rookery-rootfs:/rookery
+      - rookery-logs:/logs
       - ./linux-6.6.102:/kernel-src:ro,Z  # Grsecurity kernel source for API headers
     environment:
-      - LFS=/lfs
-      - LFS_TGT=x86_64-lfs-linux-gnu
+      - ROOKERY=/rookery
+      - ROOKERY_TGT=x86_64-rookery-linux-gnu
       - MAKEFLAGS=-j42
       - LC_ALL=POSIX
       - SERVICE_NAME=build-toolchain
@@ -58,26 +58,26 @@ services:
 
   # ============================================================================
   # Service 3: Build Base System (Chapters 7-8)
-  # Enters chroot and builds the final LFS system
+  # Enters chroot and builds Rookery Core (the base system)
   # Duration: 3-6 hours
   # ============================================================================
   build-basesystem:
     build:
       context: ./services
       dockerfile: build-basesystem/Dockerfile
-    container_name: easylfs-build-basesystem
+    container_name: rookery-build-basesystem
     cap_add:
       - SYS_CHROOT
       - SYS_ADMIN  # Required for mount operations
     security_opt:
       - apparmor:unconfined
     volumes:
-      - lfs-sources:/sources:ro
-      - lfs-tools:/tools:ro
-      - lfs-rootfs:/lfs
-      - lfs-logs:/logs
+      - rookery-sources:/sources:ro
+      - rookery-tools:/tools:ro
+      - rookery-rootfs:/rookery
+      - rookery-logs:/logs
     environment:
-      - LFS=/lfs
+      - ROOKERY=/rookery
       - MAKEFLAGS=-j42
       - LC_ALL=POSIX
       - SERVICE_NAME=build-basesystem
@@ -95,15 +95,15 @@ services:
     build:
       context: ./services
       dockerfile: configure-system/Dockerfile
-    container_name: easylfs-configure-system
+    container_name: rookery-configure-system
     cap_add:
       - SYS_CHROOT
       - SYS_ADMIN  # Required for mount operations
     volumes:
-      - lfs-rootfs:/lfs
-      - lfs-logs:/logs
+      - rookery-rootfs:/rookery
+      - rookery-logs:/logs
     environment:
-      - LFS=/lfs
+      - ROOKERY=/rookery
       - HOSTNAME=rookery
       - TIMEZONE=Europe/Rome
       - SERVICE_NAME=configure-system
@@ -113,27 +113,27 @@ services:
         condition: service_completed_successfully
 
   # ============================================================================
-  # Service 5: Build BLFS Packages
-  # Builds Beyond LFS packages (security, desktop, etc.)
+  # Service 5: Build Rookery Extended Packages
+  # Builds extended packages (security, desktop, etc.)
   # Duration: varies by package selection
   # ============================================================================
-  build-blfs:
+  build-extended:
     build:
       context: ./services
       dockerfile: build-blfs/Dockerfile
-    container_name: easylfs-build-blfs
+    container_name: rookery-build-extended
     privileged: true  # Required for /proc mount in chroot (needed for bash process substitution)
     security_opt:
       - apparmor:unconfined
     volumes:
-      - lfs-sources:/sources:ro
-      - lfs-rootfs:/lfs
-      - lfs-logs:/logs
+      - rookery-sources:/sources:ro
+      - rookery-rootfs:/rookery
+      - rookery-logs:/logs
     environment:
-      - LFS=/lfs
+      - ROOKERY=/rookery
       - MAKEFLAGS=-j42
       - LC_ALL=POSIX
-      - SERVICE_NAME=build-blfs
+      - SERVICE_NAME=build-extended
     restart: "no"
     depends_on:
       configure-system:
@@ -148,21 +148,21 @@ services:
     build:
       context: ./services
       dockerfile: build-kernel/Dockerfile
-    container_name: easylfs-build-kernel
+    container_name: rookery-build-kernel
     volumes:
-      - lfs-sources:/sources:ro
-      - lfs-rootfs:/lfs
-      - lfs-logs:/logs
+      - rookery-sources:/sources:ro
+      - rookery-rootfs:/rookery
+      - rookery-logs:/logs
       - ./linux-6.6.102:/kernel-src:ro,Z  # Grsecurity kernel source
     environment:
-      - LFS=/lfs
+      - ROOKERY=/rookery
       - MAKEFLAGS=-j20
       - KERNEL_VERSION=6.6.102-grsec
       - USE_LOCAL_KERNEL=true
       - SERVICE_NAME=build-kernel
     restart: "no"
     depends_on:
-      build-blfs:
+      build-extended:
         condition: service_completed_successfully
 
   # ============================================================================
@@ -174,17 +174,17 @@ services:
     build:
       context: ./services
       dockerfile: package-image/Dockerfile
-    container_name: easylfs-package-image
+    container_name: rookery-package-image
     privileged: true  # Required for loop device access
     volumes:
-      - lfs-rootfs:/lfs:ro
-      - lfs-dist:/dist
-      - lfs-logs:/logs
+      - rookery-rootfs:/rookery:ro
+      - rookery-dist:/dist
+      - rookery-logs:/logs
       - /dev:/dev  # Mount host /dev for loop device access
     environment:
-      - LFS=/lfs
+      - ROOKERY=/rookery
       - IMAGE_NAME=rookery-os-1.0
-      - IMAGE_SIZE=25600  # Size in MB (25GB for full BLFS system)
+      - IMAGE_SIZE=25600  # Size in MB (25GB for full Rookery Extended system)
       - SERVICE_NAME=package-image
     restart: "no"
     depends_on:
@@ -197,32 +197,32 @@ services:
   # ============================================================================
   test:
     build: ./tests
-    container_name: easylfs-test
+    container_name: rookery-test
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - lfs-sources:/volumes/lfs-sources:ro
-      - lfs-tools:/volumes/lfs-tools:ro
-      - lfs-rootfs:/volumes/lfs-rootfs:ro
-      - lfs-dist:/volumes/lfs-dist:ro
+      - rookery-sources:/volumes/rookery-sources:ro
+      - rookery-tools:/volumes/rookery-tools:ro
+      - rookery-rootfs:/volumes/rookery-rootfs:ro
+      - rookery-dist:/volumes/rookery-dist:ro
       - .:/workspace:ro
     working_dir: /tests
     environment:
-      - COMPOSE_PROJECT_NAME=easylfs
+      - COMPOSE_PROJECT_NAME=rookery
     restart: "no"
 
   # ============================================================================
   # Service 8: Web Terminal (ttyd)
-  # Browser-based terminal access to LFS system
+  # Browser-based terminal access to Rookery OS system
   # ============================================================================
-  lfs-web-terminal:
+  rookery-web-terminal:
     build:
       context: ./services
-      dockerfile: lfs-web-terminal/Dockerfile
-    container_name: easylfs-web-terminal
+      dockerfile: rookery-web-terminal/Dockerfile
+    container_name: rookery-web-terminal
     ports:
       - "${WEB_TERMINAL_PORT:-7681}:7681"
     volumes:
-      - lfs-dist:/lfs-dist
+      - rookery-dist:/rookery-dist
     environment:
       - IMAGE_NAME=rookery-os-1.0
       - WEB_TERMINAL_PORT=${WEB_TERMINAL_PORT:-7681}
@@ -230,17 +230,17 @@ services:
 
   # ============================================================================
   # Service 9: Web Screen (noVNC)
-  # Browser-based graphical console access to LFS system
+  # Browser-based graphical console access to Rookery OS system
   # ============================================================================
-  lfs-web-screen:
+  rookery-web-screen:
     build:
       context: ./services
-      dockerfile: lfs-web-screen/Dockerfile
-    container_name: easylfs-web-screen
+      dockerfile: rookery-web-screen/Dockerfile
+    container_name: rookery-web-screen
     ports:
       - "${WEB_SCREEN_PORT:-6080}:6080"
     volumes:
-      - lfs-dist:/lfs-dist
+      - rookery-dist:/rookery-dist
     environment:
       - IMAGE_NAME=rookery-os-1.0
       - WEB_SCREEN_PORT=${WEB_SCREEN_PORT:-6080}
@@ -254,29 +254,29 @@ services:
 # ==============================================================================
 volumes:
   # Source tarballs (populated by download-sources)
-  lfs-sources:
+  rookery-sources:
     external: true
-    name: easylfs_lfs-sources
+    name: rookery_sources
 
   # Temporary toolchain (populated by build-toolchain)
-  lfs-tools:
+  rookery-tools:
     external: true
-    name: easylfs_lfs-tools
+    name: rookery_tools
 
-  # LFS root filesystem - the main artifact
-  lfs-rootfs:
+  # Rookery root filesystem - the main artifact
+  rookery-rootfs:
     external: true
-    name: easylfs_lfs-rootfs
+    name: rookery_rootfs
 
   # Final distribution artifacts (ISO/disk images)
-  lfs-dist:
+  rookery-dist:
     external: true
-    name: easylfs_lfs-dist
+    name: rookery_dist
 
   # Build logs (one per service + master log)
-  lfs-logs:
+  rookery-logs:
     external: true
-    name: easylfs_lfs-logs
+    name: rookery_logs
 
 # ==============================================================================
 # Networks

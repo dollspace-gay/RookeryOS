@@ -3,10 +3,10 @@ set -e
 
 # Configuration
 IMAGE_NAME="${IMAGE_NAME:-rookery-os-1.0}"
-IMAGE_PATH="/lfs-dist/${IMAGE_NAME}.img"
+IMAGE_PATH="/rookery-dist/${IMAGE_NAME}.img"
 PORT="${WEB_TERMINAL_PORT:-7681}"
 
-# Check if LFS image exists
+# Check if Rookery OS image exists
 if [ ! -f "$IMAGE_PATH" ]; then
     # Show helpful message if image doesn't exist
     cat > /tmp/no-image-message.sh << 'EOF'
@@ -15,11 +15,11 @@ clear
 cat << 'BANNER'
 ╔════════════════════════════════════════════════════════════════╗
 ║                                                                ║
-║              LFS System Image Not Found                        ║
+║              Rookery OS System Image Not Found                 ║
 ║                                                                ║
-║  The LFS system image has not been built yet.                  ║
+║  The Rookery OS system image has not been built yet.           ║
 ║                                                                ║
-║  To build the LFS system, run:                                 ║
+║  To build the Rookery OS system, run:                          ║
 ║    make build                                                  ║
 ║                                                                ║
 ║  Then access this web terminal at:                             ║
@@ -42,20 +42,20 @@ EOF
 fi
 
 # Create run script for QEMU
-cat > /tmp/run-lfs.sh << 'EOF'
+cat > /tmp/run-rookery.sh << 'EOF'
 #!/bin/bash
 set -e
 
 IMAGE_NAME="${IMAGE_NAME:-rookery-os-1.0}"
-IMAGE_PATH="/lfs-dist/${IMAGE_NAME}.img"
+IMAGE_PATH="/rookery-dist/${IMAGE_NAME}.img"
 
 cat << EOF
 ╔════════════════════════════════════════════════════════════════╗
-║                 Rookery OS - Linux From Scratch                ║
+║                       Rookery OS                               ║
 ║                    Web Terminal Interface                      ║
 ╚════════════════════════════════════════════════════════════════╝
 
-Starting LFS system from: $IMAGE_PATH
+Starting Rookery OS system from: $IMAGE_PATH
 Serial console mode (text only)
 
 Press Ctrl+A then X to exit QEMU
@@ -73,11 +73,11 @@ exec qemu-system-x86_64 \
     -serial mon:stdio
 EOF
 
-chmod +x /tmp/run-lfs.sh
+chmod +x /tmp/run-rookery.sh
 
 # Start ttyd server with QEMU
 echo "Starting ttyd web terminal on port $PORT..."
 echo "Image: $IMAGE_PATH"
 echo "Access at: http://localhost:$PORT"
 
-exec ttyd -p "$PORT" /tmp/run-lfs.sh
+exec ttyd -p "$PORT" /tmp/run-rookery.sh

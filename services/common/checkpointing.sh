@@ -1,11 +1,11 @@
 #!/bin/bash
 # =============================================================================
-# EasyLFS Common Checkpointing Utility
+# Rookery OS Common Checkpointing Utility
 # Provides granular, hash-based checkpoint tracking for idempotent builds
 # =============================================================================
 
-# Checkpoint directory (inside LFS volume for persistence)
-CHECKPOINT_DIR="${LFS:-/lfs}/.checkpoints"
+# Checkpoint directory (inside Rookery volume for persistence)
+CHECKPOINT_DIR="${ROOKERY:-/rookery}/.checkpoints"
 CHECKPOINT_VERSION="1.0"
 
 # Initialize checkpoint system
@@ -15,7 +15,7 @@ init_checkpointing() {
     # Create metadata file if it doesn't exist
     if [ ! -f "$CHECKPOINT_DIR/metadata.txt" ]; then
         {
-            echo "EasyLFS Checkpoint Metadata"
+            echo "Rookery OS Checkpoint Metadata"
             echo "Version: $CHECKPOINT_VERSION"
             echo "Created: $(date '+%Y-%m-%d %H:%M:%S %Z')"
         } > "$CHECKPOINT_DIR/metadata.txt"
@@ -84,7 +84,7 @@ create_checkpoint() {
         echo "TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S %Z')"
         echo "EPOCH=$(date +%s)"
         echo "SERVICE_NAME=${SERVICE_NAME:-unknown}"
-        echo "LFS_TGT=${LFS_TGT:-unknown}"
+        echo "ROOKERY_TGT=${ROOKERY_TGT:-unknown}"
         echo "CHECKPOINT_VERSION=$CHECKPOINT_VERSION"
     } > "$checkpoint_file"
 
@@ -130,7 +130,7 @@ list_checkpoints() {
     local sources_dir="${1:-/sources}"
 
     echo "=========================================="
-    echo "EasyLFS Checkpoints"
+    echo "Rookery OS Checkpoints"
     echo "=========================================="
 
     if [ ! -d "$CHECKPOINT_DIR" ] || [ -z "$(ls -A $CHECKPOINT_DIR/*.checkpoint 2>/dev/null)" ]; then

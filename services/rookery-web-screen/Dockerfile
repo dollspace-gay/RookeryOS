@@ -13,18 +13,18 @@ RUN apt-get update && apt-get install -y \
     net-tools \
     && rm -rf /var/lib/apt/lists/*
 
-# Create directory for LFS image
-RUN mkdir -p /lfs-dist
+# Create directory for Rookery image
+RUN mkdir -p /rookery-dist
 
 # Copy startup script
-COPY lfs-web-screen/scripts/start-web-screen.sh /usr/local/bin/start-web-screen.sh
+COPY rookery-web-screen/scripts/start-web-screen.sh /usr/local/bin/start-web-screen.sh
 RUN chmod +x /usr/local/bin/start-web-screen.sh
 
 # Expose noVNC port
 EXPOSE 6080
 
 # Set working directory
-WORKDIR /lfs-dist
+WORKDIR /rookery-dist
 
 # Start web screen service
 CMD ["/usr/local/bin/start-web-screen.sh"]

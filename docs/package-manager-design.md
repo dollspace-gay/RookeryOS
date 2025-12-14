@@ -106,7 +106,7 @@ For Rookery OS, **PubGrub** is the best choice because:
 1. Pure Rust implementation (no FFI complexity)
 2. Excellent error messages (important for community contributors)
 3. Modern, actively maintained
-4. Good performance for typical LFS/BLFS package counts (~500-1000 packages)
+4. Good performance for typical Rookery Core/Extended package counts (~500-1000 packages)
 
 ---
 
@@ -1004,7 +1004,7 @@ CREATE INDEX idx_available_name ON available_packages(name);
 ├── rookpkg.conf        # Main configuration
 └── repos.d/            # Repository configurations
     ├── rookery-base.repo
-    └── rookery-blfs.repo
+    └── rookery-extended.repo
 ```
 
 ---

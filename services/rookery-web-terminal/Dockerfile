@@ -7,18 +7,18 @@ RUN apk add --no-cache \
     bash \
     coreutils
 
-# Create directory for LFS image
-RUN mkdir -p /lfs-dist
+# Create directory for Rookery image
+RUN mkdir -p /rookery-dist
 
 # Copy startup script
-COPY lfs-web-terminal/scripts/start-web-terminal.sh /usr/local/bin/start-web-terminal.sh
+COPY rookery-web-terminal/scripts/start-web-terminal.sh /usr/local/bin/start-web-terminal.sh
 RUN chmod +x /usr/local/bin/start-web-terminal.sh
 
 # Expose ttyd default port
 EXPOSE 7681
 
 # Set working directory
-WORKDIR /lfs-dist
+WORKDIR /rookery-dist
 
 # Start ttyd server
 CMD ["/usr/local/bin/start-web-terminal.sh"]

@@ -2,14 +2,14 @@
 set -euo pipefail
 
 # =============================================================================
-# EasyLFS Build Base System Script - MINIMAL VERSION
-# Builds essential LFS system in chroot (LFS Chapters 7-8)
+# Rookery OS Build Base System Script - MINIMAL VERSION
+# Builds essential Rookery OS system in chroot (LFS Chapters 7-8)
 # MINIMAL - ~20 essential packages for bootable systemd init system
 # Duration: ~30 minutes (reduced from 6-12 hours)
 # =============================================================================
 
 # Environment
-export LFS="${LFS:-/lfs}"
+export ROOKERY="${ROOKERY:-/rookery}"
 export MAKEFLAGS="${MAKEFLAGS:--j$(nproc)}"
 
 SOURCES_DIR="/sources"
@@ -18,7 +18,7 @@ BUILD_DIR="/build"
 # Load common utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Load common utilities
-COMMON_DIR="/usr/local/lib/easylfs-common"
+COMMON_DIR="/usr/local/lib/rookery-common"
 if [ -d "$COMMON_DIR" ]; then
     source "$COMMON_DIR/logging.sh" 2>/dev/null || true
     source "$COMMON_DIR/checkpointing.sh" 2>/dev/null || true
@@ -46,17 +46,17 @@ fi
 verify_prerequisites() {
     log_info "Verifying prerequisites..."
 
-    if [ ! -d "$LFS" ]; then
-        log_error "LFS directory not found: $LFS"
+    if [ ! -d "$ROOKERY" ]; then
+        log_error "ROOKERY directory not found: $ROOKERY"
         exit 1
     fi
 
-    if [ ! -f "$LFS/tools/bin/x86_64-lfs-linux-gnu-gcc" ] && [ ! -f "$LFS/usr/bin/gcc" ]; then
+    if [ ! -f "$ROOKERY/tools/bin/x86_64-rookery-linux-gnu-gcc" ] && [ ! -f "$ROOKERY/usr/bin/gcc" ]; then
         log_error "Neither temporary toolchain nor final gcc found. Run build-toolchain first!"
         exit 1
     fi
 
-    if [ -f "$LFS/usr/bin/gcc" ]; then
+    if [ -f "$ROOKERY/usr/bin/gcc" ]; then
         log_info "Final gcc found - resuming partially completed build"
     else
         log_info "Temporary toolchain found - starting fresh build"
@@ -70,46 +70,46 @@ prepare_chroot() {
     log_info "Preparing chroot environment..."
 
     # Create essential directories
-    mkdir -pv $LFS/{dev,proc,sys,run,tmp}
+    mkdir -pv $ROOKERY/{dev,proc,sys,run,tmp}
 
     # Create essential device nodes
-    if [ ! -c "$LFS/dev/null" ]; then
-        mknod -m 600 $LFS/dev/console c 5 1 2>/dev/null || true
-        mknod -m 666 $LFS/dev/null c 1 3 2>/dev/null || true
+    if [ ! -c "$ROOKERY/dev/null" ]; then
+        mknod -m 600 $ROOKERY/dev/console c 5 1 2>/dev/null || true
+        mknod -m 666 $ROOKERY/dev/null c 1 3 2>/dev/null || true
     fi
 
     # Mount virtual filesystems
     log_info "Mounting virtual filesystems..."
-    mount --bind /dev $LFS/dev || log_warn "Failed to mount /dev"
-    mount -t devpts devpts $LFS/dev/pts -o gid=5,mode=620 || log_warn "Failed to mount /dev/pts"
-    mount -t proc proc $LFS/proc || log_warn "Failed to mount /proc"
-    mount -t sysfs sysfs $LFS/sys || log_warn "Failed to mount /sys"
-    mount -t tmpfs tmpfs $LFS/run || log_warn "Failed to mount /run"
+    mount --bind /dev $ROOKERY/dev || log_warn "Failed to mount /dev"
+    mount -t devpts devpts $ROOKERY/dev/pts -o gid=5,mode=620 || log_warn "Failed to mount /dev/pts"
+    mount -t proc proc $ROOKERY/proc || log_warn "Failed to mount /proc"
+    mount -t sysfs sysfs $ROOKERY/sys || log_warn "Failed to mount /sys"
+    mount -t tmpfs tmpfs $ROOKERY/run || log_warn "Failed to mount /run"
 
     # Bind mount sources
-    mkdir -p $LFS/sources
+    mkdir -p $ROOKERY/sources
     if [ -d "$SOURCES_DIR" ]; then
-        mount --bind $SOURCES_DIR $LFS/sources || log_warn "Failed to mount sources"
+        mount --bind $SOURCES_DIR $ROOKERY/sources || log_warn "Failed to mount sources"
     fi
 
     # Copy common utilities into chroot
     log_info "Copying common utilities into chroot..."
-    mkdir -p $LFS/tmp/easylfs-common
+    mkdir -p $ROOKERY/tmp/rookery-common
 
     # Copy checkpointing module
-    if [ -f "/usr/local/lib/easylfs-common/checkpointing.sh" ]; then
-        cp "/usr/local/lib/easylfs-common/checkpointing.sh" $LFS/tmp/easylfs-common/ && log_info "✓ Checkpointing module copied"
+    if [ -f "/usr/local/lib/rookery-common/checkpointing.sh" ]; then
+        cp "/usr/local/lib/rookery-common/checkpointing.sh" $ROOKERY/tmp/rookery-common/ && log_info "✓ Checkpointing module copied"
     elif [ -f "$SCRIPT_DIR/../../common/checkpointing.sh" ]; then
-        cp "$SCRIPT_DIR/../../common/checkpointing.sh" $LFS/tmp/easylfs-common/ && log_info "✓ Checkpointing module copied (fallback)"
+        cp "$SCRIPT_DIR/../../common/checkpointing.sh" $ROOKERY/tmp/rookery-common/ && log_info "✓ Checkpointing module copied (fallback)"
     else
         log_warn "⚠ Failed to copy checkpointing.sh - file not found"
     fi
 
     # Copy logging module
-    if [ -f "/usr/local/lib/easylfs-common/logging.sh" ]; then
-        cp "/usr/local/lib/easylfs-common/logging.sh" $LFS/tmp/easylfs-common/ && log_info "✓ Logging module copied"
+    if [ -f "/usr/local/lib/rookery-common/logging.sh" ]; then
+        cp "/usr/local/lib/rookery-common/logging.sh" $ROOKERY/tmp/rookery-common/ && log_info "✓ Logging module copied"
     elif [ -f "$SCRIPT_DIR/../../common/logging.sh" ]; then
-        cp "$SCRIPT_DIR/../../common/logging.sh" $LFS/tmp/easylfs-common/ && log_info "✓ Logging module copied (fallback)"
+        cp "$SCRIPT_DIR/../../common/logging.sh" $ROOKERY/tmp/rookery-common/ && log_info "✓ Logging module copied (fallback)"
     else
         log_warn "⚠ Failed to copy logging.sh - file not found"
     fi
@@ -125,12 +125,12 @@ prepare_chroot() {
 cleanup_chroot() {
     log_info "Cleaning up chroot mounts..."
 
-    umount -l $LFS/sources 2>/dev/null || true
-    umount -l $LFS/dev/pts 2>/dev/null || true
-    umount -l $LFS/dev 2>/dev/null || true
-    umount -l $LFS/proc 2>/dev/null || true
-    umount -l $LFS/sys 2>/dev/null || true
-    umount -l $LFS/run 2>/dev/null || true
+    umount -l $ROOKERY/sources 2>/dev/null || true
+    umount -l $ROOKERY/dev/pts 2>/dev/null || true
+    umount -l $ROOKERY/dev 2>/dev/null || true
+    umount -l $ROOKERY/proc 2>/dev/null || true
+    umount -l $ROOKERY/sys 2>/dev/null || true
+    umount -l $ROOKERY/run 2>/dev/null || true
 
     log_info "Cleanup complete"
 }
@@ -144,31 +144,31 @@ build_in_chroot() {
 
     # Copy the chroot build script into the chroot environment
     log_info "Copying chroot build script..."
-    cp "$SCRIPT_DIR/build_in_chroot.sh" $LFS/tmp/build_in_chroot.sh
+    cp "$SCRIPT_DIR/build_in_chroot.sh" $ROOKERY/tmp/build_in_chroot.sh
 
-    chmod +x $LFS/tmp/build_in_chroot.sh
+    chmod +x $ROOKERY/tmp/build_in_chroot.sh
 
     # Execute chroot with unbuffered output for real-time logging
     log_info "Executing chroot build script..."
     log_info "Output will be shown in real-time (unbuffered)..."
 
     # Create log file with proper permissions
-    touch $LFS/tmp/chroot_build.log
-    chmod 666 $LFS/tmp/chroot_build.log
+    touch $ROOKERY/tmp/chroot_build.log
+    chmod 666 $ROOKERY/tmp/chroot_build.log
 
     set +e  # Don't exit on error, we want to capture the exit code
 
     # Use stdbuf to disable buffering for real-time output
     # Save to both console and log file
-    stdbuf -oL -eL chroot "$LFS" /usr/bin/env -i \
+    stdbuf -oL -eL chroot "$ROOKERY" /usr/bin/env -i \
         HOME=/root \
         TERM="$TERM" \
-        PS1='(lfs chroot) \u:\w\$ ' \
+        PS1='(rookery chroot) \u:\w\$ ' \
         PATH=/usr/bin:/usr/sbin:/bin:/sbin:/tools/bin \
         MAKEFLAGS="$MAKEFLAGS" \
         LC_ALL=POSIX \
         BUILD_STAGE="${BUILD_STAGE:-all}" \
-        /bin/bash /tmp/build_in_chroot.sh 2>&1 | stdbuf -oL -eL tee $LFS/tmp/chroot_build.log
+        /bin/bash /tmp/build_in_chroot.sh 2>&1 | stdbuf -oL -eL tee $ROOKERY/tmp/chroot_build.log
 
     CHROOT_EXIT_CODE=${PIPESTATUS[0]}
     set -e
@@ -184,9 +184,9 @@ build_in_chroot() {
         log_info "✓✓✓ CHROOT SCRIPT COMPLETED SUCCESSFULLY ✓✓✓"
 
         # Verify success marker exists
-        if [ -f "$LFS/tmp/build_status" ]; then
+        if [ -f "$ROOKERY/tmp/build_status" ]; then
             log_info "✓ Build status marker found:"
-            cat "$LFS/tmp/build_status" | while read line; do
+            cat "$ROOKERY/tmp/build_status" | while read line; do
                 log_info "  $line"
             done
         else
@@ -194,7 +194,7 @@ build_in_chroot() {
             log_warn "Checking for essential files..."
 
             # Additional verification
-            if chroot "$LFS" /usr/bin/env -i bash -c "test -f /sbin/init" 2>/dev/null; then
+            if chroot "$ROOKERY" /usr/bin/env -i bash -c "test -f /sbin/init" 2>/dev/null; then
                 log_info "✓ /sbin/init found - build likely succeeded"
             else
                 log_error "✗ /sbin/init NOT found - build incomplete"
@@ -206,16 +206,16 @@ build_in_chroot() {
         log_error "Exit code: $CHROOT_EXIT_CODE"
         log_error ""
         log_error "To view the full log:"
-        log_error "  docker run --rm -v easylfs_lfs-rootfs:/lfs ubuntu:22.04 cat /lfs/tmp/chroot_build.log"
+        log_error "  docker run --rm -v rookery_rootfs:/rookery ubuntu:22.04 cat /rookery/tmp/chroot_build.log"
         log_error ""
         log_error "To view last 50 lines:"
-        log_error "  docker run --rm -v easylfs_lfs-rootfs:/lfs ubuntu:22.04 tail -50 /lfs/tmp/chroot_build.log"
+        log_error "  docker run --rm -v rookery_rootfs:/rookery ubuntu:22.04 tail -50 /rookery/tmp/chroot_build.log"
         echo ""
-        rm -f $LFS/tmp/build_in_chroot.sh
+        rm -f $ROOKERY/tmp/build_in_chroot.sh
         exit $CHROOT_EXIT_CODE
     fi
 
-    rm -f $LFS/tmp/build_in_chroot.sh
+    rm -f $ROOKERY/tmp/build_in_chroot.sh
 
     # Final exit with the captured code
     if [ $CHROOT_EXIT_CODE -ne 0 ]; then
@@ -226,7 +226,7 @@ build_in_chroot() {
 # Main
 main() {
     log_info "=========================================="
-    log_info "EasyLFS Base System Build Starting (MINIMAL)"
+    log_info "Rookery OS Base System Build Starting (MINIMAL)"
     log_info "~43 essential packages will be built"
     log_info "=========================================="
 

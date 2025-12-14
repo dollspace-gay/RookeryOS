@@ -1,22 +1,22 @@
-# EasyLFS Common Logging System
+# Rookery OS Common Logging System
 
-This directory contains shared utilities used by all EasyLFS services.
+This directory contains shared utilities used by all Rookery OS services.
 
 ## Logging System
 
-The `logging.sh` script provides centralized logging functionality for all EasyLFS build services.
+The `logging.sh` script provides centralized logging functionality for all Rookery OS build services.
 
 ### Features
 
 - **Dual Output**: All logs are written to both console (with colors) and persistent log files
 - **Service-Specific Logs**: Each service has its own log file (`/logs/<service-name>.log`)
-- **Master Log**: All services append to a master log (`/logs/easylfs-master.log`) for complete audit trail
+- **Master Log**: All services append to a master log (`/logs/rookery-master.log`) for complete audit trail
 - **Timestamps**: All log entries include timestamps
 - **Automatic Finalization**: Exit handlers ensure logs are properly closed with status information
 
 ### Log Files
 
-Logs are stored in the `lfs-logs` Docker volume and persist across container runs:
+Logs are stored in the `rookery-logs` Docker volume and persist across container runs:
 
 - `/logs/download-sources.log` - Source download service
 - `/logs/build-toolchain.log` - Toolchain build service
@@ -24,7 +24,7 @@ Logs are stored in the `lfs-logs` Docker volume and persist across container run
 - `/logs/configure-system.log` - System configuration service
 - `/logs/build-kernel.log` - Kernel build service
 - `/logs/package-image.log` - Image packaging service
-- `/logs/easylfs-master.log` - Combined log from all services
+- `/logs/rookery-master.log` - Combined log from all services
 
 ### Accessing Logs
 
@@ -32,13 +32,13 @@ View logs from the host:
 
 ```bash
 # View a specific service log
-docker run --rm -v easylfs_lfs-logs:/logs ubuntu:22.04 cat /logs/build-toolchain.log
+docker run --rm -v rookery_logs:/logs ubuntu:22.04 cat /logs/build-toolchain.log
 
 # View the master log
-docker run --rm -v easylfs_lfs-logs:/logs ubuntu:22.04 cat /logs/easylfs-master.log
+docker run --rm -v rookery_logs:/logs ubuntu:22.04 cat /logs/rookery-master.log
 
 # Copy all logs to host
-docker run --rm -v easylfs_lfs-logs:/logs -v $(pwd):/out ubuntu:22.04 \
+docker run --rm -v rookery_logs:/logs -v $(pwd):/out ubuntu:22.04 \
     cp -r /logs /out/
 ```
 
@@ -166,9 +166,9 @@ main "$@"
 #### Service Log Format
 ```
 ========================================================================
-EasyLFS Build Log - Service: build-toolchain
+Rookery OS Build Log - Service: build-toolchain
 Started: 2025-10-22 14:30:15 UTC
-Hostname: easylfs-build-toolchain
+Hostname: rookery-build-toolchain
 ========================================================================
 
 [2025-10-22 14:30:15] [INFO] Starting toolchain build...
@@ -216,7 +216,7 @@ Service: build-toolchain started at 2025-10-22 14:30:15 UTC
 
 When adding a new service:
 
-1. Add `lfs-logs:/logs` volume mount in docker compose.yml
+1. Add `rookery-logs:/logs` volume mount in docker compose.yml
 2. Add `SERVICE_NAME=<service-name>` environment variable
 3. Source `logging.sh` in your script
 4. Call `init_logging` and use the logging functions

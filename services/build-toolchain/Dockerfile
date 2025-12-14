@@ -36,7 +36,7 @@ RUN mkdir -pv /lfs /tools && \
     chown -v lfs:lfs /lfs /tools
 
 # Copy common utilities
-COPY common /usr/local/lib/easylfs-common
+COPY common /usr/local/lib/rookery-common
 
 # Copy build script
 COPY build-toolchain/scripts/build_toolchain.sh /usr/local/bin/build_toolchain.sh

@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================================
-# EasyLFS System Commands Test
-# Tests all essential system commands in the built LFS system
+# Rookery OS System Commands Test
+# Tests all essential system commands in the built Rookery OS system
 # =============================================================================
 
 set -euo pipefail
@@ -57,7 +57,7 @@ test_command_exec() {
 }
 
 echo "=========================================="
-echo "EasyLFS SYSTEM COMMANDS TEST"
+echo "Rookery OS SYSTEM COMMANDS TEST"
 echo "=========================================="
 
 # =============================================================================

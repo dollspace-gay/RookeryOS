@@ -20,13 +20,13 @@ Rookery OS is a security-hardened Linux distribution built for the **Friendly So
 ```bash
 # Clone and enter the project
 git clone <repository-url>
-cd rookery-os
+cd RookeryOS
 
 # Build the complete system (6-11 hours)
-./easylfs build
+./rookery build
 
 # Output files in dist/:
-# - rookery-os-1.0.img.gz  (bootable disk image)
+# - rookery-os-1.0.img.xz  (bootable disk image)
 # - rookery-os-1.0.iso     (bootable ISO)
 # - rookery-os-1.0.tar.gz  (system tarball)
 ```
@@ -43,10 +43,11 @@ cd rookery-os
 
 | Stage | Duration | Description |
 |-------|----------|-------------|
-| download-sources | 5-15 min | Download LFS packages + dbus + linux-firmware |
+| download-sources | 5-15 min | Download Rookery Core packages + dbus + linux-firmware |
 | build-toolchain | 2-4 hours | Cross-compiler in /tools |
 | build-basesystem | 3-6 hours | 42 packages in chroot (systemd, NOT sysvinit) |
 | configure-system | 10-20 min | systemd configs, network, /etc files |
+| build-extended | 1-3 hours | Rookery Extended packages (security, desktop, etc.) |
 | build-kernel | 30-90 min | Grsec kernel with modules + firmware |
 | package-image | 15-30 min | Bootable .img and .iso with GRUB |
 
@@ -55,7 +56,7 @@ cd rookery-os
 ### QEMU (Serial Console)
 ```bash
 # From disk image
-gunzip dist/rookery-os-1.0.img.gz
+unxz dist/rookery-os-1.0.img.xz
 qemu-system-x86_64 -m 2G -smp 2 \
     -drive file=dist/rookery-os-1.0.img,format=raw \
     -nographic -serial mon:stdio
@@ -81,25 +82,26 @@ dd if=dist/rookery-os-1.0.img of=/dev/sdX bs=4M status=progress
 ## Useful Commands
 
 ```bash
-./easylfs status     # Check build progress
-./easylfs logs       # View build logs
-./easylfs export     # Export disk image to current directory
-./easylfs shell      # Open shell in rootfs
-./easylfs clean      # Remove containers (keep volumes)
-./easylfs reset      # Complete reset
+./rookery status     # Check build progress
+./rookery logs       # View build logs
+./rookery export     # Export disk image to current directory
+./rookery shell      # Open shell in rootfs
+./rookery clean      # Remove containers (keep volumes)
+./rookery reset      # Complete reset
 ```
 
 ## Project Structure
 
 ```
-rookery-os/
+RookeryOS/
 ├── docker-compose.yml      # Build orchestration
 ├── linux-6.6.102/          # Grsec kernel source (local, not downloaded)
 ├── services/
 │   ├── download-sources/   # Package downloads
 │   ├── build-toolchain/    # Cross-compiler
-│   ├── build-basesystem/   # Core system
+│   ├── build-basesystem/   # Rookery Core (base system)
 │   ├── configure-system/   # System configuration
+│   ├── build-blfs/         # Rookery Extended packages
 │   ├── build-kernel/       # Kernel compilation
 │   └── package-image/      # Image creation
 └── dist/                   # Output images
@@ -128,7 +130,7 @@ rookery-os/
 
 ### View build logs
 ```bash
-docker run --rm -v easylfs_lfs-logs:/logs ubuntu:22.04 tail -100 /logs/build-basesystem.log
+docker run --rm -v rookery_logs:/logs ubuntu:22.04 tail -100 /logs/build-basesystem.log
 ```
 
 ### Force rebuild of a stage

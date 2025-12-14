@@ -7,7 +7,7 @@ set -euo pipefail
 # =============================================================================
 
 # Load common utilities
-COMMON_DIR="/usr/local/lib/easylfs-common"
+COMMON_DIR="/usr/local/lib/rookery-common"
 if [ -d "$COMMON_DIR" ]; then
     source "$COMMON_DIR/logging.sh"
     source "$COMMON_DIR/checkpointing.sh"
@@ -27,8 +27,8 @@ DOWNLOAD_TIMEOUT=300
 # Corvidae Mirror - single source for all packages
 MIRROR="http://corvidae.social/RookerySource"
 
-# Note: LFS for download-sources points to /sources since we don't have /lfs yet
-export LFS="${LFS:-/lfs}"
+# Note: ROOKERY for download-sources points to /sources since we don't have /rookery yet
+export ROOKERY="${ROOKERY:-/rookery}"
 
 # Setup logging trap
 trap 'finalize_logging $?' EXIT

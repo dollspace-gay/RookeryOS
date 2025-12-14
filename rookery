@@ -1,6 +1,6 @@
 #!/bin/bash
-# EasyLFS - Unified command interface
-# Usage: ./easylfs [command]
+# Rookery OS - Unified command interface
+# Usage: ./rookery [command]
 
 set -e
 
@@ -13,7 +13,7 @@ NC='\033[0m'
 
 # Auto-setup if needed
 auto_setup() {
-    if ! docker volume inspect easylfs_lfs-sources &> /dev/null; then
+    if ! docker volume inspect rookery_sources &> /dev/null; then
         echo -e "${YELLOW}First run detected. Initializing environment...${NC}"
         ./setup.sh
     fi
@@ -22,31 +22,32 @@ auto_setup() {
 # Command dispatcher
 case "${1:-help}" in
     help|--help|-h)
-        echo -e "${BLUE}EasyLFS - Easy Linux From Scratch${NC}"
+        echo -e "${BLUE}Rookery OS Build System${NC}"
         echo ""
-        echo "Usage: ./easylfs [command]"
+        echo "Usage: ./rookery [command]"
         echo ""
         echo -e "${YELLOW}Commands:${NC}"
-        echo "  build           - Build complete LFS system (6-12 hours)"
+        echo "  build           - Build complete Rookery OS system (6-12 hours)"
         echo "  setup           - Initialize environment (run this first)"
         echo "  status          - Show build progress and volume status"
         echo "  logs            - Display build logs"
         echo "  clean           - Remove containers (keep volumes)"
         echo "  reset           - Complete reset (removes all volumes)"
         echo "  export          - Export final disk image to current directory"
-        echo "  shell           - Open shell in LFS rootfs volume"
+        echo "  shell           - Open shell in Rookery rootfs volume"
         echo "  test            - Run validation tests"
         echo ""
         echo -e "${YELLOW}Stage-specific builds:${NC}"
         echo "  download        - Download sources only"
         echo "  toolchain       - Build toolchain only"
-        echo "  basesystem      - Build base system only"
+        echo "  basesystem      - Build Rookery Core (base system) only"
         echo "  configure       - Configure system only"
+        echo "  extended        - Build Rookery Extended packages only"
         echo "  kernel          - Build kernel only"
         echo "  package         - Create disk image only"
         echo ""
         echo -e "${YELLOW}Quick start:${NC}"
-        echo "  ./easylfs build    # Automatically runs setup if needed"
+        echo "  ./rookery build    # Automatically runs setup if needed"
         echo ""
         ;;
 
@@ -79,7 +80,7 @@ case "${1:-help}" in
         read -p "Are you sure? Type 'yes' to confirm: " confirm
         if [ "$confirm" = "yes" ]; then
             docker compose down -v 2>/dev/null || true
-            for vol in easylfs_lfs-sources easylfs_lfs-tools easylfs_lfs-rootfs easylfs_lfs-dist easylfs_lfs-logs; do
+            for vol in rookery_sources rookery_tools rookery_rootfs rookery_dist rookery_logs; do
                 docker volume rm "$vol" 2>/dev/null || true
             done
             echo -e "${GREEN}Complete reset done.${NC}"
@@ -91,23 +92,23 @@ case "${1:-help}" in
     export)
         auto_setup
         echo -e "${YELLOW}Exporting disk image...${NC}"
-        docker run --rm -v easylfs_lfs-dist:/dist -v "$(pwd)":/output ubuntu:22.04 \
-            cp /dist/lfs-12.4-sysv.img /output/ 2>/dev/null || {
-            echo -e "${RED}No image found. Build the system first with: ./easylfs build${NC}"
+        docker run --rm -v rookery_dist:/dist -v "$(pwd)":/output ubuntu:22.04 \
+            cp /dist/rookery-os-1.0.img /output/ 2>/dev/null || {
+            echo -e "${RED}No image found. Build the system first with: ./rookery build${NC}"
             exit 1
         }
-        echo -e "${GREEN}Image exported: $(pwd)/lfs-12.4-sysv.img${NC}"
-        ls -lh lfs-12.4-sysv.img
+        echo -e "${GREEN}Image exported: $(pwd)/rookery-os-1.0.img${NC}"
+        ls -lh rookery-os-1.0.img
         echo ""
         echo "To boot with QEMU:"
-        echo "  qemu-system-x86_64 -m 2G -hda lfs-12.4-sysv.img"
+        echo "  qemu-system-x86_64 -m 2G -hda rookery-os-1.0.img"
         ;;
 
     shell)
         auto_setup
-        echo -e "${YELLOW}Opening shell in LFS rootfs...${NC}"
+        echo -e "${YELLOW}Opening shell in Rookery rootfs...${NC}"
         echo "Type 'exit' to return"
-        docker run --rm -it -v easylfs_lfs-rootfs:/lfs ubuntu:22.04 sh -c 'cd /lfs && exec sh'
+        docker run --rm -it -v rookery_rootfs:/rookery ubuntu:22.04 sh -c 'cd /rookery && exec sh'
         ;;
 
     test)
@@ -116,13 +117,14 @@ case "${1:-help}" in
         ;;
 
     # Individual stages
-    download|toolchain|basesystem|configure|kernel|package)
+    download|toolchain|basesystem|configure|extended|kernel|package)
         auto_setup
         service_map=(
             ["download"]="download-sources"
             ["toolchain"]="build-toolchain"
             ["basesystem"]="build-basesystem"
             ["configure"]="configure-system"
+            ["extended"]="build-extended"
             ["kernel"]="build-kernel"
             ["package"]="package-image"
         )
@@ -131,6 +133,7 @@ case "${1:-help}" in
         service_map[toolchain]="build-toolchain"
         service_map[basesystem]="build-basesystem"
         service_map[configure]="configure-system"
+        service_map[extended]="build-extended"
         service_map[kernel]="build-kernel"
         service_map[package]="package-image"
 
@@ -141,7 +144,7 @@ case "${1:-help}" in
 
     *)
         echo -e "${RED}Unknown command: $1${NC}"
-        echo "Run './easylfs help' to see available commands"
+        echo "Run './rookery help' to see available commands"
         exit 1
         ;;
 esac

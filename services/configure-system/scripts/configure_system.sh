@@ -8,14 +8,14 @@ set -euo pipefail
 # Duration: 10-20 minutes
 # =============================================================================
 
-export LFS="${LFS:-/lfs}"
+export ROOKERY="${ROOKERY:-/rookery}"
 export HOSTNAME="${HOSTNAME:-rookery}"
 export TIMEZONE="${TIMEZONE:-Europe/Rome}"
 
 # Load common utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Load common utilities
-COMMON_DIR="/usr/local/lib/easylfs-common"
+COMMON_DIR="/usr/local/lib/rookery-common"
 if [ -d "$COMMON_DIR" ]; then
     source "$COMMON_DIR/logging.sh" 2>/dev/null || true
     source "$COMMON_DIR/checkpointing.sh" 2>/dev/null || true
@@ -37,7 +37,7 @@ fi
 
 main() {
     log_info "=========================================="
-    log_info "Configuring LFS System (systemd)"
+    log_info "Configuring Rookery OS System (systemd)"
     log_info "=========================================="
 
     # Initialize checkpoint system
@@ -54,11 +54,11 @@ main() {
     # =========================================================================
     log_step "Configuring hostname..."
 
-    cat > $LFS/etc/hostname << EOF
+    cat > $ROOKERY/etc/hostname << EOF
 $HOSTNAME
 EOF
 
-    cat > $LFS/etc/hosts << EOF
+    cat > $ROOKERY/etc/hosts << EOF
 127.0.0.1  localhost
 127.0.1.1  $HOSTNAME
 ::1        localhost ip6-localhost ip6-loopback
@@ -70,10 +70,10 @@ EOF
     # systemd-networkd configuration (replaces SysV ifconfig)
     # =========================================================================
     log_step "Configuring network (systemd-networkd)..."
-    mkdir -p $LFS/etc/systemd/network
+    mkdir -p $ROOKERY/etc/systemd/network
 
     # Static IP configuration for QEMU default network
-    cat > $LFS/etc/systemd/network/10-eth-static.network << "EOF"
+    cat > $ROOKERY/etc/systemd/network/10-eth-static.network << "EOF"
 [Match]
 Name=eth0 enp* ens* en*
 
@@ -86,7 +86,7 @@ EOF
 
     # Create resolv.conf for chroot environment
     # systemd-resolved will manage this at runtime
-    cat > $LFS/etc/resolv.conf << "EOF"
+    cat > $ROOKERY/etc/resolv.conf << "EOF"
 # Temporary resolv.conf for chroot environment
 # systemd-resolved will manage this at runtime
 nameserver 10.0.2.3
@@ -100,7 +100,7 @@ EOF
     # =========================================================================
     log_step "Creating /etc/fstab..."
 
-    cat > $LFS/etc/fstab << "EOF"
+    cat > $ROOKERY/etc/fstab << "EOF"
 # file system  mount-point  type     options             dump  fsck
 #                                                               order
 /dev/sda1      /            ext4     defaults            1     1
@@ -118,7 +118,7 @@ EOF
     # =========================================================================
     log_step "Creating /etc/os-release..."
 
-    cat > $LFS/etc/os-release << "EOF"
+    cat > $ROOKERY/etc/os-release << "EOF"
 NAME="Rookery OS"
 VERSION="1.0"
 ID=rookery
@@ -133,8 +133,8 @@ EOF
     # systemd default target (multi-user)
     # =========================================================================
     log_step "Setting systemd default target..."
-    mkdir -p $LFS/etc/systemd/system
-    ln -sfv /usr/lib/systemd/system/multi-user.target $LFS/etc/systemd/system/default.target
+    mkdir -p $ROOKERY/etc/systemd/system
+    ln -sfv /usr/lib/systemd/system/multi-user.target $ROOKERY/etc/systemd/system/default.target
 
     # =========================================================================
     # Enable essential systemd services
@@ -142,21 +142,21 @@ EOF
     log_step "Enabling systemd services..."
 
     # Enable networkd and resolved
-    mkdir -p $LFS/etc/systemd/system/multi-user.target.wants
-    mkdir -p $LFS/etc/systemd/system/sockets.target.wants
-    mkdir -p $LFS/etc/systemd/system/network-online.target.wants
+    mkdir -p $ROOKERY/etc/systemd/system/multi-user.target.wants
+    mkdir -p $ROOKERY/etc/systemd/system/sockets.target.wants
+    mkdir -p $ROOKERY/etc/systemd/system/network-online.target.wants
 
     # systemd-networkd
     ln -sf /usr/lib/systemd/system/systemd-networkd.service \
-        $LFS/etc/systemd/system/multi-user.target.wants/systemd-networkd.service 2>/dev/null || true
+        $ROOKERY/etc/systemd/system/multi-user.target.wants/systemd-networkd.service 2>/dev/null || true
     ln -sf /usr/lib/systemd/system/systemd-networkd.socket \
-        $LFS/etc/systemd/system/sockets.target.wants/systemd-networkd.socket 2>/dev/null || true
+        $ROOKERY/etc/systemd/system/sockets.target.wants/systemd-networkd.socket 2>/dev/null || true
     ln -sf /usr/lib/systemd/system/systemd-networkd-wait-online.service \
-        $LFS/etc/systemd/system/network-online.target.wants/systemd-networkd-wait-online.service 2>/dev/null || true
+        $ROOKERY/etc/systemd/system/network-online.target.wants/systemd-networkd-wait-online.service 2>/dev/null || true
 
     # systemd-resolved
     ln -sf /usr/lib/systemd/system/systemd-resolved.service \
-        $LFS/etc/systemd/system/multi-user.target.wants/systemd-resolved.service 2>/dev/null || true
+        $ROOKERY/etc/systemd/system/multi-user.target.wants/systemd-resolved.service 2>/dev/null || true
 
     log_info "Enabled: systemd-networkd, systemd-resolved"
 
@@ -164,9 +164,9 @@ EOF
     # Serial console for QEMU -nographic mode
     # =========================================================================
     log_step "Enabling serial console (ttyS0)..."
-    mkdir -p $LFS/etc/systemd/system/getty.target.wants
+    mkdir -p $ROOKERY/etc/systemd/system/getty.target.wants
     ln -sf /usr/lib/systemd/system/serial-getty@.service \
-        $LFS/etc/systemd/system/getty.target.wants/serial-getty@ttyS0.service
+        $ROOKERY/etc/systemd/system/getty.target.wants/serial-getty@ttyS0.service
 
     log_info "Serial console enabled on ttyS0 (for QEMU -nographic)"
 
@@ -174,10 +174,10 @@ EOF
     # journald configuration (persistent logging)
     # =========================================================================
     log_step "Configuring systemd-journald..."
-    mkdir -p $LFS/etc/systemd/journald.conf.d
-    mkdir -p $LFS/var/log/journal
+    mkdir -p $ROOKERY/etc/systemd/journald.conf.d
+    mkdir -p $ROOKERY/var/log/journal
 
-    cat > $LFS/etc/systemd/journald.conf.d/storage.conf << "EOF"
+    cat > $ROOKERY/etc/systemd/journald.conf.d/storage.conf << "EOF"
 [Journal]
 Storage=persistent
 SystemMaxUse=100M
@@ -190,9 +190,9 @@ EOF
     # =========================================================================
     log_step "Configuring shell..."
 
-    mkdir -p $LFS/root
+    mkdir -p $ROOKERY/root
 
-    cat > $LFS/etc/profile << "EOF"
+    cat > $ROOKERY/etc/profile << "EOF"
 # /etc/profile - System-wide environment and startup scripts
 
 export PATH=/usr/bin:/usr/sbin:/bin:/sbin
@@ -215,7 +215,7 @@ export HISTFILESIZE=1000
 export EDITOR=vi
 EOF
 
-    cat > $LFS/root/.bash_profile << "EOF"
+    cat > $ROOKERY/root/.bash_profile << "EOF"
 # ~/.bash_profile - Personal environment variables
 
 if [ -f "$HOME/.bashrc" ] ; then
@@ -223,7 +223,7 @@ if [ -f "$HOME/.bashrc" ] ; then
 fi
 EOF
 
-    cat > $LFS/root/.bashrc << "EOF"
+    cat > $ROOKERY/root/.bashrc << "EOF"
 # ~/.bashrc - Personal aliases and functions
 
 alias ls='ls --color=auto'
@@ -235,7 +235,7 @@ alias journalctl='journalctl --no-pager'
 PS1='\u@\h:\w\$ '
 EOF
 
-    cat > $LFS/etc/inputrc << "EOF"
+    cat > $ROOKERY/etc/inputrc << "EOF"
 # /etc/inputrc - Readline configuration
 
 set horizontal-scroll-mode Off
@@ -264,7 +264,7 @@ EOF
     # =========================================================================
     log_step "Configuring valid shells..."
 
-    cat > $LFS/etc/shells << "EOF"
+    cat > $ROOKERY/etc/shells << "EOF"
 /bin/sh
 /bin/bash
 /usr/bin/sh
@@ -276,7 +276,7 @@ EOF
     # =========================================================================
     log_step "Configuring locale..."
 
-    cat > $LFS/etc/locale.conf << "EOF"
+    cat > $ROOKERY/etc/locale.conf << "EOF"
 LANG=en_US.UTF-8
 LC_ALL=en_US.UTF-8
 EOF
@@ -285,7 +285,7 @@ EOF
     # Timezone
     # =========================================================================
     log_step "Setting timezone to $TIMEZONE..."
-    ln -sf /usr/share/zoneinfo/$TIMEZONE $LFS/etc/localtime
+    ln -sf /usr/share/zoneinfo/$TIMEZONE $ROOKERY/etc/localtime
 
     # =========================================================================
     # Root password configuration
@@ -293,8 +293,8 @@ EOF
     log_step "Setting root password..."
 
     # Enable SHA-512 password hashing in login.defs
-    if [ -f "$LFS/etc/login.defs" ]; then
-        sed -i 's/^#ENCRYPT_METHOD.*/ENCRYPT_METHOD SHA512/' $LFS/etc/login.defs
+    if [ -f "$ROOKERY/etc/login.defs" ]; then
+        sed -i 's/^#ENCRYPT_METHOD.*/ENCRYPT_METHOD SHA512/' $ROOKERY/etc/login.defs
         log_info "Enabled SHA-512 password encryption"
     fi
 
@@ -303,9 +303,9 @@ EOF
     # Generated with: python3 -c "import crypt; print(crypt.crypt('rookery', crypt.mksalt(crypt.METHOD_SHA512)))"
     ROOT_PASSWORD_HASH='$6$e3iLE3L1SObSEiK8$5D9KEsmRSBeZUZkwHuEBTc07F4lWZCXf6pFe0FNo58KOHxdfQrFOTsY/qmrY3h1N14eswR/iyAzVSnogHE4SP0'
 
-    if [ -f "$LFS/etc/shadow" ]; then
+    if [ -f "$ROOKERY/etc/shadow" ]; then
         # Replace root's password hash in existing shadow file
-        sed -i "s|^root:[^:]*:|root:$ROOT_PASSWORD_HASH:|" $LFS/etc/shadow
+        sed -i "s|^root:[^:]*:|root:$ROOT_PASSWORD_HASH:|" $ROOKERY/etc/shadow
         log_info "Root password set (default: 'rookery')"
     else
         log_info "Warning: /etc/shadow not found - password not set"
@@ -316,8 +316,8 @@ EOF
     # Create init symlink for systemd
     # =========================================================================
     log_step "Creating /sbin/init symlink to systemd..."
-    mkdir -p $LFS/sbin
-    ln -sfv /usr/lib/systemd/systemd $LFS/sbin/init
+    mkdir -p $ROOKERY/sbin
+    ln -sfv /usr/lib/systemd/systemd $ROOKERY/sbin/init
 
     # =========================================================================
     # Fix ownership (UID 1000 from build container -> root)
@@ -325,17 +325,17 @@ EOF
     log_step "Fixing file ownership..."
 
     # Fix root directory
-    chown root:root $LFS 2>/dev/null || true
+    chown root:root $ROOKERY 2>/dev/null || true
 
     # Fix root-level directories and symlinks
-    chown -h root:root $LFS/bin $LFS/lib $LFS/sbin 2>/dev/null || true
-    chown root:root $LFS/lib64 $LFS/home 2>/dev/null || true
+    chown -h root:root $ROOKERY/bin $ROOKERY/lib $ROOKERY/sbin 2>/dev/null || true
+    chown root:root $ROOKERY/lib64 $ROOKERY/home 2>/dev/null || true
 
     # Fix major trees recursively
-    chown -R root:root $LFS/usr $LFS/etc $LFS/var 2>/dev/null || true
+    chown -R root:root $ROOKERY/usr $ROOKERY/etc $ROOKERY/var 2>/dev/null || true
 
     # Fix any remaining UID 1000 files
-    find $LFS -uid 1000 -exec chown root:root {} \; 2>/dev/null || true
+    find $ROOKERY -uid 1000 -exec chown root:root {} \; 2>/dev/null || true
 
     log_info "Ownership fixed for system directories"
 

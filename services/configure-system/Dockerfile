@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y \
 
 # Copy configuration script
 # Copy common utilities
-COPY common /usr/local/lib/easylfs-common
+COPY common /usr/local/lib/rookery-common
 
 COPY configure-system/scripts/configure_system.sh /usr/local/bin/configure_system.sh
 RUN chmod +x /usr/local/bin/configure_system.sh

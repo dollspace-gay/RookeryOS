@@ -15,7 +15,7 @@ RUN apk add --no-cache \
 WORKDIR /sources
 
 # Copy common utilities
-COPY common /usr/local/lib/easylfs-common
+COPY common /usr/local/lib/rookery-common
 
 # Copy download script
 COPY download-sources/scripts/download.sh /usr/local/bin/download.sh

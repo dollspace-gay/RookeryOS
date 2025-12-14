@@ -42,7 +42,10 @@
       "Bash(findstr:*)",
       "Bash(wsl -d Ubuntu bash:*)",
       "Bash(wsl -d FedoraLinux-42 bash:*)",
-      "Bash(wget:*)"
+      "Bash(wget:*)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(git -C \"c:\\Users\\texas\\rookery\\RookeryOS\" status --short)"
     ],
     "deny": [],
     "ask": []

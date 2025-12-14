@@ -2,18 +2,18 @@
 set -euo pipefail
 
 # =============================================================================
-# EasyLFS Build BLFS Packages Script
-# Builds Beyond LFS packages in chroot (Security, Desktop, etc.)
+# Rookery OS Build Extended Packages Script
+# Builds Rookery Extended packages in chroot (Security, Desktop, etc.)
 # =============================================================================
 
 # Environment
-export LFS="${LFS:-/lfs}"
+export ROOKERY="${ROOKERY:-/rookery}"
 export MAKEFLAGS="${MAKEFLAGS:--j$(nproc)}"
 
 SOURCES_DIR="/sources"
 
 # Load common utilities
-COMMON_DIR="/usr/local/lib/easylfs-common"
+COMMON_DIR="/usr/local/lib/rookery-common"
 if [ -d "$COMMON_DIR" ]; then
     source "$COMMON_DIR/logging.sh" 2>/dev/null || true
     source "$COMMON_DIR/checkpointing.sh" 2>/dev/null || true
@@ -41,18 +41,18 @@ fi
 verify_prerequisites() {
     log_info "Verifying prerequisites..."
 
-    if [ ! -d "$LFS" ]; then
-        log_error "LFS directory not found: $LFS"
+    if [ ! -d "$ROOKERY" ]; then
+        log_error "Rookery directory not found: $ROOKERY"
         exit 1
     fi
 
-    if [ ! -f "$LFS/usr/bin/gcc" ]; then
-        log_error "GCC not found in LFS. Run build-basesystem first!"
+    if [ ! -f "$ROOKERY/usr/bin/gcc" ]; then
+        log_error "GCC not found in Rookery. Run build-basesystem first!"
         exit 1
     fi
 
-    if [ ! -f "$LFS/usr/lib/systemd/systemd" ]; then
-        log_error "Systemd not found in LFS. Run build-basesystem first!"
+    if [ ! -f "$ROOKERY/usr/lib/systemd/systemd" ]; then
+        log_error "Systemd not found in Rookery. Run build-basesystem first!"
         exit 1
     fi
 
@@ -64,40 +64,40 @@ prepare_chroot() {
     log_info "Preparing chroot environment..."
 
     # Create essential directories
-    mkdir -pv $LFS/{dev,proc,sys,run,tmp}
+    mkdir -pv $ROOKERY/{dev,proc,sys,run,tmp}
 
     # Mount virtual filesystems
     log_info "Mounting virtual filesystems..."
-    mount --bind /dev $LFS/dev || log_warn "Failed to mount /dev"
-    mount -t devpts devpts $LFS/dev/pts -o gid=5,mode=620 || log_warn "Failed to mount /dev/pts"
-    mount -t proc proc $LFS/proc || log_warn "Failed to mount /proc"
-    mount -t sysfs sysfs $LFS/sys || log_warn "Failed to mount /sys"
-    mount -t tmpfs tmpfs $LFS/run || log_warn "Failed to mount /run"
+    mount --bind /dev $ROOKERY/dev || log_warn "Failed to mount /dev"
+    mount -t devpts devpts $ROOKERY/dev/pts -o gid=5,mode=620 || log_warn "Failed to mount /dev/pts"
+    mount -t proc proc $ROOKERY/proc || log_warn "Failed to mount /proc"
+    mount -t sysfs sysfs $ROOKERY/sys || log_warn "Failed to mount /sys"
+    mount -t tmpfs tmpfs $ROOKERY/run || log_warn "Failed to mount /run"
 
     # Create /dev/fd symlink for bash process substitution (requires /proc)
     # This is needed for NetworkManager's build scripts that use <(...) syntax
-    if [ ! -e "$LFS/dev/fd" ]; then
-        ln -sv /proc/self/fd $LFS/dev/fd || log_warn "Failed to create /dev/fd symlink"
+    if [ ! -e "$ROOKERY/dev/fd" ]; then
+        ln -sv /proc/self/fd $ROOKERY/dev/fd || log_warn "Failed to create /dev/fd symlink"
     fi
 
     # Bind mount sources
-    mkdir -p $LFS/sources
+    mkdir -p $ROOKERY/sources
     if [ -d "$SOURCES_DIR" ]; then
-        mount --bind $SOURCES_DIR $LFS/sources || log_warn "Failed to mount sources"
+        mount --bind $SOURCES_DIR $ROOKERY/sources || log_warn "Failed to mount sources"
     fi
 
     # Copy common utilities into chroot
     log_info "Copying common utilities into chroot..."
-    mkdir -p $LFS/tmp/easylfs-common
+    mkdir -p $ROOKERY/tmp/rookery-common
 
     # Copy checkpointing module
-    if [ -f "/usr/local/lib/easylfs-common/checkpointing.sh" ]; then
-        cp "/usr/local/lib/easylfs-common/checkpointing.sh" $LFS/tmp/easylfs-common/
+    if [ -f "/usr/local/lib/rookery-common/checkpointing.sh" ]; then
+        cp "/usr/local/lib/rookery-common/checkpointing.sh" $ROOKERY/tmp/rookery-common/
     fi
 
     # Copy logging module
-    if [ -f "/usr/local/lib/easylfs-common/logging.sh" ]; then
-        cp "/usr/local/lib/easylfs-common/logging.sh" $LFS/tmp/easylfs-common/
+    if [ -f "/usr/local/lib/rookery-common/logging.sh" ]; then
+        cp "/usr/local/lib/rookery-common/logging.sh" $ROOKERY/tmp/rookery-common/
     fi
 
     # Initialize checkpoint system
@@ -109,12 +109,12 @@ prepare_chroot() {
 cleanup_chroot() {
     log_info "Cleaning up chroot mounts..."
 
-    umount -l $LFS/sources 2>/dev/null || true
-    umount -l $LFS/dev/pts 2>/dev/null || true
-    umount -l $LFS/dev 2>/dev/null || true
-    umount -l $LFS/proc 2>/dev/null || true
-    umount -l $LFS/sys 2>/dev/null || true
-    umount -l $LFS/run 2>/dev/null || true
+    umount -l $ROOKERY/sources 2>/dev/null || true
+    umount -l $ROOKERY/dev/pts 2>/dev/null || true
+    umount -l $ROOKERY/dev 2>/dev/null || true
+    umount -l $ROOKERY/proc 2>/dev/null || true
+    umount -l $ROOKERY/sys 2>/dev/null || true
+    umount -l $ROOKERY/run 2>/dev/null || true
 
     log_info "Cleanup complete"
 }
@@ -129,30 +129,30 @@ build_in_chroot() {
     # Copy the chroot build script
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     if [ -f "/usr/local/bin/build_blfs_chroot.sh" ]; then
-        cp "/usr/local/bin/build_blfs_chroot.sh" $LFS/tmp/build_blfs_chroot.sh
+        cp "/usr/local/bin/build_blfs_chroot.sh" $ROOKERY/tmp/build_blfs_chroot.sh
     else
-        cp "$SCRIPT_DIR/build_blfs_chroot.sh" $LFS/tmp/build_blfs_chroot.sh
+        cp "$SCRIPT_DIR/build_blfs_chroot.sh" $ROOKERY/tmp/build_blfs_chroot.sh
     fi
 
-    chmod +x $LFS/tmp/build_blfs_chroot.sh
+    chmod +x $ROOKERY/tmp/build_blfs_chroot.sh
 
     # Execute chroot with unbuffered output
     log_info "Executing BLFS chroot build script..."
 
     # Create log file
-    touch $LFS/tmp/blfs_build.log
-    chmod 666 $LFS/tmp/blfs_build.log
+    touch $ROOKERY/tmp/blfs_build.log
+    chmod 666 $ROOKERY/tmp/blfs_build.log
 
     set +e
 
-    stdbuf -oL -eL chroot "$LFS" /usr/bin/env -i \
+    stdbuf -oL -eL chroot "$ROOKERY" /usr/bin/env -i \
         HOME=/root \
         TERM="$TERM" \
-        PS1='(lfs chroot) \u:\w\$ ' \
+        PS1='(rookery chroot) \u:\w\$ ' \
         PATH=/usr/bin:/usr/sbin:/bin:/sbin \
         MAKEFLAGS="$MAKEFLAGS" \
         LC_ALL=POSIX \
-        /bin/bash /tmp/build_blfs_chroot.sh 2>&1 | stdbuf -oL -eL tee $LFS/tmp/blfs_build.log
+        /bin/bash /tmp/build_blfs_chroot.sh 2>&1 | stdbuf -oL -eL tee $ROOKERY/tmp/blfs_build.log
 
     CHROOT_EXIT_CODE=${PIPESTATUS[0]}
     set -e
@@ -160,7 +160,7 @@ build_in_chroot() {
     echo ""
     log_info "Chroot script exited with code: $CHROOT_EXIT_CODE"
 
-    rm -f $LFS/tmp/build_blfs_chroot.sh
+    rm -f $ROOKERY/tmp/build_blfs_chroot.sh
 
     if [ $CHROOT_EXIT_CODE -ne 0 ]; then
         log_error "BLFS build failed!"
@@ -171,7 +171,7 @@ build_in_chroot() {
 # Main
 main() {
     log_info "=========================================="
-    log_info "EasyLFS BLFS Package Build Starting"
+    log_info "Rookery Extended Package Build Starting"
     log_info "=========================================="
 
     verify_prerequisites

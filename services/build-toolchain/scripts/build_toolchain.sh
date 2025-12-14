@@ -2,26 +2,26 @@
 set -euo pipefail
 
 # =============================================================================
-# EasyLFS Build Toolchain Script
+# Rookery OS Build Toolchain Script
 # Builds the temporary cross-compilation toolchain (LFS Chapters 5-6)
 # Duration: 2-4 hours
 # =============================================================================
 
 # Environment setup
-export LFS="${LFS:-/lfs}"
-export LFS_TGT="${LFS_TGT:-x86_64-lfs-linux-gnu}"
+export ROOKERY="${ROOKERY:-/rookery}"
+export ROOKERY_TGT="${ROOKERY_TGT:-x86_64-rookery-linux-gnu}"
 export LC_ALL=POSIX
-export PATH=$LFS/tools/bin:/bin:/usr/bin
+export PATH=$ROOKERY/tools/bin:/bin:/usr/bin
 export MAKEFLAGS="${MAKEFLAGS:--j$(nproc)}"
 
 SOURCES_DIR="/sources"
-BUILD_DIR="$LFS/build"
-TOOLS_DIR="$LFS/tools"
+BUILD_DIR="$ROOKERY/build"
+TOOLS_DIR="$ROOKERY/tools"
 
 # Load common utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Load common utilities
-COMMON_DIR="/usr/local/lib/easylfs-common"
+COMMON_DIR="/usr/local/lib/rookery-common"
 if [ -d "$COMMON_DIR" ]; then
     source "$COMMON_DIR/logging.sh" 2>/dev/null || true
     source "$COMMON_DIR/checkpointing.sh" 2>/dev/null || true
@@ -107,12 +107,12 @@ verify_prerequisites() {
     mkdir -p "$TOOLS_DIR"
 
     # Create initial directory structure (LFS Chapter 4.2)
-    mkdir -pv $LFS/{etc,var} $LFS/usr/{bin,lib,sbin}
+    mkdir -pv $ROOKERY/{etc,var} $ROOKERY/usr/{bin,lib,sbin}
 
     # Create symlinks for bin, lib, sbin (unified /usr hierarchy)
     for i in bin lib sbin; do
-        if [ ! -e "$LFS/$i" ]; then
-            ln -sv usr/$i $LFS/$i
+        if [ ! -e "$ROOKERY/$i" ]; then
+            ln -sv usr/$i $ROOKERY/$i
         fi
     done
 
@@ -120,16 +120,16 @@ verify_prerequisites() {
     # Remove if it exists as a symlink from previous failed run
     case $(uname -m) in
         x86_64)
-            if [ -L "$LFS/lib64" ]; then
+            if [ -L "$ROOKERY/lib64" ]; then
                 log_warn "Removing existing lib64 symlink (from previous run)"
-                rm -f "$LFS/lib64"
+                rm -f "$ROOKERY/lib64"
             fi
-            mkdir -pv "$LFS/lib64"
+            mkdir -pv "$ROOKERY/lib64"
             ;;
     esac
 
-    log_info "LFS: $LFS"
-    log_info "LFS_TGT: $LFS_TGT"
+    log_info "ROOKERY: $ROOKERY"
+    log_info "ROOKERY_TGT: $ROOKERY_TGT"
     log_info "MAKEFLAGS: $MAKEFLAGS"
     log_info "Build directory: $BUILD_DIR"
 }
@@ -154,8 +154,8 @@ build_binutils_pass1() {
     cd build
 
     ../configure --prefix=$TOOLS_DIR \
-                 --with-sysroot=$LFS \
-                 --target=$LFS_TGT \
+                 --with-sysroot=$ROOKERY \
+                 --target=$ROOKERY_TGT \
                  --disable-nls \
                  --enable-gprofng=no \
                  --disable-werror \
@@ -204,10 +204,10 @@ build_gcc_pass1() {
     cd build
 
     ../configure \
-        --target=$LFS_TGT \
+        --target=$ROOKERY_TGT \
         --prefix=$TOOLS_DIR \
         --with-glibc-version=2.42 \
-        --with-sysroot=$LFS \
+        --with-sysroot=$ROOKERY \
         --with-newlib \
         --without-headers \
         --enable-default-pie \
@@ -238,7 +238,7 @@ build_gcc_pass1() {
     # Create limits.h
     cd ..
     cat gcc/limitx.h gcc/glimits.h gcc/limity.h > \
-      `dirname $($LFS_TGT-gcc -print-libgcc-file-name)`/include/limits.h
+      `dirname $($ROOKERY_TGT-gcc -print-libgcc-file-name)`/include/limits.h
 
     cd "$BUILD_DIR"
     rm -rf gcc-*/
@@ -285,7 +285,7 @@ build_linux_headers() {
     make mrproper
     make headers
     find usr/include -type f ! -name '*.h' -delete
-    command cp -rfv usr/include $LFS/usr
+    command cp -rfv usr/include $ROOKERY/usr
 
     cd "$BUILD_DIR"
     rm -rf linux-*/ linux-headers-build/
@@ -309,10 +309,10 @@ build_glibc() {
     cd glibc-*/
 
     case $(uname -m) in
-        i?86)   ln -sfv ld-linux.so.2 $LFS/lib/ld-lsb.so.3
+        i?86)   ln -sfv ld-linux.so.2 $ROOKERY/lib/ld-lsb.so.3
         ;;
-        x86_64) ln -sfv ../lib/ld-linux-x86-64.so.2 $LFS/lib64
-                ln -sfv ../lib/ld-linux-x86-64.so.2 $LFS/lib64/ld-lsb-x86-64.so.3
+        x86_64) ln -sfv ../lib/ld-linux-x86-64.so.2 $ROOKERY/lib64
+                ln -sfv ../lib/ld-linux-x86-64.so.2 $ROOKERY/lib64/ld-lsb-x86-64.so.3
         ;;
     esac
 
@@ -326,22 +326,22 @@ build_glibc() {
 
     ../configure \
         --prefix=/usr \
-        --host=$LFS_TGT \
+        --host=$ROOKERY_TGT \
         --build=$(../scripts/config.guess) \
         --enable-kernel=4.19 \
-        --with-headers=$LFS/usr/include \
+        --with-headers=$ROOKERY/usr/include \
         --disable-nscd \
         libc_cv_slibdir=/usr/lib
 
     make $MAKEFLAGS
-    make DESTDIR=$LFS install
+    make DESTDIR=$ROOKERY install
 
     # Fix ldd script
-    sed '/RTLDLIST=/s@/usr@@g' -i $LFS/usr/bin/ldd
+    sed '/RTLDLIST=/s@/usr@@g' -i $ROOKERY/usr/bin/ldd
 
     # Sanity check
     log_info "Testing toolchain..."
-    echo 'int main(){}' | $LFS_TGT-gcc -xc -
+    echo 'int main(){}' | $ROOKERY_TGT-gcc -xc -
     readelf -l a.out | grep ld-linux
     rm -v a.out
 
@@ -370,19 +370,19 @@ build_libstdcxx_pass1() {
     cd build
 
     ../libstdc++-v3/configure \
-        --host=$LFS_TGT \
+        --host=$ROOKERY_TGT \
         --build=$(../config.guess) \
         --prefix=/usr \
         --disable-multilib \
         --disable-nls \
         --disable-libstdcxx-pch \
-        --with-gxx-include-dir=/tools/$LFS_TGT/include/c++/15.2.0
+        --with-gxx-include-dir=/tools/$ROOKERY_TGT/include/c++/15.2.0
 
     make $MAKEFLAGS
-    make DESTDIR=$LFS install
+    make DESTDIR=$ROOKERY install
 
     # Remove libtool files
-    rm -v $LFS/usr/lib/lib{stdc++{,exp,fs},supc++}.la
+    rm -v $ROOKERY/usr/lib/lib{stdc++{,exp,fs},supc++}.la
 
     cd "$BUILD_DIR"
     rm -rf gcc-*/
@@ -402,9 +402,9 @@ build_chapter6_tools() {
 
     # M4
     build_package "m4-*.tar.xz" "M4" \
-        "./configure --prefix=/usr --host=$LFS_TGT --build=\$(build-aux/config.guess)" \
+        "./configure --prefix=/usr --host=$ROOKERY_TGT --build=\$(build-aux/config.guess)" \
         "make $MAKEFLAGS" \
-        "make DESTDIR=$LFS install"
+        "make DESTDIR=$ROOKERY install"
 
     # Ncurses (manual build with checkpoint)
     if ! should_skip_package "ncurses" "$SOURCES_DIR"; then
@@ -424,7 +424,7 @@ build_chapter6_tools() {
         popd
 
         ./configure --prefix=/usr \
-                    --host=$LFS_TGT \
+                    --host=$ROOKERY_TGT \
                     --build=$(./config.guess) \
                     --mandir=/usr/share/man \
                     --with-manpage-format=normal \
@@ -436,9 +436,9 @@ build_chapter6_tools() {
                     --disable-stripping
 
         make $MAKEFLAGS
-        make DESTDIR=$LFS TIC_PATH=$(pwd)/build/progs/tic install
-        ln -sfv libncursesw.so $LFS/usr/lib/libncurses.so
-        sed -e 's/^#if.*XOPEN.*$/#if 1/' -i $LFS/usr/include/curses.h
+        make DESTDIR=$ROOKERY TIC_PATH=$(pwd)/build/progs/tic install
+        ln -sfv libncursesw.so $ROOKERY/usr/lib/libncurses.so
+        sed -e 's/^#if.*XOPEN.*$/#if 1/' -i $ROOKERY/usr/include/curses.h
 
         cd "$BUILD_DIR"
         rm -rf ncurses-*/
@@ -448,23 +448,23 @@ build_chapter6_tools() {
 
     # Bash
     build_package "bash-*.tar.gz" "Bash" \
-        "./configure --prefix=/usr --build=\$(sh support/config.guess) --host=$LFS_TGT --without-bash-malloc" \
+        "./configure --prefix=/usr --build=\$(sh support/config.guess) --host=$ROOKERY_TGT --without-bash-malloc" \
         "make $MAKEFLAGS" \
-        "make DESTDIR=$LFS install"
+        "make DESTDIR=$ROOKERY install"
 
-    ln -sfv bash $LFS/usr/bin/sh
+    ln -sfv bash $ROOKERY/usr/bin/sh
 
     # Coreutils
     build_package "coreutils-*.tar.xz" "Coreutils" \
-        "./configure --prefix=/usr --host=$LFS_TGT --build=\$(build-aux/config.guess) --enable-install-program=hostname --enable-no-install-program=kill,uptime" \
+        "./configure --prefix=/usr --host=$ROOKERY_TGT --build=\$(build-aux/config.guess) --enable-install-program=hostname --enable-no-install-program=kill,uptime" \
         "make $MAKEFLAGS" \
-        "make DESTDIR=$LFS install"
+        "make DESTDIR=$ROOKERY install"
 
     # Diffutils
     build_package "diffutils-*.tar.xz" "Diffutils" \
-        "./configure --prefix=/usr --host=$LFS_TGT --build=\$(./build-aux/config.guess) gl_cv_func_strcasecmp_works=y" \
+        "./configure --prefix=/usr --host=$ROOKERY_TGT --build=\$(./build-aux/config.guess) gl_cv_func_strcasecmp_works=y" \
         "make $MAKEFLAGS" \
-        "make DESTDIR=$LFS install"
+        "make DESTDIR=$ROOKERY install"
 
     # File (manual build with checkpoint)
     if ! should_skip_package "file" "$SOURCES_DIR"; then
@@ -480,10 +480,10 @@ build_chapter6_tools() {
           make
         popd
 
-        ./configure --prefix=/usr --host=$LFS_TGT --build=$(./config.guess)
+        ./configure --prefix=/usr --host=$ROOKERY_TGT --build=$(./config.guess)
         make FILE_COMPILE=$(pwd)/build/src/file $MAKEFLAGS
-        make DESTDIR=$LFS install
-        rm -v $LFS/usr/lib/libmagic.la
+        make DESTDIR=$ROOKERY install
+        rm -v $ROOKERY/usr/lib/libmagic.la
 
         cd "$BUILD_DIR"
         rm -rf file-*/
@@ -493,57 +493,57 @@ build_chapter6_tools() {
 
     # Findutils
     build_package "findutils-*.tar.xz" "Findutils" \
-        "./configure --prefix=/usr --localstatedir=/var/lib/locate --host=$LFS_TGT --build=\$(build-aux/config.guess)" \
+        "./configure --prefix=/usr --localstatedir=/var/lib/locate --host=$ROOKERY_TGT --build=\$(build-aux/config.guess)" \
         "make $MAKEFLAGS" \
-        "make DESTDIR=$LFS install"
+        "make DESTDIR=$ROOKERY install"
 
     # Gawk
     build_package "gawk-*.tar.xz" "Gawk" \
-        "sed -i 's/extras//' Makefile.in && ./configure --prefix=/usr --host=$LFS_TGT --build=\$(build-aux/config.guess)" \
+        "sed -i 's/extras//' Makefile.in && ./configure --prefix=/usr --host=$ROOKERY_TGT --build=\$(build-aux/config.guess)" \
         "make $MAKEFLAGS" \
-        "make DESTDIR=$LFS install"
+        "make DESTDIR=$ROOKERY install"
 
     # Grep
     build_package "grep-*.tar.xz" "Grep" \
-        "./configure --prefix=/usr --host=$LFS_TGT --build=\$(./build-aux/config.guess)" \
+        "./configure --prefix=/usr --host=$ROOKERY_TGT --build=\$(./build-aux/config.guess)" \
         "make $MAKEFLAGS" \
-        "make DESTDIR=$LFS install"
+        "make DESTDIR=$ROOKERY install"
 
     # Gzip
     build_package "gzip-*.tar.xz" "Gzip" \
-        "./configure --prefix=/usr --host=$LFS_TGT" \
+        "./configure --prefix=/usr --host=$ROOKERY_TGT" \
         "make $MAKEFLAGS" \
-        "make DESTDIR=$LFS install"
+        "make DESTDIR=$ROOKERY install"
 
     # Make
     build_package "make-*.tar.gz" "Make" \
-        "./configure --prefix=/usr --without-guile --host=$LFS_TGT --build=\$(build-aux/config.guess)" \
+        "./configure --prefix=/usr --without-guile --host=$ROOKERY_TGT --build=\$(build-aux/config.guess)" \
         "make $MAKEFLAGS" \
-        "make DESTDIR=$LFS install"
+        "make DESTDIR=$ROOKERY install"
 
     # Patch
     build_package "patch-*.tar.xz" "Patch" \
-        "./configure --prefix=/usr --host=$LFS_TGT --build=\$(build-aux/config.guess)" \
+        "./configure --prefix=/usr --host=$ROOKERY_TGT --build=\$(build-aux/config.guess)" \
         "make $MAKEFLAGS" \
-        "make DESTDIR=$LFS install"
+        "make DESTDIR=$ROOKERY install"
 
     # Sed
     build_package "sed-*.tar.xz" "Sed" \
-        "./configure --prefix=/usr --host=$LFS_TGT --build=\$(./build-aux/config.guess)" \
+        "./configure --prefix=/usr --host=$ROOKERY_TGT --build=\$(./build-aux/config.guess)" \
         "make $MAKEFLAGS" \
-        "make DESTDIR=$LFS install"
+        "make DESTDIR=$ROOKERY install"
 
     # Tar
     build_package "tar-*.tar.xz" "Tar" \
-        "./configure --prefix=/usr --host=$LFS_TGT --build=\$(build-aux/config.guess)" \
+        "./configure --prefix=/usr --host=$ROOKERY_TGT --build=\$(build-aux/config.guess)" \
         "make $MAKEFLAGS" \
-        "make DESTDIR=$LFS install"
+        "make DESTDIR=$ROOKERY install"
 
     # Xz
     build_package "xz-*.tar.xz" "Xz" \
-        "./configure --prefix=/usr --host=$LFS_TGT --build=\$(build-aux/config.guess) --disable-static --docdir=/usr/share/doc/xz-5.4.6" \
+        "./configure --prefix=/usr --host=$ROOKERY_TGT --build=\$(build-aux/config.guess) --disable-static --docdir=/usr/share/doc/xz-5.4.6" \
         "make $MAKEFLAGS" \
-        "make DESTDIR=$LFS install"
+        "make DESTDIR=$ROOKERY install"
 }
 
 build_binutils_pass2() {
@@ -566,7 +566,7 @@ build_binutils_pass2() {
     ../configure \
         --prefix=/usr \
         --build=$(../config.guess) \
-        --host=$LFS_TGT \
+        --host=$ROOKERY_TGT \
         --disable-nls \
         --enable-shared \
         --enable-gprofng=no \
@@ -575,10 +575,10 @@ build_binutils_pass2() {
         --enable-default-hash-style=gnu
 
     make $MAKEFLAGS
-    make DESTDIR=$LFS install
+    make DESTDIR=$ROOKERY install
 
     # Remove libtool files
-    rm -v $LFS/usr/lib/lib{bfd,ctf,ctf-nobfd,opcodes,sframe}.{a,la}
+    rm -v $ROOKERY/usr/lib/lib{bfd,ctf,ctf-nobfd,opcodes,sframe}.{a,la}
 
     cd "$BUILD_DIR"
     rm -rf binutils-*/
@@ -624,11 +624,11 @@ build_gcc_pass2() {
 
     ../configure \
         --build=$(../config.guess) \
-        --host=$LFS_TGT \
-        --target=$LFS_TGT \
-        LDFLAGS_FOR_TARGET=-L$PWD/$LFS_TGT/libgcc \
+        --host=$ROOKERY_TGT \
+        --target=$ROOKERY_TGT \
+        LDFLAGS_FOR_TARGET=-L$PWD/$ROOKERY_TGT/libgcc \
         --prefix=/usr \
-        --with-build-sysroot=$LFS \
+        --with-build-sysroot=$ROOKERY \
         --enable-default-pie \
         --enable-default-ssp \
         --disable-nls \
@@ -650,10 +650,10 @@ build_gcc_pass2() {
         log_error "Full log saved to /tmp/gcc-pass2-build.log"
         exit 1
     fi
-    make DESTDIR=$LFS install
+    make DESTDIR=$ROOKERY install
 
     # Create cc symlink
-    ln -sfv gcc $LFS/usr/bin/cc
+    ln -sfv gcc $ROOKERY/usr/bin/cc
 
     cd "$BUILD_DIR"
     rm -rf gcc-*/
@@ -670,27 +670,27 @@ build_gcc_pass2() {
 
 main() {
     log_info "=========================================="
-    log_info "EasyLFS Toolchain Build Starting"
+    log_info "Rookery OS Toolchain Build Starting"
     log_info "=========================================="
     log_info "Target: LFS 12.4-systemd"
-    log_info "Architecture: $LFS_TGT"
+    log_info "Architecture: $ROOKERY_TGT"
 
     # Initialize checkpoint system
     init_checkpointing
     log_info "Checkpoint system initialized"
 
     # Idempotency check: Skip if toolchain is already built
-    if [ -f "$LFS/usr/bin/gcc" ] && [ -f "$LFS/usr/bin/bash" ] && [ -f "$LFS/usr/bin/cc" ]; then
+    if [ -f "$ROOKERY/usr/bin/gcc" ] && [ -f "$ROOKERY/usr/bin/bash" ] && [ -f "$ROOKERY/usr/bin/cc" ]; then
         log_info ""
         log_info "=========================================="
         log_info "Toolchain Already Built - Skipping"
         log_info "=========================================="
-        log_info "✓ GCC exists at $LFS/usr/bin/gcc"
-        log_info "✓ Bash exists at $LFS/usr/bin/bash"
-        log_info "✓ CC symlink exists at $LFS/usr/bin/cc"
+        log_info "✓ GCC exists at $ROOKERY/usr/bin/gcc"
+        log_info "✓ Bash exists at $ROOKERY/usr/bin/bash"
+        log_info "✓ CC symlink exists at $ROOKERY/usr/bin/cc"
         log_info ""
         log_info "To force rebuild, remove these files or clear checkpoints:"
-        log_info "  docker run --rm -v easylfs_lfs-rootfs:/lfs ubuntu:22.04 rm -rf /lfs/.checkpoints"
+        log_info "  docker run --rm -v rookery_rootfs:/lfs ubuntu:22.04 rm -rf /lfs/.checkpoints"
         log_info "=========================================="
         exit 0
     fi
@@ -722,7 +722,7 @@ main() {
     log_info "Toolchain Build Complete!"
     log_info "=========================================="
     log_info "Tools installed in: $TOOLS_DIR"
-    log_info "LFS root: $LFS"
+    log_info "LFS root: $ROOKERY"
 
     exit 0
 }

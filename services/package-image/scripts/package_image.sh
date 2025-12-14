@@ -8,16 +8,16 @@ set -euo pipefail
 # Duration: 15-30 minutes
 # =============================================================================
 
-export LFS="${LFS:-/lfs}"
+export ROOKERY="${ROOKERY:-/rookery}"
 export IMAGE_NAME="${IMAGE_NAME:-rookery-os-1.0}"
-export IMAGE_SIZE="${IMAGE_SIZE:-25600}"  # Size in MB (25GB for full BLFS system)
+export IMAGE_SIZE="${IMAGE_SIZE:-25600}"  # Size in MB (25GB for full Rookery Extended system)
 
 DIST_DIR="/dist"
 
 # Load common utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Load common utilities
-COMMON_DIR="/usr/local/lib/easylfs-common"
+COMMON_DIR="/usr/local/lib/rookery-common"
 if [ -d "$COMMON_DIR" ]; then
     source "$COMMON_DIR/logging.sh" 2>/dev/null || true
     source "$COMMON_DIR/checkpointing.sh" 2>/dev/null || true
@@ -88,21 +88,21 @@ create_disk_image() {
     # Mount the partition
     # NOTE: Using /mnt instead of /tmp because /tmp may be a tmpfs with limited space
     log_step "Mounting partition..."
-    local mount_point="/mnt/lfs-mount"
+    local mount_point="/mnt/rookery-mount"
     mkdir -p "$mount_point"
     mount -o loop,offset=$partition_offset "$image_file" "$mount_point"
 
     # Strip debug symbols from binaries to reduce size (~1-2GB savings)
     log_step "Stripping debug symbols from binaries..."
-    find "$LFS/usr/bin" "$LFS/usr/sbin" "$LFS/usr/libexec" -type f -executable 2>/dev/null | \
+    find "$ROOKERY/usr/bin" "$ROOKERY/usr/sbin" "$ROOKERY/usr/libexec" -type f -executable 2>/dev/null | \
         xargs -r strip --strip-unneeded 2>/dev/null || true
-    find "$LFS/usr/lib" "$LFS/lib" -name "*.so*" -type f 2>/dev/null | \
+    find "$ROOKERY/usr/lib" "$ROOKERY/lib" -name "*.so*" -type f 2>/dev/null | \
         xargs -r strip --strip-unneeded 2>/dev/null || true
-    find "$LFS/opt" -type f -executable 2>/dev/null | \
+    find "$ROOKERY/opt" -type f -executable 2>/dev/null | \
         xargs -r strip --strip-unneeded 2>/dev/null || true
 
-    # Copy LFS system
-    log_step "Copying LFS system to image..."
+    # Copy Rookery system
+    log_step "Copying Rookery system to image..."
     rsync -aAX \
         --exclude=/dev/* \
         --exclude=/proc/* \
@@ -126,7 +126,7 @@ create_disk_image() {
         --exclude='__pycache__' \
         --exclude='*.pyc' \
         --exclude='*.pyo' \
-        "$LFS/" "$mount_point/"
+        "$ROOKERY/" "$mount_point/"
 
     # Create essential directories
     mkdir -p $mount_point/{dev,proc,sys,run,tmp}
@@ -248,7 +248,7 @@ EOF
     # Remove load.cfg if it exists (prevents UUID search issues)
     rm -f $mount_point/boot/grub/i386-pc/load.cfg
 
-    # Install GRUB from within the LFS system using chroot
+    # Install GRUB from within the Rookery system using chroot
     chroot $mount_point /usr/bin/env -i \
         HOME=/root \
         TERM="$TERM" \
@@ -335,15 +335,15 @@ create_tarball() {
     local tarball="$DIST_DIR/${IMAGE_NAME}.tar.gz"
 
     tar -czf "$tarball" \
-        --exclude=$LFS/dev/* \
-        --exclude=$LFS/proc/* \
-        --exclude=$LFS/sys/* \
-        --exclude=$LFS/run/* \
-        --exclude=$LFS/tmp/* \
-        --exclude=$LFS/sources/* \
-        --exclude=$LFS/build/* \
-        --exclude=$LFS/tools/* \
-        -C "$LFS" .
+        --exclude=$ROOKERY/dev/* \
+        --exclude=$ROOKERY/proc/* \
+        --exclude=$ROOKERY/sys/* \
+        --exclude=$ROOKERY/run/* \
+        --exclude=$ROOKERY/tmp/* \
+        --exclude=$ROOKERY/sources/* \
+        --exclude=$ROOKERY/build/* \
+        --exclude=$ROOKERY/tools/* \
+        -C "$ROOKERY" .
 
     log_info "Tarball created: $tarball"
     log_info "Size: $(du -h $tarball | cut -f1)"
@@ -429,11 +429,11 @@ create_iso() {
     # =========================================================================
     log_step "Setting up ISO boot files..."
 
-    if [ -f "$LFS/boot/vmlinuz" ]; then
-        cp "$LFS/boot/vmlinuz" "$iso_boot/"
+    if [ -f "$ROOKERY/boot/vmlinuz" ]; then
+        cp "$ROOKERY/boot/vmlinuz" "$iso_boot/"
         log_info "Copied kernel to ISO"
     else
-        log_error "No kernel found at $LFS/boot/vmlinuz"
+        log_error "No kernel found at $ROOKERY/boot/vmlinuz"
         return 1
     fi
 
@@ -442,7 +442,7 @@ create_iso() {
     # =========================================================================
     log_step "Creating squashfs root filesystem..."
 
-    mksquashfs "$LFS" "$iso_root/LiveOS/rootfs.img" \
+    mksquashfs "$ROOKERY" "$iso_root/LiveOS/rootfs.img" \
         -e "dev/*" \
         -e "proc/*" \
         -e "sys/*" \
@@ -489,10 +489,10 @@ create_iso() {
     # We need to copy the actual file, not the symlink
     log_info "Copying dynamic linker..."
     local real_ld=""
-    if [ -e "$LFS/lib64/ld-linux-x86-64.so.2" ]; then
-        real_ld=$(readlink -f "$LFS/lib64/ld-linux-x86-64.so.2")
-    elif [ -e "$LFS/lib/ld-linux-x86-64.so.2" ]; then
-        real_ld=$(readlink -f "$LFS/lib/ld-linux-x86-64.so.2")
+    if [ -e "$ROOKERY/lib64/ld-linux-x86-64.so.2" ]; then
+        real_ld=$(readlink -f "$ROOKERY/lib64/ld-linux-x86-64.so.2")
+    elif [ -e "$ROOKERY/lib/ld-linux-x86-64.so.2" ]; then
+        real_ld=$(readlink -f "$ROOKERY/lib/ld-linux-x86-64.so.2")
     fi
     if [ -n "$real_ld" ] && [ -f "$real_ld" ]; then
         cp "$real_ld" "$initramfs_dir/lib64/ld-linux-x86-64.so.2"
@@ -503,7 +503,7 @@ create_iso() {
     # Copy core glibc libraries (resolve symlinks to get actual files)
     log_info "Copying glibc libraries..."
     for lib in libc.so.6 libm.so.6 libresolv.so.2 libnss_files.so.2; do
-        for search_dir in "$LFS/lib64" "$LFS/lib" "$LFS/usr/lib"; do
+        for search_dir in "$ROOKERY/lib64" "$ROOKERY/lib" "$ROOKERY/usr/lib"; do
             if [ -e "$search_dir/$lib" ]; then
                 local real_lib=$(readlink -f "$search_dir/$lib")
                 if [ -f "$real_lib" ]; then
@@ -519,17 +519,17 @@ create_iso() {
 
     # Shell - bash (required for init script)
     for shell_bin in bash sh; do
-        for path in "$LFS/usr/bin/$shell_bin" "$LFS/bin/$shell_bin"; do
+        for path in "$ROOKERY/usr/bin/$shell_bin" "$ROOKERY/bin/$shell_bin"; do
             if [ -f "$path" ] && [ ! -L "$path" ]; then
-                copy_binary_with_libs "$path" "$initramfs_dir" "$LFS"
+                copy_binary_with_libs "$path" "$initramfs_dir" "$ROOKERY"
                 break
             elif [ -L "$path" ]; then
                 # Copy symlink and target
                 local target=$(readlink -f "$path")
                 if [ -f "$target" ]; then
-                    copy_binary_with_libs "$target" "$initramfs_dir" "$LFS"
+                    copy_binary_with_libs "$target" "$initramfs_dir" "$ROOKERY"
                 fi
-                local rel_path="${path#$LFS}"
+                local rel_path="${path#$ROOKERY}"
                 mkdir -p "$initramfs_dir$(dirname "$rel_path")"
                 cp -a "$path" "$initramfs_dir$rel_path" 2>/dev/null
                 break
@@ -549,9 +549,9 @@ create_iso() {
     # Core utilities from coreutils
     COREUTILS_BINS="cat ls mkdir mknod mount umount sleep echo ln cp mv rm chmod chown chroot stat head tail uname"
     for bin in $COREUTILS_BINS; do
-        for path in "$LFS/usr/bin/$bin" "$LFS/bin/$bin"; do
+        for path in "$ROOKERY/usr/bin/$bin" "$ROOKERY/bin/$bin"; do
             if [ -f "$path" ]; then
-                copy_binary_with_libs "$path" "$initramfs_dir" "$LFS"
+                copy_binary_with_libs "$path" "$initramfs_dir" "$ROOKERY"
                 break
             fi
         done
@@ -560,9 +560,9 @@ create_iso() {
     # Util-linux binaries
     UTILLINUX_BINS="switch_root mount umount losetup blkid findmnt dmesg"
     for bin in $UTILLINUX_BINS; do
-        for path in "$LFS/usr/sbin/$bin" "$LFS/usr/bin/$bin" "$LFS/sbin/$bin" "$LFS/bin/$bin"; do
+        for path in "$ROOKERY/usr/sbin/$bin" "$ROOKERY/usr/bin/$bin" "$ROOKERY/sbin/$bin" "$ROOKERY/bin/$bin"; do
             if [ -f "$path" ]; then
-                copy_binary_with_libs "$path" "$initramfs_dir" "$LFS"
+                copy_binary_with_libs "$path" "$initramfs_dir" "$ROOKERY"
                 break
             fi
         done
@@ -571,17 +571,17 @@ create_iso() {
     # Kmod utilities (for loading kernel modules)
     KMOD_BINS="modprobe insmod lsmod depmod"
     for bin in $KMOD_BINS; do
-        for path in "$LFS/usr/sbin/$bin" "$LFS/sbin/$bin" "$LFS/usr/bin/$bin"; do
+        for path in "$ROOKERY/usr/sbin/$bin" "$ROOKERY/sbin/$bin" "$ROOKERY/usr/bin/$bin"; do
             if [ -f "$path" ]; then
-                copy_binary_with_libs "$path" "$initramfs_dir" "$LFS"
+                copy_binary_with_libs "$path" "$initramfs_dir" "$ROOKERY"
                 break
             elif [ -L "$path" ]; then
                 # kmod uses symlinks - copy the actual kmod binary
                 local target=$(readlink -f "$path")
                 if [ -f "$target" ]; then
-                    copy_binary_with_libs "$target" "$initramfs_dir" "$LFS"
+                    copy_binary_with_libs "$target" "$initramfs_dir" "$ROOKERY"
                 fi
-                local rel_path="${path#$LFS}"
+                local rel_path="${path#$ROOKERY}"
                 mkdir -p "$initramfs_dir$(dirname "$rel_path")"
                 cp -a "$path" "$initramfs_dir$rel_path" 2>/dev/null
                 break
@@ -593,7 +593,7 @@ create_iso() {
     log_info "Copying additional libraries..."
     for lib in libblkid.so.1 libmount.so.1 libuuid.so.1 libreadline.so.8 libncursesw.so.6 \
                libtinfo.so.6 libz.so.1 liblzma.so.5 libzstd.so.1 libkmod.so.2 libcrypto.so.3; do
-        for search_dir in "$LFS/lib64" "$LFS/lib" "$LFS/usr/lib64" "$LFS/usr/lib"; do
+        for search_dir in "$ROOKERY/lib64" "$ROOKERY/lib" "$ROOKERY/usr/lib64" "$ROOKERY/usr/lib"; do
             if [ -e "$search_dir/$lib" ]; then
                 local real_lib=$(readlink -f "$search_dir/$lib")
                 if [ -f "$real_lib" ]; then
@@ -606,7 +606,7 @@ create_iso() {
 
     # Copy all .so files to ensure we don't miss dependencies (resolve symlinks)
     log_info "Copying shared library files..."
-    for search_dir in "$LFS/lib64" "$LFS/lib" "$LFS/usr/lib"; do
+    for search_dir in "$ROOKERY/lib64" "$ROOKERY/lib" "$ROOKERY/usr/lib"; do
         if [ -d "$search_dir" ]; then
             find "$search_dir" -maxdepth 1 -name "*.so*" -type f -exec cp -n {} "$initramfs_dir/lib64/" \; 2>/dev/null || true
             # Also copy targets of symlinks
@@ -621,12 +621,12 @@ create_iso() {
 
     # Find the kernel version
     local kernel_version=""
-    if [ -d "$LFS/lib/modules" ]; then
-        kernel_version=$(ls -1 "$LFS/lib/modules" | head -1)
+    if [ -d "$ROOKERY/lib/modules" ]; then
+        kernel_version=$(ls -1 "$ROOKERY/lib/modules" | head -1)
     fi
 
-    if [ -n "$kernel_version" ] && [ -d "$LFS/lib/modules/$kernel_version" ]; then
-        local mod_src="$LFS/lib/modules/$kernel_version"
+    if [ -n "$kernel_version" ] && [ -d "$ROOKERY/lib/modules/$kernel_version" ]; then
+        local mod_src="$ROOKERY/lib/modules/$kernel_version"
         local mod_dst="$initramfs_dir/lib/modules/$kernel_version"
         mkdir -p "$mod_dst/kernel/fs" "$mod_dst/kernel/drivers/block" "$mod_dst/kernel/drivers/scsi" "$mod_dst/kernel/drivers/cdrom" "$mod_dst/kernel/drivers/ata"
 
@@ -1060,10 +1060,10 @@ main() {
         exit 0
     fi
 
-    # Verify LFS system exists
-    if [ ! -d "$LFS" ] || [ ! -f "$LFS/boot/vmlinuz" ]; then
-        log_warn "LFS system incomplete!"
-        log_warn "Boot kernel not found: $LFS/boot/vmlinuz"
+    # Verify Rookery system exists
+    if [ ! -d "$ROOKERY" ] || [ ! -f "$ROOKERY/boot/vmlinuz" ]; then
+        log_warn "Rookery system incomplete!"
+        log_warn "Boot kernel not found: $ROOKERY/boot/vmlinuz"
     fi
 
     # Create output directory
@@ -1131,7 +1131,7 @@ Extract tarball:
 System Info:
 - Rookery OS Version: 1.0 (based on LFS 12.4)
 - Init System: systemd
-- Kernel: grsecurity-hardened ($(ls $LFS/boot/vmlinuz-* 2>/dev/null | head -1 | xargs basename || echo "Unknown"))
+- Kernel: grsecurity-hardened ($(ls $ROOKERY/boot/vmlinuz-* 2>/dev/null | head -1 | xargs basename || echo "Unknown"))
 - Root Password: rookery (CHANGE AFTER FIRST LOGIN!)
 
 Features:

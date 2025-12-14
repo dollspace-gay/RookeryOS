@@ -30,7 +30,7 @@ RUN apt-get update && apt-get install -y \
 
 # Copy build script
 # Copy common utilities
-COPY common /usr/local/lib/easylfs-common
+COPY common /usr/local/lib/rookery-common
 
 COPY build-basesystem/scripts/build_system.sh /usr/local/bin/build_system.sh
 COPY build-basesystem/scripts/build_in_chroot.sh /usr/local/bin/build_in_chroot.sh

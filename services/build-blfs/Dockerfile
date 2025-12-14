@@ -32,7 +32,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy common utilities
-COPY common /usr/local/lib/easylfs-common
+COPY common /usr/local/lib/rookery-common
 
 # Copy build scripts
 COPY build-blfs/scripts/build_blfs.sh /usr/local/bin/build_blfs.sh
