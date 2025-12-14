@@ -5051,6 +5051,10 @@ build_unzip() {
     # Apply BLFS consolidated fixes patch
     patch -Np1 -i /sources/unzip-6.0-consolidated_fixes-1.patch
 
+    # Fix conflicting gmtime/localtime declarations with modern glibc (2.38+)
+    # See: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=1098043
+    sed -i 's/struct tm \*gmtime(), \*localtime();//' unix/unxcfg.h
+
     make -f unix/Makefile generic
     make prefix=/usr MANDIR=/usr/share/man/man1 -f unix/Makefile install
 
