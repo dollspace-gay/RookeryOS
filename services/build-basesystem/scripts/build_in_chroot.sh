@@ -449,6 +449,15 @@ TZSTUB
     localedef -i en_GB -f UTF-8 en_GB.UTF-8
 '
 
+# Ensure locales are generated (runs outside checkpoint in case glibc was already built)
+if [ ! -f /usr/lib/locale/locale-archive ]; then
+    log_step "Generating essential locales..."
+    mkdir -p /usr/lib/locale
+    localedef -i C -f UTF-8 C.UTF-8
+    localedef -i en_US -f UTF-8 en_US.UTF-8
+    localedef -i en_GB -f UTF-8 en_GB.UTF-8
+fi
+
 # Configure Glibc
 cat > /etc/nsswitch.conf << "EOF"
 passwd: files
