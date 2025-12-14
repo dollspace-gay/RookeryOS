@@ -45,7 +45,9 @@
       "Bash(wget:*)",
       "Bash(grep:*)",
       "Bash(ls:*)",
-      "Bash(git -C \"c:\\Users\\texas\\rookery\\RookeryOS\" status --short)"
+      "Bash(git -C \"c:\\Users\\texas\\rookery\\RookeryOS\" status --short)",
+      "Bash(del \"c:\\Users\\texas\\rookery\\RookeryOS\\fix_7z.sh\")",
+      "Bash(del /f \"c:\\Users\\texas\\rookery\\RookeryOS\\fix_7z.sh\")"
     ],
     "deny": [],
     "ask": []

@@ -9529,6 +9529,42 @@ create_checkpoint "xdotool"
 }
 
 # =====================================================================
+# dconf-0.40.0 (Low-level configuration system)
+# https://www.linuxfromscratch.org/blfs/view/12.4/gnome/dconf.html
+# Required by: ibus
+# =====================================================================
+build_dconf() {
+should_skip_package "dconf" && { log_info "Skipping dconf (already built)"; return 0; }
+log_step "Building dconf-0.40.0..."
+
+if [ ! -f /sources/dconf-0.40.0.tar.xz ]; then
+    log_error "dconf-0.40.0.tar.xz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf dconf-*
+tar -xf /sources/dconf-0.40.0.tar.xz
+cd dconf-*
+
+mkdir build && cd build
+
+meson setup --prefix=/usr            \
+            --buildtype=release      \
+            -D bash_completion=false \
+            ..
+
+ninja
+ninja install
+
+cd "$BUILD_DIR"
+rm -rf dconf-*
+
+log_info "dconf-0.40.0 installed successfully"
+create_checkpoint "dconf"
+}
+
+# =====================================================================
 # ibus-1.5.32 (Intelligent Input Bus - input method framework)
 # https://www.linuxfromscratch.org/blfs/view/stable/general/ibus.html
 # =====================================================================
@@ -9891,6 +9927,7 @@ build_bubblewrap
 build_xdg_desktop_portal
 build_appstream
 build_xdotool
+build_dconf
 build_ibus
 build_socat
 build_pygdbmi
