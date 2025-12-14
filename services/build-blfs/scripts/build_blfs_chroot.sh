@@ -9235,6 +9235,17 @@ rm -rf accountsservice-* accountsservice-*
 tar -xf /sources/accountsservice-23.13.9.tar.xz
 cd accountsservice-* || cd accountsservice-*
 
+# BLFS: Rename dbusmock directory to prevent build failure when dbusmock is not installed
+mv tests/dbusmock{,-tests}
+
+# BLFS: Fix test script for the renamed directory and Python 3.12+
+sed -e '/accounts_service\.py/s/dbusmock/dbusmock-tests/' \
+    -e 's/assertEquals/assertEqual/'                      \
+    -i tests/test-libaccountsservice.py
+
+# BLFS: Fix test that fails without en_IE.UTF-8 locale
+sed -i '/^SIMULATED_SYSTEM_LOCALE/s/en_IE.UTF-8/en_HK.iso88591/' tests/test-daemon.py
+
 mkdir build
 cd build
 
@@ -9244,6 +9255,13 @@ meson setup --prefix=/usr \
             -D docbook=false \
             -D gtk_doc=false \
             ..
+
+# BLFS: Fix mocklibc for GCC 14+
+grep 'print_indent'     ../subprojects/mocklibc-1.0/src/netgroup.c \
+     | sed 's/ {/;/' >> ../subprojects/mocklibc-1.0/src/netgroup.h &&
+sed -i '1i#include <stdio.h>'                                      \
+    ../subprojects/mocklibc-1.0/src/netgroup.h
+
 ninja
 ninja install
 
