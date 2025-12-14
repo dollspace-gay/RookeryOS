@@ -5032,7 +5032,7 @@ build_itstool() {
 }
 
 # UnZip-6.0 (ZIP archive extraction utility)
-# https://infozip.sourceforge.net/UnZip.html
+# https://www.linuxfromscratch.org/blfs/view/cvs/general/unzip.html
 # Required by: ibus (for UCD.zip extraction)
 build_unzip() {
     should_skip_package "unzip" && { log_info "Skipping unzip"; return 0; }
@@ -5048,8 +5048,10 @@ build_unzip() {
     tar -xf /sources/unzip60.tar.gz
     cd unzip60
 
-    # Use linux_noasm target for 64-bit systems (can't assemble 32-bit code)
-    make -f unix/Makefile linux_noasm
+    # Apply BLFS consolidated fixes patch
+    patch -Np1 -i /sources/unzip-6.0-consolidated_fixes-1.patch
+
+    make -f unix/Makefile generic
     make prefix=/usr MANDIR=/usr/share/man/man1 -f unix/Makefile install
 
     cd "$BUILD_DIR"
