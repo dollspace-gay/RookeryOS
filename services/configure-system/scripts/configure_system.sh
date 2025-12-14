@@ -300,8 +300,8 @@ EOF
 
     # Default password: "rookery" (SHA-512 hash)
     # Users should change this after first login with: passwd root
-    # Generated with: python3 -c "import crypt; print(crypt.crypt('rookery', crypt.mksalt(crypt.METHOD_SHA512)))"
-    ROOT_PASSWORD_HASH='$6$e3iLE3L1SObSEiK8$5D9KEsmRSBeZUZkwHuEBTc07F4lWZCXf6pFe0FNo58KOHxdfQrFOTsY/qmrY3h1N14eswR/iyAzVSnogHE4SP0'
+    # Generated with: openssl passwd -6 'rookery'
+    ROOT_PASSWORD_HASH='$6$QXaN15FVkQQxEKuN$3FWcNgAo2CrAOd/7aq58XHIufWyw/NcysZRcg8Jl9pi2vcAIxbOziV9Tv4FyG80Cl/LYt0hJt.zbVCD6LFw3l/'
 
     if [ -f "$ROOKERY/etc/shadow" ]; then
         # Replace root's password hash in existing shadow file
@@ -311,6 +311,48 @@ EOF
         log_info "Warning: /etc/shadow not found - password not set"
         log_info "  Run: echo 'root:rookery' | chpasswd inside the system"
     fi
+
+    # =========================================================================
+    # Create non-root user 'rookery'
+    # =========================================================================
+    log_step "Creating user 'rookery'..."
+
+    # Add rookery user (UID 1000, GID 1000)
+    if ! grep -q "^rookery:" "$ROOKERY/etc/passwd" 2>/dev/null; then
+        echo "rookery:x:1000:1000:Rookery User:/home/rookery:/bin/bash" >> $ROOKERY/etc/passwd
+    fi
+
+    # Add rookery group
+    if ! grep -q "^rookery:" "$ROOKERY/etc/group" 2>/dev/null; then
+        echo "rookery:x:1000:" >> $ROOKERY/etc/group
+    fi
+
+    # Add rookery to useful groups (wheel, audio, video, input, users)
+    for grp in wheel audio video input users; do
+        if grep -q "^${grp}:" "$ROOKERY/etc/group" 2>/dev/null; then
+            if ! grep "^${grp}:" "$ROOKERY/etc/group" | grep -q "rookery"; then
+                sed -i "s/^${grp}:\([^:]*\):\([^:]*\):$/&rookery/" $ROOKERY/etc/group
+                sed -i "s/^${grp}:\([^:]*\):\([^:]*\):\([^,]\)/${grp}:\1:\2:\3,rookery/" $ROOKERY/etc/group
+            fi
+        fi
+    done
+
+    # Add rookery to shadow with same password as root
+    if [ -f "$ROOKERY/etc/shadow" ]; then
+        if ! grep -q "^rookery:" "$ROOKERY/etc/shadow" 2>/dev/null; then
+            echo "rookery:$ROOT_PASSWORD_HASH:19500:0:99999:7:::" >> $ROOKERY/etc/shadow
+        else
+            sed -i "s|^rookery:[^:]*:|rookery:$ROOT_PASSWORD_HASH:|" $ROOKERY/etc/shadow
+        fi
+    fi
+
+    # Create home directory with proper shell configs
+    mkdir -p $ROOKERY/home/rookery
+    cp $ROOKERY/root/.bash_profile $ROOKERY/home/rookery/.bash_profile
+    cp $ROOKERY/root/.bashrc $ROOKERY/home/rookery/.bashrc
+    chown -R 1000:1000 $ROOKERY/home/rookery
+
+    log_info "User 'rookery' created (password: 'rookery')"
 
     # =========================================================================
     # Create init symlink for systemd
