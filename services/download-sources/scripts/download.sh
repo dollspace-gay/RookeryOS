@@ -34,7 +34,7 @@ MIRROR="http://corvidae.social/RookerySource"
 export ROOKERY="${ROOKERY:-/rookery}"
 
 # Export for use in subprocesses
-export SOURCES_DIR MIRROR MAX_RETRIES RETRY_DELAY DOWNLOAD_TIMEOUT
+export SOURCES_DIR MIRROR MAX_RETRIES RETRY_DELAY
 
 # Setup logging trap
 trap 'finalize_logging $?' EXIT
@@ -56,9 +56,9 @@ download_single() {
 
     while [ $attempt -le $MAX_RETRIES ]; do
         # Use curl for better performance (connection reuse)
+        # No --max-time to allow large files to download fully
         if curl -fSL \
-                --connect-timeout 15 \
-                --max-time $DOWNLOAD_TIMEOUT \
+                --connect-timeout 30 \
                 --retry 2 \
                 --retry-delay 1 \
                 -o "$output" \
