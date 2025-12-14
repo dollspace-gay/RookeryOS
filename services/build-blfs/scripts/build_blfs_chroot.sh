@@ -9529,6 +9529,43 @@ create_checkpoint "xdotool"
 }
 
 # =====================================================================
+# libnotify-0.8.6 (Desktop notification library)
+# https://www.linuxfromscratch.org/blfs/view/12.4/x/libnotify.html
+# Required by: ibus (recommended)
+# =====================================================================
+build_libnotify() {
+should_skip_package "libnotify" && { log_info "Skipping libnotify (already built)"; return 0; }
+log_step "Building libnotify-0.8.6..."
+
+if [ ! -f /sources/libnotify-0.8.6.tar.xz ]; then
+    log_error "libnotify-0.8.6.tar.xz not found in /sources"
+    exit 1
+fi
+
+cd "$BUILD_DIR"
+rm -rf libnotify-*
+tar -xf /sources/libnotify-0.8.6.tar.xz
+cd libnotify-*
+
+mkdir build && cd build
+
+meson setup --prefix=/usr       \
+            --buildtype=release \
+            -D gtk_doc=false    \
+            -D man=false        \
+            ..
+
+ninja
+ninja install
+
+cd "$BUILD_DIR"
+rm -rf libnotify-*
+
+log_info "libnotify-0.8.6 installed successfully"
+create_checkpoint "libnotify"
+}
+
+# =====================================================================
 # dconf-0.40.0 (Low-level configuration system)
 # https://www.linuxfromscratch.org/blfs/view/12.4/gnome/dconf.html
 # Required by: ibus
@@ -9927,6 +9964,7 @@ build_bubblewrap
 build_xdg_desktop_portal
 build_appstream
 build_xdotool
+build_libnotify
 build_dconf
 build_ibus
 build_socat
