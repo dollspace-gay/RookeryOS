@@ -65,6 +65,9 @@ pub fn run(packages: &[String], local: bool, dry_run: bool, download_only: bool,
         }
     }
 
+    // Expand @group references to individual packages
+    let expanded_packages = expand_groups(packages, &manager)?;
+
     println!("{}", "Resolving dependencies...".cyan());
     println!();
 
@@ -99,7 +102,7 @@ pub fn run(packages: &[String], local: bool, dry_run: bool, download_only: bool,
     let mut not_found = Vec::new();
     let mut root_packages = Vec::new();
 
-    for package_name in packages {
+    for package_name in &expanded_packages {
         if package_map.contains_key(package_name) {
             root_packages.push(package_name.clone());
         } else {
@@ -468,6 +471,61 @@ fn parse_dep_string(dep: &str) -> (&str, String) {
     }
     // No operator found - name only, any version
     (dep.trim(), "*".to_string())
+}
+
+/// Expand @group references to individual packages
+///
+/// Package names starting with '@' are treated as group references.
+/// For example: "@base-devel" expands to all packages in the "base-devel" group.
+fn expand_groups(packages: &[String], manager: &RepoManager) -> Result<Vec<String>> {
+    let mut expanded = Vec::new();
+    let mut groups_found = Vec::new();
+
+    for pkg in packages {
+        if let Some(group_name) = pkg.strip_prefix('@') {
+            // This is a group reference
+            match manager.expand_group(group_name, false) {
+                Some(group_packages) => {
+                    groups_found.push((group_name.to_string(), group_packages.len()));
+                    for gp in group_packages {
+                        if !expanded.contains(&gp) {
+                            expanded.push(gp);
+                        }
+                    }
+                }
+                None => {
+                    bail!(
+                        "Package group '{}' not found.\n\
+                        Run {} to list available groups.",
+                        group_name.cyan(),
+                        "rookpkg groups".bold()
+                    );
+                }
+            }
+        } else {
+            // Regular package name
+            if !expanded.contains(pkg) {
+                expanded.push(pkg.clone());
+            }
+        }
+    }
+
+    // Print group expansion summary
+    if !groups_found.is_empty() {
+        println!("{}", "Expanding package groups...".cyan());
+        println!();
+        for (name, count) in &groups_found {
+            println!(
+                "  {} @{} → {} package(s)",
+                "→".cyan(),
+                name.bold(),
+                count
+            );
+        }
+        println!();
+    }
+
+    Ok(expanded)
 }
 
 /// Install local .rookpkg files

@@ -106,6 +106,60 @@ fn default_true() -> bool {
     true
 }
 
+/// A package group (meta-package) definition
+///
+/// Groups allow installing multiple related packages with a single command.
+/// For example: `rookpkg install @base-devel` installs all development tools.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PackageGroup {
+    /// Group name (e.g., "base-devel")
+    pub name: String,
+    /// Human-readable description
+    pub description: String,
+    /// List of packages in this group
+    pub packages: Vec<String>,
+    /// Optional packages (suggested but not required)
+    #[serde(default)]
+    pub optional: Vec<String>,
+    /// Whether this is a required base system group
+    #[serde(default)]
+    pub essential: bool,
+}
+
+impl PackageGroup {
+    /// Create a new package group
+    pub fn new(name: &str, description: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            description: description.to_string(),
+            packages: Vec::new(),
+            optional: Vec::new(),
+            essential: false,
+        }
+    }
+
+    /// Add a required package to the group
+    pub fn add_package(&mut self, name: &str) -> &mut Self {
+        self.packages.push(name.to_string());
+        self
+    }
+
+    /// Add an optional package to the group
+    pub fn add_optional(&mut self, name: &str) -> &mut Self {
+        self.optional.push(name.to_string());
+        self
+    }
+
+    /// Get all packages (required + optional if include_optional is true)
+    pub fn all_packages(&self, include_optional: bool) -> Vec<&str> {
+        let mut pkgs: Vec<&str> = self.packages.iter().map(|s| s.as_str()).collect();
+        if include_optional {
+            pkgs.extend(self.optional.iter().map(|s| s.as_str()));
+        }
+        pkgs
+    }
+}
+
 /// Package entry in the repository index
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PackageEntry {
@@ -177,6 +231,9 @@ pub struct PackageIndex {
     pub count: usize,
     /// All packages in the repository
     pub packages: Vec<PackageEntry>,
+    /// Package groups defined in this repository
+    #[serde(default)]
+    pub groups: Vec<PackageGroup>,
 }
 
 impl PackageIndex {
@@ -188,6 +245,7 @@ impl PackageIndex {
             repository: repository.to_string(),
             count: 0,
             packages: Vec::new(),
+            groups: Vec::new(),
         }
     }
 
@@ -198,9 +256,20 @@ impl PackageIndex {
         self.generated = Utc::now();
     }
 
+    /// Add a package group to the index
+    pub fn add_group(&mut self, group: PackageGroup) {
+        self.groups.push(group);
+        self.generated = Utc::now();
+    }
+
     /// Find a package by name
     pub fn find_package(&self, name: &str) -> Option<&PackageEntry> {
         self.packages.iter().find(|p| p.name == name)
+    }
+
+    /// Find a package group by name
+    pub fn find_group(&self, name: &str) -> Option<&PackageGroup> {
+        self.groups.iter().find(|g| g.name == name)
     }
 
     /// Find all versions of a package
@@ -216,6 +285,18 @@ impl PackageIndex {
             .filter(|p| {
                 p.name.to_lowercase().contains(&query_lower)
                     || p.description.to_lowercase().contains(&query_lower)
+            })
+            .collect()
+    }
+
+    /// Search groups by name or description
+    pub fn search_groups(&self, query: &str) -> Vec<&PackageGroup> {
+        let query_lower = query.to_lowercase();
+        self.groups
+            .iter()
+            .filter(|g| {
+                g.name.to_lowercase().contains(&query_lower)
+                    || g.description.to_lowercase().contains(&query_lower)
             })
             .collect()
     }
@@ -603,6 +684,54 @@ impl RepoManager {
             }
         }
         None
+    }
+
+    /// Find a package group by name across all enabled repositories
+    pub fn find_group(&self, name: &str) -> Option<GroupSearchResult> {
+        for repo in self.enabled_repos() {
+            if let Some(ref index) = repo.index {
+                if let Some(group) = index.find_group(name) {
+                    return Some(GroupSearchResult {
+                        repository: repo.name.clone(),
+                        group: group.clone(),
+                    });
+                }
+            }
+        }
+        None
+    }
+
+    /// List all package groups across all enabled repositories
+    pub fn list_groups(&self) -> Vec<GroupSearchResult> {
+        let mut results = Vec::new();
+
+        for repo in self.enabled_repos() {
+            if let Some(ref index) = repo.index {
+                for group in &index.groups {
+                    results.push(GroupSearchResult {
+                        repository: repo.name.clone(),
+                        group: group.clone(),
+                    });
+                }
+            }
+        }
+
+        // Sort by group name
+        results.sort_by(|a, b| a.group.name.cmp(&b.group.name));
+        results
+    }
+
+    /// Expand a group name to its list of package names
+    ///
+    /// If `include_optional` is true, optional packages are included.
+    /// Returns None if the group is not found.
+    pub fn expand_group(&self, name: &str, include_optional: bool) -> Option<Vec<String>> {
+        self.find_group(name).map(|result| {
+            result.group.all_packages(include_optional)
+                .into_iter()
+                .map(|s| s.to_string())
+                .collect()
+        })
     }
 
     /// Load cached data for all repositories
@@ -1213,6 +1342,15 @@ pub struct SearchResult {
     pub package: PackageEntry,
 }
 
+/// A group search result from repository search
+#[derive(Debug, Clone)]
+pub struct GroupSearchResult {
+    /// Repository the group was found in
+    pub repository: String,
+    /// Package group
+    pub group: PackageGroup,
+}
+
 /// Status of package signature verification
 #[derive(Debug, Clone)]
 pub enum SignatureStatus {
@@ -1435,5 +1573,105 @@ mod tests {
         // find_all_versions with non-existent package
         let missing_versions = index.find_all_versions("nonexistent");
         assert!(missing_versions.is_empty());
+    }
+
+    #[test]
+    fn test_package_groups() {
+        let mut index = PackageIndex::new("test-repo");
+
+        // Add some packages
+        index.add_package(PackageEntry {
+            name: "gcc".to_string(),
+            version: "13.2".to_string(),
+            release: 1,
+            description: "GNU Compiler Collection".to_string(),
+            arch: "x86_64".to_string(),
+            size: 50000000,
+            sha256: "gcc123".to_string(),
+            filename: "packages/gcc-13.2-1.x86_64.rookpkg".to_string(),
+            depends: vec!["glibc".to_string()],
+            build_depends: vec![],
+            provides: vec![],
+            conflicts: vec![],
+            replaces: vec![],
+            license: Some("GPL-3.0".to_string()),
+            homepage: None,
+            maintainer: None,
+            build_date: None,
+        });
+
+        index.add_package(PackageEntry {
+            name: "make".to_string(),
+            version: "4.4".to_string(),
+            release: 1,
+            description: "GNU make utility".to_string(),
+            arch: "x86_64".to_string(),
+            size: 500000,
+            sha256: "make123".to_string(),
+            filename: "packages/make-4.4-1.x86_64.rookpkg".to_string(),
+            depends: vec!["glibc".to_string()],
+            build_depends: vec![],
+            provides: vec![],
+            conflicts: vec![],
+            replaces: vec![],
+            license: Some("GPL-3.0".to_string()),
+            homepage: None,
+            maintainer: None,
+            build_date: None,
+        });
+
+        index.add_package(PackageEntry {
+            name: "autoconf".to_string(),
+            version: "2.72".to_string(),
+            release: 1,
+            description: "GNU autoconf".to_string(),
+            arch: "noarch".to_string(),
+            size: 200000,
+            sha256: "autoconf123".to_string(),
+            filename: "packages/autoconf-2.72-1.noarch.rookpkg".to_string(),
+            depends: vec!["m4".to_string()],
+            build_depends: vec![],
+            provides: vec![],
+            conflicts: vec![],
+            replaces: vec![],
+            license: Some("GPL-3.0".to_string()),
+            homepage: None,
+            maintainer: None,
+            build_date: None,
+        });
+
+        // Add a package group
+        let mut devel_group = PackageGroup::new("base-devel", "Base development tools");
+        devel_group.add_package("gcc");
+        devel_group.add_package("make");
+        devel_group.add_optional("autoconf");
+        index.add_group(devel_group);
+
+        // Test finding a group
+        let group = index.find_group("base-devel");
+        assert!(group.is_some());
+        let group = group.unwrap();
+        assert_eq!(group.name, "base-devel");
+        assert_eq!(group.packages.len(), 2);
+        assert_eq!(group.optional.len(), 1);
+
+        // Test all_packages method
+        let required_only = group.all_packages(false);
+        assert_eq!(required_only.len(), 2);
+        assert!(required_only.contains(&"gcc"));
+        assert!(required_only.contains(&"make"));
+
+        let with_optional = group.all_packages(true);
+        assert_eq!(with_optional.len(), 3);
+        assert!(with_optional.contains(&"autoconf"));
+
+        // Test searching groups
+        let results = index.search_groups("devel");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "base-devel");
+
+        // Test group not found
+        let missing = index.find_group("nonexistent");
+        assert!(missing.is_none());
     }
 }

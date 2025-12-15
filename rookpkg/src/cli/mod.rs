@@ -43,6 +43,7 @@ mod autoremove;
 mod build;
 mod check;
 mod depends;
+mod groups;
 mod hold;
 mod info;
 mod inspect;
@@ -242,6 +243,12 @@ pub enum Commands {
         /// Remove all cached packages
         #[arg(long)]
         all: bool,
+    },
+
+    /// List package groups
+    Groups {
+        /// Show packages in a specific group
+        group: Option<String>,
     },
 
     /// Recover from incomplete transactions
@@ -490,6 +497,9 @@ pub fn execute(command: Commands, config: &Config) -> Result<()> {
             }
 
             Ok(())
+        }
+        Commands::Groups { group } => {
+            groups::run(group.as_deref(), config)
         }
         Commands::Recover { transaction_id } => {
             require_root("recover", false)?;  // recover modifies system state
