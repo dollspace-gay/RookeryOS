@@ -14,12 +14,12 @@ pub fn run(package_path: &Path, config: &Config) -> Result<()> {
     println!("{} {}", "Verifying:".bold(), package_path.display());
     println!();
 
-    // Read the package signature file
-    let sig_path = package_path.with_extension("sig");
+    // Read the package signature file (package.rookpkg -> package.rookpkg.sig)
+    let sig_path = package_path.with_extension("rookpkg.sig");
     if !sig_path.exists() {
         bail!(
             "Signature file not found: {}\n\
-            Packages must have a .sig file with the signature.",
+            Packages must have a .rookpkg.sig file with the signature.",
             sig_path.display()
         );
     }

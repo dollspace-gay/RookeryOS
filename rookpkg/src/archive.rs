@@ -176,6 +176,12 @@ impl InstallScripts {
     }
 }
 
+/// Wrapper struct for serializing file list to TOML
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct FileList {
+    files: Vec<FileEntry>,
+}
+
 /// Package archive builder
 pub struct PackageArchiveBuilder {
     info: PackageInfo,
@@ -295,9 +301,10 @@ impl PackageArchiveBuilder {
         let pkginfo_content = toml::to_string_pretty(&self.info)?;
         fs::write(&pkginfo_path, &pkginfo_content)?;
 
-        // Create .FILES
+        // Create .FILES (wrap in FileList struct for valid TOML)
         let files_path = temp_dir.path().join(".FILES");
-        let files_content = toml::to_string_pretty(&self.files)?;
+        let file_list = FileList { files: self.files.clone() };
+        let files_content = toml::to_string_pretty(&file_list)?;
         fs::write(&files_path, &files_content)?;
 
         // Create .INSTALL if scripts exist
@@ -435,7 +442,8 @@ impl PackageArchiveReader {
             if path.to_string_lossy() == ".FILES" {
                 let mut content = String::new();
                 entry.read_to_string(&mut content)?;
-                return toml::from_str(&content).context("Failed to parse .FILES");
+                let file_list: FileList = toml::from_str(&content).context("Failed to parse .FILES")?;
+                return Ok(file_list.files);
             }
         }
 

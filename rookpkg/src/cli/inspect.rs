@@ -320,14 +320,15 @@ pub fn validate_built_archive(builder: &PackageArchiveBuilder) -> Result<()> {
 
     println!("  {} No duplicate paths", "✓".green());
 
-    // Validate all files have checksums
+    // Validate all regular files have checksums (directories and symlinks don't need them)
+    use crate::archive::FileType;
     for file in files {
-        if file.sha256.is_empty() {
-            anyhow::bail!("File missing checksum: {}", file.path);
+        if file.file_type == FileType::Regular && file.sha256.is_empty() {
+            anyhow::bail!("Regular file missing checksum: {}", file.path);
         }
     }
 
-    println!("  {} All files have checksums", "✓".green());
+    println!("  {} All regular files have checksums", "✓".green());
 
     Ok(())
 }

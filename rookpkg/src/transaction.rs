@@ -78,6 +78,27 @@ pub enum JournalEntry {
     DbPackageRemoved { package: String, backup_data: String },
 }
 
+/// Wrapper struct for TOML serialization of operations list
+/// (TOML doesn't support bare arrays at root level)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct OperationList {
+    operations: Vec<Operation>,
+}
+
+/// Wrapper struct for TOML serialization of journal entries
+/// (TOML doesn't support bare arrays at root level)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct JournalList {
+    journal: Vec<JournalEntry>,
+}
+
+/// Wrapper struct for TOML serialization of transaction state
+/// (TOML doesn't support enums at root level)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct StateWrapper {
+    state: TransactionState,
+}
+
 /// An atomic transaction for package operations
 pub struct Transaction {
     /// Unique transaction ID
@@ -126,12 +147,14 @@ impl Transaction {
 
         let state_file = tx_dir.join("state.toml");
         let state_content = fs::read_to_string(&state_file)?;
-        let state: TransactionState = toml::from_str(&state_content)?;
+        let state_wrapper: StateWrapper = toml::from_str(&state_content)?;
+        let state = state_wrapper.state;
 
         let ops_file = tx_dir.join("operations.toml");
         let operations: Vec<Operation> = if ops_file.exists() {
             let ops_content = fs::read_to_string(&ops_file)?;
-            toml::from_str(&ops_content)?
+            let ops_list: OperationList = toml::from_str(&ops_content)?;
+            ops_list.operations
         } else {
             Vec::new()
         };
@@ -139,7 +162,8 @@ impl Transaction {
         let journal_file = tx_dir.join("journal.toml");
         let journal: Vec<JournalEntry> = if journal_file.exists() {
             let journal_content = fs::read_to_string(&journal_file)?;
-            toml::from_str(&journal_content)?
+            let journal_list: JournalList = toml::from_str(&journal_content)?;
+            journal_list.journal
         } else {
             Vec::new()
         };
@@ -296,8 +320,8 @@ impl Transaction {
             let src = extract_dir.join(file_entry.path.trim_start_matches('/'));
             let dest = self.root.join(file_entry.path.trim_start_matches('/'));
 
-            // Backup existing file if it exists
-            if dest.exists() {
+            // Backup existing file if it exists (only for regular files, not directories)
+            if dest.exists() && dest.is_file() {
                 let backup = backup_dir.join(file_entry.path.trim_start_matches('/'));
                 if let Some(parent) = backup.parent() {
                     fs::create_dir_all(parent)?;
@@ -595,8 +619,8 @@ impl Transaction {
             let src = extract_dir.join(file_entry.path.trim_start_matches('/'));
             let dest = self.root.join(file_entry.path.trim_start_matches('/'));
 
-            // Backup existing file if it exists
-            if dest.exists() {
+            // Backup existing file if it exists (only for regular files, not directories)
+            if dest.exists() && dest.is_file() {
                 let backup = backup_dir.join(file_entry.path.trim_start_matches('/'));
                 if let Some(parent) = backup.parent() {
                     fs::create_dir_all(parent)?;
@@ -834,11 +858,15 @@ impl Transaction {
     /// Save transaction state to disk
     fn save_state(&self) -> Result<()> {
         let state_file = self.tx_dir.join("state.toml");
-        let content = toml::to_string(&self.state)?;
+        let state_wrapper = StateWrapper { state: self.state };
+        let content = toml::to_string(&state_wrapper)?;
         fs::write(&state_file, content)?;
 
         let ops_file = self.tx_dir.join("operations.toml");
-        let ops_content = toml::to_string(&self.operations)?;
+        let ops_list = OperationList {
+            operations: self.operations.clone(),
+        };
+        let ops_content = toml::to_string(&ops_list)?;
         fs::write(&ops_file, ops_content)?;
 
         Ok(())
@@ -847,7 +875,10 @@ impl Transaction {
     /// Save journal to disk
     fn save_journal(&self) -> Result<()> {
         let journal_file = self.tx_dir.join("journal.toml");
-        let content = toml::to_string(&self.journal)?;
+        let journal_list = JournalList {
+            journal: self.journal.clone(),
+        };
+        let content = toml::to_string(&journal_list)?;
         fs::write(&journal_file, content)?;
         Ok(())
     }
@@ -945,8 +976,8 @@ impl Transaction {
                 let state_file = entry.path().join("state.toml");
                 if state_file.exists() {
                     let content = fs::read_to_string(&state_file)?;
-                    if let Ok(state) = toml::from_str::<TransactionState>(&content) {
-                        if state == TransactionState::InProgress {
+                    if let Ok(wrapper) = toml::from_str::<StateWrapper>(&content) {
+                        if wrapper.state == TransactionState::InProgress {
                             pending.push(entry.file_name().to_string_lossy().to_string());
                         }
                     }
@@ -1053,9 +1084,10 @@ mod tests {
     #[test]
     fn test_transaction_state_serialization() {
         let state = TransactionState::InProgress;
-        let serialized = toml::to_string(&state).unwrap();
-        let deserialized: TransactionState = toml::from_str(&serialized).unwrap();
-        assert_eq!(state, deserialized);
+        let wrapper = StateWrapper { state };
+        let serialized = toml::to_string(&wrapper).unwrap();
+        let deserialized: StateWrapper = toml::from_str(&serialized).unwrap();
+        assert_eq!(state, deserialized.state);
     }
 
     #[test]
