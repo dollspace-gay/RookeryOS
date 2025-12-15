@@ -27,6 +27,10 @@ pub struct Config {
     /// Path configuration
     #[serde(default)]
     pub paths: PathsConfig,
+
+    /// Hooks configuration
+    #[serde(default)]
+    pub hooks: HooksConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -180,6 +184,45 @@ impl Default for PathsConfig {
     }
 }
 
+/// Hooks configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HooksConfig {
+    /// Directory for system-wide hooks
+    pub hooks_dir: PathBuf,
+
+    /// Whether hooks are enabled
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+
+    /// Fail transaction if a pre-transaction hook fails
+    #[serde(default = "default_true")]
+    pub fail_on_pre_hook_error: bool,
+
+    /// Fail transaction if a post-transaction hook fails (after transaction completes)
+    #[serde(default)]
+    pub fail_on_post_hook_error: bool,
+
+    /// Timeout for hook execution in seconds (0 = no timeout)
+    #[serde(default = "default_hook_timeout")]
+    pub timeout_seconds: u64,
+}
+
+fn default_hook_timeout() -> u64 {
+    300 // 5 minutes
+}
+
+impl Default for HooksConfig {
+    fn default() -> Self {
+        Self {
+            hooks_dir: PathBuf::from("/etc/rookpkg/hooks.d"),
+            enabled: true,
+            fail_on_pre_hook_error: true,
+            fail_on_post_hook_error: false,
+            timeout_seconds: default_hook_timeout(),
+        }
+    }
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -188,6 +231,7 @@ impl Default for Config {
             repositories: vec![],
             build: BuildConfig::default(),
             paths: PathsConfig::default(),
+            hooks: HooksConfig::default(),
         }
     }
 }

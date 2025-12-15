@@ -1,0 +1,20 @@
+#!/bin/bash
+# EVENTS: post-transaction
+#
+# Update the shared MIME database after installing/removing packages
+# that provide MIME type definitions.
+
+set -e
+
+# Only run if update-mime-database exists
+if [ ! -x /usr/bin/update-mime-database ]; then
+    exit 0
+fi
+
+# Check if the MIME directory exists
+if [ -d /usr/share/mime ]; then
+    echo "Updating MIME database..."
+    /usr/bin/update-mime-database /usr/share/mime 2>/dev/null || true
+fi
+
+exit 0

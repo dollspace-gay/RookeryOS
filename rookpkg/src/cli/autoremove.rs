@@ -9,6 +9,7 @@ use colored::Colorize;
 
 use crate::config::Config;
 use crate::database::Database;
+use crate::hooks::HookResult;
 use crate::transaction::Transaction;
 
 /// Run the autoremove command
@@ -87,8 +88,10 @@ pub fn run(dry_run: bool, config: &Config) -> Result<()> {
         tx.remove(&pkg.name);
     }
 
-    match tx.execute() {
-        Ok(()) => {
+    match tx.execute_with_hooks(&config.hooks) {
+        Ok((pre_results, post_results)) => {
+            print_hook_results("pre-transaction", &pre_results);
+
             println!();
             println!(
                 "{} {} orphan package(s) removed, freed {}",
@@ -96,6 +99,8 @@ pub fn run(dry_run: bool, config: &Config) -> Result<()> {
                 orphans.len(),
                 format_size(total_size)
             );
+
+            print_hook_results("post-transaction", &post_results);
         }
         Err(e) => {
             println!(
@@ -108,6 +113,43 @@ pub fn run(dry_run: bool, config: &Config) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Print hook execution results
+fn print_hook_results(phase: &str, results: &[HookResult]) {
+    if results.is_empty() {
+        return;
+    }
+
+    let success_count = results.iter().filter(|r| r.success).count();
+    let fail_count = results.len() - success_count;
+
+    if fail_count == 0 {
+        println!(
+            "  {} {} hook(s) ran successfully",
+            "→".cyan(),
+            results.len()
+        );
+    } else {
+        println!(
+            "  {} {} {} hook(s): {} succeeded, {} failed",
+            "!".yellow(),
+            results.len(),
+            phase,
+            success_count,
+            fail_count
+        );
+        for result in results {
+            if !result.success {
+                println!(
+                    "    {} {} (exit code: {:?})",
+                    "✗".red(),
+                    result.name,
+                    result.exit_code
+                );
+            }
+        }
+    }
 }
 
 /// Mark a package as explicitly installed (won't be autoremoved)

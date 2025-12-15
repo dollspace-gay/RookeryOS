@@ -1,0 +1,23 @@
+#!/bin/bash
+# EVENTS: post-transaction
+#
+# Regenerate dynamic linker cache after installing/removing libraries.
+# This ensures newly installed shared libraries are found by the system.
+
+set -e
+
+# Only run if ldconfig exists
+if [ ! -x /sbin/ldconfig ]; then
+    exit 0
+fi
+
+# Check if any library packages were involved
+# (This is a simplified check - real implementation could parse package files)
+case "$ROOKPKG_PACKAGES" in
+    *glibc*|*lib*|*gcc*)
+        echo "Running ldconfig to update library cache..."
+        /sbin/ldconfig
+        ;;
+esac
+
+exit 0

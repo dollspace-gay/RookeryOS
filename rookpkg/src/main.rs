@@ -14,6 +14,7 @@ mod config;
 mod database;
 mod download;
 mod error;
+mod hooks;
 mod package;
 mod repository;
 mod resolver;

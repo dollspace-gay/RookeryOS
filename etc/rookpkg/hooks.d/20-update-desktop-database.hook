@@ -1,0 +1,20 @@
+#!/bin/bash
+# EVENTS: post-transaction
+#
+# Update the desktop application database after installing/removing
+# applications with .desktop files.
+
+set -e
+
+# Only run if update-desktop-database exists
+if [ ! -x /usr/bin/update-desktop-database ]; then
+    exit 0
+fi
+
+# Check if the applications directory exists and was possibly modified
+if [ -d /usr/share/applications ]; then
+    echo "Updating desktop database..."
+    /usr/bin/update-desktop-database -q /usr/share/applications 2>/dev/null || true
+fi
+
+exit 0

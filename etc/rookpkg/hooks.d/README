@@ -1,0 +1,90 @@
+# rookpkg System Hooks
+
+This directory contains system-wide hooks that run during package transactions.
+
+## Hook Format
+
+Hooks are executable scripts with the `.hook` extension. They should:
+
+1. Be named with a two-digit prefix for ordering: `NN-name.hook`
+   - Lower numbers run first (00-99)
+   - Example: `10-ldconfig.hook` runs before `50-systemd.hook`
+
+2. Specify which events trigger them using a comment:
+   ```bash
+   # EVENTS: pre-transaction post-transaction
+   ```
+
+   Valid events:
+   - `pre-transaction` - Runs before the transaction begins
+   - `post-transaction` - Runs after a successful transaction
+   - `transaction-failed` - Runs after a failed transaction (before rollback)
+
+3. Be executable (`chmod +x`)
+
+## Environment Variables
+
+Hooks receive these environment variables:
+
+- `ROOKPKG_HOOK_EVENT` - The event type (e.g., "post-transaction")
+- `ROOKPKG_PACKAGES` - Space-separated list of package names
+- `ROOKPKG_OPERATIONS` - Space-separated list of operations (install, remove, upgrade)
+- `ROOKPKG_TRANSACTION_ID` - Unique transaction identifier
+- `ROOKPKG_ROOT` - Root filesystem path (usually "/")
+- `ROOKPKG_OP_<PKGNAME>` - Per-package operation (e.g., ROOKPKG_OP_GCC=install)
+
+## Example Hook
+
+```bash
+#!/bin/bash
+# EVENTS: post-transaction
+#
+# Update library cache after installing new libraries.
+
+set -e
+
+if [ -x /sbin/ldconfig ]; then
+    /sbin/ldconfig
+fi
+
+exit 0
+```
+
+## Configuration
+
+Hooks can be configured in `/etc/rookpkg/rookpkg.conf`:
+
+```toml
+[hooks]
+hooks_dir = "/etc/rookpkg/hooks.d"
+enabled = true
+fail_on_pre_hook_error = true
+fail_on_post_hook_error = false
+timeout_seconds = 300
+```
+
+## Default Hooks
+
+The following hooks are provided:
+
+- `10-ldconfig.hook` - Regenerate library cache
+- `20-update-desktop-database.hook` - Update .desktop file database
+- `20-update-mime-database.hook` - Update MIME type database
+- `30-update-icon-cache.hook` - Update icon theme caches
+- `40-glib-compile-schemas.hook` - Compile GSettings schemas
+- `50-systemd-daemon-reload.hook` - Reload systemd after unit changes
+- `60-update-ca-certificates.hook` - Update CA certificate bundle
+- `70-update-font-cache.hook` - Update font cache
+
+## Writing Custom Hooks
+
+1. Create your hook script in this directory
+2. Name it with an appropriate order number
+3. Add the `# EVENTS:` comment to specify when it runs
+4. Make it executable: `chmod +x /etc/rookpkg/hooks.d/NN-myhook.hook`
+
+Hooks should:
+- Exit with code 0 on success
+- Check if required commands exist before running
+- Handle missing directories/files gracefully
+- Be idempotent (safe to run multiple times)

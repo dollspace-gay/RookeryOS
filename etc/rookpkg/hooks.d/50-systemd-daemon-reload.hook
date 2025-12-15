@@ -1,0 +1,33 @@
+#!/bin/bash
+# EVENTS: post-transaction
+#
+# Reload systemd daemon after installing/removing unit files.
+# This ensures systemd knows about new or removed services.
+
+set -e
+
+# Only run if systemctl exists and systemd is running
+if [ ! -x /usr/bin/systemctl ]; then
+    exit 0
+fi
+
+# Check if systemd is the init system (PID 1)
+if [ ! -d /run/systemd/system ]; then
+    exit 0
+fi
+
+# Check if any systemd-related packages were involved
+case "$ROOKPKG_PACKAGES" in
+    *systemd*|*dbus*|*udev*)
+        echo "Reloading systemd daemon..."
+        /usr/bin/systemctl daemon-reload 2>/dev/null || true
+        ;;
+esac
+
+# Also reload if we detect unit file changes
+# (This is a simplified check)
+if [ -d /usr/lib/systemd/system ] || [ -d /etc/systemd/system ]; then
+    /usr/bin/systemctl daemon-reload 2>/dev/null || true
+fi
+
+exit 0

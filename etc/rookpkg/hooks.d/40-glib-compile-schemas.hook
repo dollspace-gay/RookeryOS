@@ -1,0 +1,22 @@
+#!/bin/bash
+# EVENTS: post-transaction
+#
+# Compile GSettings schemas after installing/removing packages
+# that provide schema files.
+
+set -e
+
+SCHEMAS_DIR="/usr/share/glib-2.0/schemas"
+
+# Only run if glib-compile-schemas exists
+if [ ! -x /usr/bin/glib-compile-schemas ]; then
+    exit 0
+fi
+
+# Check if the schemas directory exists
+if [ -d "$SCHEMAS_DIR" ]; then
+    echo "Compiling GSettings schemas..."
+    /usr/bin/glib-compile-schemas "$SCHEMAS_DIR" 2>/dev/null || true
+fi
+
+exit 0

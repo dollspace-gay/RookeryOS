@@ -7,6 +7,7 @@ use colored::Colorize;
 
 use crate::config::Config;
 use crate::database::Database;
+use crate::hooks::HookResult;
 use crate::repository::{RepoManager, SignatureStatus};
 use crate::signing::TrustLevel;
 use crate::transaction::TransactionBuilder;
@@ -247,13 +248,17 @@ pub fn run(dry_run: bool, config: &Config) -> Result<()> {
     // Re-open database for transaction execution
     let db = Database::open(db_path)?;
 
-    match builder.execute(db) {
-        Ok(()) => {
+    match builder.execute_with_hooks(db, &config.hooks) {
+        Ok((pre_results, post_results)) => {
+            print_hook_results("pre-transaction", &pre_results);
+
             println!(
                 "{} {} package(s) upgraded successfully",
                 "✓".green().bold(),
                 verified_packages.len()
             );
+
+            print_hook_results("post-transaction", &post_results);
         }
         Err(e) => {
             println!(
@@ -269,6 +274,43 @@ pub fn run(dry_run: bool, config: &Config) -> Result<()> {
     println!("{}", "Upgrade complete!".green());
 
     Ok(())
+}
+
+/// Print hook execution results
+fn print_hook_results(phase: &str, results: &[HookResult]) {
+    if results.is_empty() {
+        return;
+    }
+
+    let success_count = results.iter().filter(|r| r.success).count();
+    let fail_count = results.len() - success_count;
+
+    if fail_count == 0 {
+        println!(
+            "  {} {} hook(s) ran successfully",
+            "→".cyan(),
+            results.len()
+        );
+    } else {
+        println!(
+            "  {} {} {} hook(s): {} succeeded, {} failed",
+            "!".yellow(),
+            results.len(),
+            phase,
+            success_count,
+            fail_count
+        );
+        for result in results {
+            if !result.success {
+                println!(
+                    "    {} {} (exit code: {:?})",
+                    "✗".red(),
+                    result.name,
+                    result.exit_code
+                );
+            }
+        }
+    }
 }
 
 /// Format bytes as human-readable size

@@ -7,6 +7,7 @@ use colored::Colorize;
 
 use crate::config::Config;
 use crate::database::Database;
+use crate::hooks::HookResult;
 use crate::transaction::{Operation, TransactionBuilder};
 
 pub fn run(packages: &[String], cascade: bool, dry_run: bool, config: &Config) -> Result<()> {
@@ -167,13 +168,17 @@ pub fn run(packages: &[String], cascade: bool, dry_run: bool, config: &Config) -
     // Re-open database for transaction
     let db = Database::open(db_path)?;
 
-    match builder.execute(db) {
-        Ok(()) => {
+    match builder.execute_with_hooks(db, &config.hooks) {
+        Ok((pre_results, post_results)) => {
+            print_hook_results("pre-transaction", &pre_results);
+
             println!(
                 "{} {} package(s) removed successfully",
                 "✓".green().bold(),
                 to_remove.len()
             );
+
+            print_hook_results("post-transaction", &post_results);
         }
         Err(e) => {
             println!(
@@ -189,6 +194,43 @@ pub fn run(packages: &[String], cascade: bool, dry_run: bool, config: &Config) -
     println!("{}", "Removal complete!".green());
 
     Ok(())
+}
+
+/// Print hook execution results
+fn print_hook_results(phase: &str, results: &[HookResult]) {
+    if results.is_empty() {
+        return;
+    }
+
+    let success_count = results.iter().filter(|r| r.success).count();
+    let fail_count = results.len() - success_count;
+
+    if fail_count == 0 {
+        println!(
+            "  {} {} hook(s) ran successfully",
+            "→".cyan(),
+            results.len()
+        );
+    } else {
+        println!(
+            "  {} {} {} hook(s): {} succeeded, {} failed",
+            "!".yellow(),
+            results.len(),
+            phase,
+            success_count,
+            fail_count
+        );
+        for result in results {
+            if !result.success {
+                println!(
+                    "    {} {} (exit code: {:?})",
+                    "✗".red(),
+                    result.name,
+                    result.exit_code
+                );
+            }
+        }
+    }
 }
 
 /// Format bytes as human-readable size

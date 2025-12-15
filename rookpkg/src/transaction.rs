@@ -11,7 +11,9 @@ use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::archive::PackageArchiveReader;
+use crate::config::HooksConfig;
 use crate::database::Database;
+use crate::hooks::{HookContext, HookEvent, HookManager, HookOperation, HookResult};
 use crate::package::{InstalledPackage, InstallReason, PackageFile};
 
 /// A file conflict detected during pre-installation check
@@ -405,6 +407,96 @@ impl Transaction {
         self.cleanup()?;
 
         Ok(())
+    }
+
+    /// Execute the transaction with system-wide hooks
+    ///
+    /// This wraps `execute()` with pre-transaction and post-transaction hooks.
+    /// Hooks are run from /etc/rookpkg/hooks.d/ (or as configured).
+    ///
+    /// Returns a tuple of (pre_hook_results, post_hook_results) on success.
+    pub fn execute_with_hooks(
+        &mut self,
+        hooks_config: &HooksConfig,
+    ) -> Result<(Vec<HookResult>, Vec<HookResult>)> {
+        if !hooks_config.enabled {
+            // Hooks disabled, just execute normally
+            self.execute()?;
+            return Ok((Vec::new(), Vec::new()));
+        }
+
+        // Set up hook manager
+        let mut hook_manager = HookManager::with_hooks_dir(&self.root, &hooks_config.hooks_dir);
+        hook_manager.discover_hooks()?;
+
+        // Build hook context
+        let context = self.build_hook_context(HookEvent::PreTransaction);
+
+        // Run pre-transaction hooks
+        tracing::debug!("Running pre-transaction hooks");
+        let pre_results = hook_manager.run_hooks(&context, hooks_config.fail_on_pre_hook_error)?;
+
+        // Log any hook failures (if we didn't fail fast)
+        for result in &pre_results {
+            if !result.success {
+                tracing::warn!(
+                    "Pre-transaction hook '{}' failed (exit code: {:?})",
+                    result.name,
+                    result.exit_code
+                );
+            }
+        }
+
+        // Execute the transaction
+        let tx_result = self.execute();
+
+        // Determine which post-hooks to run based on transaction result
+        let (post_event, post_context) = if tx_result.is_ok() {
+            (HookEvent::PostTransaction, self.build_hook_context(HookEvent::PostTransaction))
+        } else {
+            (HookEvent::TransactionFailed, self.build_hook_context(HookEvent::TransactionFailed))
+        };
+
+        // Run post-transaction hooks (even if transaction failed - use transaction-failed event)
+        tracing::debug!("Running {} hooks", post_event);
+        let post_results = hook_manager.run_hooks(&post_context, hooks_config.fail_on_post_hook_error);
+
+        // Log post-hook results
+        if let Ok(ref results) = post_results {
+            for result in results {
+                if !result.success {
+                    tracing::warn!(
+                        "Post-transaction hook '{}' failed (exit code: {:?})",
+                        result.name,
+                        result.exit_code
+                    );
+                }
+            }
+        }
+
+        // Handle the transaction result
+        tx_result?;
+
+        // Handle post-hook errors if configured to fail
+        let post_results = post_results?;
+
+        Ok((pre_results, post_results))
+    }
+
+    /// Build a hook context from current transaction state
+    fn build_hook_context(&self, event: HookEvent) -> HookContext {
+        let mut context = HookContext::new(event, &self.id, &self.root);
+
+        for op in &self.operations {
+            let (name, hook_op) = match op {
+                Operation::Install { package, .. } => (package.as_str(), HookOperation::Install),
+                Operation::Remove { package } => (package.as_str(), HookOperation::Remove),
+                Operation::Upgrade { package, .. } => (package.as_str(), HookOperation::Upgrade),
+            };
+            context.add_package(name, hook_op);
+        }
+
+        context
     }
 
     /// Execute a single operation
@@ -1227,6 +1319,40 @@ impl TransactionBuilder {
             }
         }
         tx.execute()
+    }
+
+    /// Build and execute the transaction with hooks
+    ///
+    /// Returns (pre_hook_results, post_hook_results) on success.
+    pub fn execute_with_hooks(
+        self,
+        db: Database,
+        hooks_config: &HooksConfig,
+    ) -> Result<(Vec<HookResult>, Vec<HookResult>)> {
+        let mut tx = Transaction::new(&self.root, db)?;
+        for op in self.operations {
+            match op {
+                Operation::Install {
+                    package,
+                    version,
+                    archive_path,
+                } => {
+                    tx.install(&package, &version, &archive_path);
+                }
+                Operation::Remove { package } => {
+                    tx.remove(&package);
+                }
+                Operation::Upgrade {
+                    package,
+                    old_version,
+                    new_version,
+                    archive_path,
+                } => {
+                    tx.upgrade(&package, &old_version, &new_version, &archive_path);
+                }
+            }
+        }
+        tx.execute_with_hooks(hooks_config)
     }
 }
 

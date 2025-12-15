@@ -1,0 +1,21 @@
+#!/bin/bash
+# EVENTS: post-transaction
+#
+# Update CA certificate bundle after installing/removing certificates.
+
+set -e
+
+# Only run if update-ca-certificates exists
+if [ ! -x /usr/sbin/update-ca-certificates ]; then
+    exit 0
+fi
+
+# Check if certificate packages were involved
+case "$ROOKPKG_PACKAGES" in
+    *ca-certificates*|*openssl*|*nss*)
+        echo "Updating CA certificates..."
+        /usr/sbin/update-ca-certificates --fresh 2>/dev/null || true
+        ;;
+esac
+
+exit 0

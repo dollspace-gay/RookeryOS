@@ -1,0 +1,22 @@
+#!/bin/bash
+# EVENTS: post-transaction
+#
+# Update icon caches after installing/removing icon themes or applications
+# that install icons.
+
+set -e
+
+# Only run if gtk-update-icon-cache exists
+if [ ! -x /usr/bin/gtk-update-icon-cache ]; then
+    exit 0
+fi
+
+# Update each icon theme directory that has an index.theme file
+for dir in /usr/share/icons/*/; do
+    if [ -f "${dir}index.theme" ]; then
+        echo "Updating icon cache for $(basename "$dir")..."
+        /usr/bin/gtk-update-icon-cache -q -f "$dir" 2>/dev/null || true
+    fi
+done
+
+exit 0

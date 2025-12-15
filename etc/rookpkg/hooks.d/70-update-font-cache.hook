@@ -1,0 +1,21 @@
+#!/bin/bash
+# EVENTS: post-transaction
+#
+# Update font cache after installing/removing fonts.
+
+set -e
+
+# Only run if fc-cache exists
+if [ ! -x /usr/bin/fc-cache ]; then
+    exit 0
+fi
+
+# Check if font packages were involved
+case "$ROOKPKG_PACKAGES" in
+    *font*|*ttf*|*otf*|*dejavu*|*noto*|*liberation*)
+        echo "Updating font cache..."
+        /usr/bin/fc-cache -s 2>/dev/null || true
+        ;;
+esac
+
+exit 0
