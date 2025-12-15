@@ -30,6 +30,19 @@ pub fn run(config: &Config) -> Result<()> {
     // Load existing cache
     manager.load_caches()?;
 
+    // Log repo state before update
+    for repo_config in &config.repositories {
+        if let Some(repo) = manager.get_repo_mut(&repo_config.name) {
+            let has_cache = repo.has_cache();
+            tracing::debug!(
+                "Repository '{}': cached={}, enabled={}",
+                repo.name,
+                has_cache,
+                repo.enabled
+            );
+        }
+    }
+
     // Update all repositories
     let result = manager.update_all(config)?;
 

@@ -23,6 +23,9 @@ mod transaction;
 
 use cli::Commands;
 
+// Re-export error types for library users
+pub use error::{Result as RookpkgResult, RookpkgError};
+
 /// Rookery OS Package Manager
 #[derive(Parser)]
 #[command(name = "rookpkg")]

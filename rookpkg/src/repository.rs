@@ -615,10 +615,158 @@ impl RepoManager {
         Ok(())
     }
 
+    /// Download a package and verify its hybrid signature
+    ///
+    /// Returns the path to the downloaded package file and signature verification result.
+    /// This is the recommended method for installing packages as it ensures authenticity.
+    pub fn download_and_verify_package(
+        &self,
+        package: &PackageEntry,
+        repo_name: &str,
+        config: &Config,
+    ) -> Result<VerifiedPackage> {
+        let repo = self
+            .repos
+            .iter()
+            .find(|r| r.name == repo_name)
+            .ok_or_else(|| anyhow::anyhow!("Repository not found: {}", repo_name))?;
+
+        // Download the package file
+        let pkg_path = self.download_package(package, repo_name)?;
+
+        // Determine signature file path
+        let pkg_filename = Path::new(&package.filename)
+            .file_name()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| format!("{}-{}-{}.rookpkg", package.name, package.version, package.release));
+        let sig_filename = format!("{}.sig", pkg_filename);
+        let sig_cache_path = self.pkg_cache_dir.join(&sig_filename);
+
+        // Try to download the signature file
+        let sig_url = format!("{}.sig", repo.package_url(package));
+
+        let signature_result = match self.download_with_retries(&sig_url, &sig_cache_path) {
+            Ok(()) => {
+                // Parse the signature
+                let sig_content = fs::read_to_string(&sig_cache_path)
+                    .context("Failed to read signature file")?;
+                let signature: HybridSignature = serde_json::from_str(&sig_content)
+                    .context("Failed to parse signature file")?;
+
+                // Find the signing key
+                match self.find_signing_key(&signature.fingerprint, config) {
+                    Ok(public_key) => {
+                        // Read package content for verification
+                        let pkg_content = fs::read(&pkg_path)
+                            .context("Failed to read package for verification")?;
+
+                        // Verify the signature
+                        match signing::verify_signature(&public_key, &pkg_content, &signature) {
+                            Ok(()) => {
+                                tracing::info!("Package signature verified: {}", pkg_filename);
+                                SignatureStatus::Verified {
+                                    fingerprint: signature.fingerprint.clone(),
+                                    signer: format!("{} <{}>", public_key.name, public_key.email),
+                                    trust_level: public_key.trust_level,
+                                }
+                            }
+                            Err(e) => {
+                                tracing::error!("Signature verification failed: {}", e);
+                                SignatureStatus::Invalid(e.to_string())
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        tracing::warn!("Signing key not found: {}", e);
+                        SignatureStatus::UnknownKey(signature.fingerprint.clone())
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!("No signature file found for {}: {}", pkg_filename, e);
+                SignatureStatus::Unsigned
+            }
+        };
+
+        // Reject unsigned, unknown key, or invalid packages - signing is MANDATORY
+        match &signature_result {
+            SignatureStatus::Invalid(reason) => {
+                bail!(
+                    "Package signature is INVALID: {}\n\
+                    DO NOT INSTALL - package may be tampered!",
+                    reason
+                );
+            }
+            SignatureStatus::Unsigned => {
+                bail!(
+                    "Package {} is unsigned.\n\
+                    All packages MUST be signed with a trusted key.\n\
+                    Contact the package maintainer to sign this package.",
+                    package.name
+                );
+            }
+            SignatureStatus::UnknownKey(fingerprint) => {
+                bail!(
+                    "Package {} is signed with unknown key: {}\n\
+                    Trust the key with: rookpkg keytrust <key.pub>",
+                    package.name,
+                    fingerprint
+                );
+            }
+            SignatureStatus::Verified { .. } => {
+                // Valid signature - proceed
+            }
+        }
+
+        Ok(VerifiedPackage {
+            path: pkg_path,
+            package: package.clone(),
+            signature_status: signature_result,
+        })
+    }
+
+    /// Find a signing key by fingerprint
+    fn find_signing_key(&self, fingerprint: &str, config: &Config) -> Result<signing::LoadedPublicKey> {
+        // Search in master keys (full trust)
+        if let Some(mut key) = self.search_key_in_dir(&config.signing.master_keys_dir, fingerprint)? {
+            key.trust_level = signing::TrustLevel::Full;
+            return Ok(key);
+        }
+
+        // Search in packager keys (marginal trust)
+        if let Some(mut key) = self.search_key_in_dir(&config.signing.packager_keys_dir, fingerprint)? {
+            key.trust_level = signing::TrustLevel::Marginal;
+            return Ok(key);
+        }
+
+        // Check user's own key (ultimate trust)
+        let user_pub_path = config
+            .signing
+            .user_signing_key
+            .parent()
+            .unwrap_or(Path::new("."))
+            .join("signing-key.pub");
+
+        if user_pub_path.exists() {
+            if let Ok(mut key) = signing::load_public_key(&user_pub_path) {
+                if key.fingerprint == fingerprint
+                    || key.fingerprint.ends_with(fingerprint)
+                    || fingerprint.ends_with(&key.fingerprint)
+                {
+                    key.trust_level = signing::TrustLevel::Ultimate;
+                    return Ok(key);
+                }
+            }
+        }
+
+        bail!("Signing key not found: {}", fingerprint)
+    }
+
     /// Download a package from a repository with mirror fallback
     ///
     /// Returns the path to the downloaded package file.
     /// If the package is already cached with correct checksum, returns the cached path.
+    /// NOTE: This does NOT verify the signature. Use download_and_verify_package for secure installs.
     pub fn download_package(&self, package: &PackageEntry, repo_name: &str) -> Result<PathBuf> {
         let repo = self
             .repos
@@ -832,6 +980,11 @@ impl RepoManager {
         Ok(paths)
     }
 
+    /// Get the base cache directory
+    pub fn cache_dir(&self) -> &Path {
+        &self.cache_dir
+    }
+
     /// Get the package cache directory
     pub fn package_cache_dir(&self) -> &Path {
         &self.pkg_cache_dir
@@ -1041,6 +1194,84 @@ pub struct SearchResult {
     pub package: PackageEntry,
 }
 
+/// Status of package signature verification
+#[derive(Debug, Clone)]
+pub enum SignatureStatus {
+    /// Signature verified successfully
+    Verified {
+        /// Key fingerprint
+        fingerprint: String,
+        /// Signer identity (name <email>)
+        signer: String,
+        /// Trust level of the signing key
+        trust_level: signing::TrustLevel,
+    },
+    /// Package has no signature
+    Unsigned,
+    /// Signature exists but key is not in keyring
+    UnknownKey(String),
+    /// Signature verification failed (tampered or corrupted)
+    Invalid(String),
+}
+
+impl SignatureStatus {
+    /// Check if the signature is verified
+    pub fn is_verified(&self) -> bool {
+        matches!(self, SignatureStatus::Verified { .. })
+    }
+
+    /// Check if the signature is trusted (verified with at least marginal trust)
+    pub fn is_trusted(&self) -> bool {
+        match self {
+            SignatureStatus::Verified { trust_level, .. } => {
+                *trust_level != signing::TrustLevel::Unknown
+            }
+            _ => false,
+        }
+    }
+
+    /// Get a human-readable description
+    pub fn description(&self) -> String {
+        match self {
+            SignatureStatus::Verified { signer, trust_level, .. } => {
+                let trust_str = match trust_level {
+                    signing::TrustLevel::Ultimate => "ultimate",
+                    signing::TrustLevel::Full => "full",
+                    signing::TrustLevel::Marginal => "marginal",
+                    signing::TrustLevel::Unknown => "unknown",
+                };
+                format!("Verified by {} (trust: {})", signer, trust_str)
+            }
+            SignatureStatus::Unsigned => "Unsigned".to_string(),
+            SignatureStatus::UnknownKey(fp) => format!("Unknown key: {}", fp),
+            SignatureStatus::Invalid(reason) => format!("INVALID: {}", reason),
+        }
+    }
+}
+
+/// A downloaded package with signature verification result
+#[derive(Debug, Clone)]
+pub struct VerifiedPackage {
+    /// Path to the downloaded package file
+    pub path: PathBuf,
+    /// Package metadata
+    pub package: PackageEntry,
+    /// Signature verification status
+    pub signature_status: SignatureStatus,
+}
+
+impl VerifiedPackage {
+    /// Check if the package signature is verified
+    pub fn is_verified(&self) -> bool {
+        self.signature_status.is_verified()
+    }
+
+    /// Check if the package is from a trusted source
+    pub fn is_trusted(&self) -> bool {
+        self.signature_status.is_trusted()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1102,5 +1333,88 @@ mod tests {
         let pkg = index.find_package("zsh");
         assert!(pkg.is_some());
         assert_eq!(pkg.unwrap().version, "5.9");
+    }
+
+    #[test]
+    fn test_package_index_find_all_versions() {
+        let mut index = PackageIndex::new("test-repo");
+
+        // Add multiple versions of the same package
+        index.add_package(PackageEntry {
+            name: "openssl".to_string(),
+            version: "1.1.1w".to_string(),
+            release: 1,
+            description: "OpenSSL 1.1 series (legacy)".to_string(),
+            arch: "x86_64".to_string(),
+            size: 3000000,
+            sha256: "aaa111".to_string(),
+            filename: "packages/openssl-1.1.1w-1.x86_64.rookpkg".to_string(),
+            depends: vec!["glibc".to_string()],
+            build_depends: vec![],
+            provides: vec![],
+            conflicts: vec![],
+            replaces: vec![],
+            license: Some("Apache-2.0".to_string()),
+            homepage: Some("https://openssl.org/".to_string()),
+            maintainer: Some("Rookery Maintainers".to_string()),
+            build_date: Some(Utc::now()),
+        });
+
+        index.add_package(PackageEntry {
+            name: "openssl".to_string(),
+            version: "3.0.12".to_string(),
+            release: 1,
+            description: "OpenSSL 3.0 series (current)".to_string(),
+            arch: "x86_64".to_string(),
+            size: 3500000,
+            sha256: "bbb222".to_string(),
+            filename: "packages/openssl-3.0.12-1.x86_64.rookpkg".to_string(),
+            depends: vec!["glibc".to_string()],
+            build_depends: vec![],
+            provides: vec![],
+            conflicts: vec![],
+            replaces: vec![],
+            license: Some("Apache-2.0".to_string()),
+            homepage: Some("https://openssl.org/".to_string()),
+            maintainer: Some("Rookery Maintainers".to_string()),
+            build_date: Some(Utc::now()),
+        });
+
+        index.add_package(PackageEntry {
+            name: "curl".to_string(),
+            version: "8.5.0".to_string(),
+            release: 1,
+            description: "Command line tool for transferring data".to_string(),
+            arch: "x86_64".to_string(),
+            size: 800000,
+            sha256: "ccc333".to_string(),
+            filename: "packages/curl-8.5.0-1.x86_64.rookpkg".to_string(),
+            depends: vec!["openssl".to_string()],
+            build_depends: vec![],
+            provides: vec![],
+            conflicts: vec![],
+            replaces: vec![],
+            license: Some("MIT".to_string()),
+            homepage: Some("https://curl.se/".to_string()),
+            maintainer: Some("Rookery Maintainers".to_string()),
+            build_date: Some(Utc::now()),
+        });
+
+        // find_all_versions should return both openssl versions
+        let openssl_versions = index.find_all_versions("openssl");
+        assert_eq!(openssl_versions.len(), 2);
+
+        let versions: Vec<&str> = openssl_versions.iter().map(|p| p.version.as_str()).collect();
+        assert!(versions.contains(&"1.1.1w"));
+        assert!(versions.contains(&"3.0.12"));
+
+        // find_all_versions with single version
+        let curl_versions = index.find_all_versions("curl");
+        assert_eq!(curl_versions.len(), 1);
+        assert_eq!(curl_versions[0].version, "8.5.0");
+
+        // find_all_versions with non-existent package
+        let missing_versions = index.find_all_versions("nonexistent");
+        assert!(missing_versions.is_empty());
     }
 }

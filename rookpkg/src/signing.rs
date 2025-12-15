@@ -521,11 +521,13 @@ fn load_legacy_public_key(parsed: &toml::Value) -> Result<LoadedPublicKey> {
     let ml_dsa_keypair = MlDsa65::from_seed(&ml_dsa_seed.into());
     let ml_dsa_key = ml_dsa_keypair.verifying_key().clone();
 
+    // Use stored fingerprint if available, otherwise calculate from the Ed25519 key
     let fingerprint = parsed
         .get("fingerprint")
         .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| calculate_fingerprint(&ed25519_key));
 
     let identity = parsed.get("identity");
     let name = identity

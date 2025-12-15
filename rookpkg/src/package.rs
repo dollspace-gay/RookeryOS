@@ -135,4 +135,17 @@ impl AvailablePackage {
     pub fn full_version(&self) -> String {
         format!("{}-{}", self.version, self.release)
     }
+
+    /// Create from a PackageEntry and base URL
+    pub fn from_entry(entry: &crate::repository::PackageEntry, base_url: &str) -> Self {
+        Self {
+            name: entry.name.clone(),
+            version: entry.version.clone(),
+            release: entry.release,
+            summary: entry.description.clone(),
+            download_url: format!("{}/{}", base_url.trim_end_matches('/'), entry.filename),
+            checksum: entry.sha256.clone(),
+            last_updated: chrono::Utc::now().timestamp(),
+        }
+    }
 }

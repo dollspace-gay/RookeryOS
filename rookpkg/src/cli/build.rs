@@ -3,16 +3,26 @@
 use std::path::Path;
 
 use anyhow::{bail, Result};
+use chrono::Utc;
 use colored::Colorize;
 
+use crate::archive::PackageArchiveBuilder;
+use crate::build::{PackageBuilder, PhaseResult};
+use crate::cli::inspect::validate_built_archive;
 use crate::config::Config;
-use crate::signing;
+use crate::database::Database;
+use crate::download::compute_sha256;
+use crate::repository::{PackageEntry, PackageIndex};
+use crate::signing::{self, sign_file};
 use crate::spec::PackageSpec;
+use crate::transaction::Transaction;
 
 pub fn run(
     spec_path: &Path,
     install: bool,
     output: Option<&Path>,
+    batch: bool,
+    update_index: bool,
     config: &Config,
 ) -> Result<()> {
     // CRITICAL: Check for signing key FIRST
@@ -20,16 +30,22 @@ pub fn run(
 
     let signing_key = match signing::load_signing_key(config) {
         Ok(key) => {
+            // Show key owner info
             println!(
-                "  {} Signing key found: {}",
+                "  {} Signing key: {} <{}>",
                 "✓".green(),
+                key.name.cyan(),
+                key.email.dimmed()
+            );
+            println!(
+                "    Fingerprint: {}",
                 signing::get_fingerprint(&key).dimmed()
             );
             key
         }
         Err(e) => {
             eprintln!();
-            eprintln!("{}", "❌ FATAL: No signing key found!".red().bold());
+            eprintln!("{}", "FATAL: No signing key found!".red().bold());
             eprintln!();
             eprintln!("Package building requires a cryptographic signing key.");
             eprintln!("This ensures package authenticity and prevents tampering.");
@@ -47,14 +63,21 @@ pub fn run(
         }
     };
 
-    // Parse spec file
+    // Parse spec file and create build environment
     println!("{}", "Parsing spec file...".cyan());
 
     if !spec_path.exists() {
         bail!("Spec file not found: {}", spec_path.display());
     }
 
+    // Read spec first
     let spec = PackageSpec::from_file(spec_path)?;
+
+    // Create build environment using PackageBuilder::build() with the parsed spec
+    // (build_from_spec would re-parse, so using build() is more efficient)
+    let builder = PackageBuilder::new(config.clone());
+    let build_env = builder.build(spec.clone())?;
+
     println!(
         "  {} {}-{}-{}",
         "✓".green(),
@@ -63,42 +86,311 @@ pub fn run(
         spec.package.release
     );
 
-    // TODO: Download and verify sources
-    println!("{}", "Downloading sources...".cyan());
-    println!("  (not yet implemented)");
-
-    // TODO: Execute build phases
-    println!("{}", "Building package...".cyan());
-    println!("  (not yet implemented)");
-
-    // TODO: Create package archive
-    println!("{}", "Creating package archive...".cyan());
-    println!("  (not yet implemented)");
-
-    // TODO: Sign package
-    println!("{}", "Signing package...".cyan());
+    // Show build directories
+    println!("{}", "Setting up build environment...".cyan());
     println!(
-        "  Would sign with key: {}",
-        signing::get_fingerprint(&signing_key).dimmed()
+        "  {} Build directory: {}",
+        "✓".green(),
+        build_env.build_dir().display()
     );
+    println!(
+        "  {} Source directory: {}",
+        "✓".green(),
+        build_env.src_dir().display()
+    );
+    println!(
+        "  {} Dest directory: {}",
+        "✓".green(),
+        build_env.dest_dir().display()
+    );
+    println!(
+        "  {} Cache directory: {}",
+        "✓".green(),
+        build_env.cache_dir().display()
+    );
+    println!(
+        "  {} Parallel jobs: {}",
+        "✓".green(),
+        build_env.jobs()
+    );
+
+    // Build using either batch mode (build_all) or individual phases
+    if batch {
+        // Batch mode: use build_all for simple sequential execution
+        println!("{}", "Building package (batch mode)...".cyan());
+        let results = build_env.build_all()?;
+
+        // Report results
+        let total_duration: f64 = results.iter().map(|r| r.duration_secs).sum();
+        for result in &results {
+            let status = if result.success() { "✓".green() } else { "✗".red() };
+            println!("  {} {} ({:.1}s)", status, result.phase, result.duration_secs);
+        }
+        println!("  {} Total build time: {:.1}s", "→".cyan(), total_duration);
+    } else {
+        // Standard mode: manual control over each phase
+        // Download and verify sources
+        println!("{}", "Downloading sources...".cyan());
+        build_env.fetch_sources()?;
+        println!("  {} Sources downloaded", "✓".green());
+
+        // Apply patches
+        println!("{}", "Applying patches...".cyan());
+        build_env.apply_patches()?;
+        println!("  {} Patches applied", "✓".green());
+
+        // Execute build phases individually for better control and reporting
+        println!("{}", "Building package...".cyan());
+
+        // Helper to run and report a phase
+        fn run_phase(name: &str, result: Result<PhaseResult>) -> Result<()> {
+            let result = result?;
+            let status = if result.success() {
+                "✓".green()
+            } else {
+                "✗".red()
+            };
+            println!(
+                "  {} {} ({:.1}s)",
+                status,
+                result.phase,
+                result.duration_secs
+            );
+
+            if !result.success() {
+                eprintln!();
+                eprintln!("{}", "Build failed!".red().bold());
+                let output = format!("{}\n{}", result.stdout, result.stderr);
+                if !output.trim().is_empty() {
+                    eprintln!();
+                    eprintln!("{}", "Output:".bold());
+                    for line in output.lines().take(50) {
+                        eprintln!("  {}", line);
+                    }
+                }
+                bail!("Build phase '{}' failed", name);
+            }
+            Ok(())
+        }
+
+        // Run each phase individually
+        run_phase("prep", build_env.run_prep())?;
+        run_phase("configure", build_env.run_configure())?;
+        run_phase("build", build_env.run_build())?;
+        run_phase("check", build_env.run_check())?;
+        run_phase("install", build_env.run_install())?;
+    }
+
+    // Collect installed files
+    println!("{}", "Collecting installed files...".cyan());
+    let installed_files = build_env.collect_installed_files()?;
+    println!(
+        "  {} {} files collected",
+        "✓".green(),
+        installed_files.len()
+    );
+
+    // Create package archive
+    println!("{}", "Creating package archive...".cyan());
 
     let output_dir = output.unwrap_or(Path::new("."));
-    let package_name = format!(
-        "{}-{}-{}.rookpkg",
-        spec.package.name, spec.package.version, spec.package.release
-    );
-    println!();
+    let mut archive_builder = PackageArchiveBuilder::new(&spec, build_env.dest_dir());
+    archive_builder.scan_files()?;
+
+    // Use info() and files() to show what will be packaged
+    let pkg_info = archive_builder.info();
+    let pkg_files = archive_builder.files();
     println!(
-        "{} {}",
-        "Output:".bold(),
-        output_dir.join(&package_name).display()
+        "  {} Packaging {}-{}-{}",
+        "→".cyan(),
+        pkg_info.name,
+        pkg_info.version,
+        pkg_info.release
+    );
+    println!(
+        "  {} {} files, {} installed size",
+        "→".cyan(),
+        pkg_files.len(),
+        format_size(pkg_info.installed_size)
+    );
+
+    // Validate archive before building
+    validate_built_archive(&archive_builder)?;
+
+    let package_path = archive_builder.build(output_dir)?;
+    println!(
+        "  {} Package created: {}",
+        "✓".green(),
+        package_path.display()
+    );
+
+    // Sign package
+    println!("{}", "Signing package...".cyan());
+
+    let signature = sign_file(&signing_key, &package_path)?;
+
+    // Write signature file
+    let sig_path = package_path.with_extension("rookpkg.sig");
+    let sig_json = serde_json::to_string_pretty(&signature)?;
+    std::fs::write(&sig_path, &sig_json)?;
+
+    println!(
+        "  {} Signed with key: {}",
+        "✓".green(),
+        signing::get_fingerprint(&signing_key).dimmed()
+    );
+    println!(
+        "  {} Signature: {}",
+        "✓".green(),
+        sig_path.display()
+    );
+
+    // Clean up build directory
+    println!("{}", "Cleaning up...".cyan());
+    build_env.clean()?;
+    println!("  {} Build directory cleaned", "✓".green());
+
+    println!();
+    println!("{}", "Build complete!".green().bold());
+    println!();
+    println!("  {}: {}", "Package".bold(), package_path.display());
+    println!("  {}: {}", "Signature".bold(), sig_path.display());
+    println!(
+        "  {}: {}",
+        "Size".bold(),
+        format_size(std::fs::metadata(&package_path)?.len())
     );
 
     if install {
         println!();
         println!("{}", "Installing built package...".cyan());
-        println!("  (not yet implemented)");
+
+        // Open database
+        let db_path = &config.database.path;
+        let db = Database::open(db_path)?;
+
+        // Check if already installed
+        if let Some(existing) = db.get_package(&spec.package.name)? {
+            println!(
+                "  {} Package {} already installed ({})",
+                "!".yellow(),
+                spec.package.name.bold(),
+                existing.full_version()
+            );
+            println!("  Use {} to upgrade.", "rookpkg upgrade".bold());
+            return Ok(());
+        }
+
+        // Install using transaction
+        let db = Database::open(db_path)?;
+        let root = Path::new("/");
+        let mut tx = Transaction::new(root, db)?;
+
+        let version = format!("{}-{}", spec.package.version, spec.package.release);
+        tx.install(&spec.package.name, &version, &package_path);
+
+        match tx.execute() {
+            Ok(()) => {
+                println!(
+                    "  {} Package installed successfully",
+                    "✓".green().bold()
+                );
+            }
+            Err(e) => {
+                println!(
+                    "  {} Installation failed: {}",
+                    "✗".red().bold(),
+                    e
+                );
+                bail!("Installation failed: {}", e);
+            }
+        }
+    }
+
+    // Update local package index if requested
+    if update_index {
+        println!();
+        println!("{}", "Updating local package index...".cyan());
+
+        let index_path = output_dir.join("packages.json");
+
+        // Load existing index or create new one
+        let mut pkg_index = if index_path.exists() {
+            let content = std::fs::read_to_string(&index_path)?;
+            serde_json::from_str::<PackageIndex>(&content)
+                .unwrap_or_else(|_| PackageIndex::new("local"))
+        } else {
+            PackageIndex::new("local")
+        };
+
+        // Create package entry from spec and built package info
+        let pkg_size = std::fs::metadata(&package_path)?.len();
+        let entry = PackageEntry {
+            name: spec.package.name.clone(),
+            version: spec.package.version.clone(),
+            release: spec.package.release,
+            description: spec.package.description.clone(),
+            arch: "x86_64".to_string(),
+            size: pkg_size,
+            sha256: compute_sha256(&package_path)?,
+            filename: package_path
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default(),
+            // Convert HashMap<String, String> keys to Vec<String> for dependencies
+            depends: spec.depends.keys().cloned().collect(),
+            build_depends: spec.build_depends.keys().cloned().collect(),
+            provides: Vec::new(),
+            conflicts: Vec::new(),
+            replaces: Vec::new(),
+            license: if spec.package.license.is_empty() {
+                None
+            } else {
+                Some(spec.package.license.clone())
+            },
+            homepage: if spec.package.url.is_empty() {
+                None
+            } else {
+                Some(spec.package.url.clone())
+            },
+            maintainer: if spec.package.maintainer.is_empty() {
+                None
+            } else {
+                Some(spec.package.maintainer.clone())
+            },
+            build_date: Some(Utc::now()),
+        };
+
+        // Add package to index (this uses PackageIndex::add_package)
+        pkg_index.add_package(entry);
+
+        // Write updated index
+        let index_content = serde_json::to_string_pretty(&pkg_index)?;
+        std::fs::write(&index_path, &index_content)?;
+
+        println!(
+            "  {} Updated {} ({} packages)",
+            "✓".green(),
+            index_path.display(),
+            pkg_index.count
+        );
     }
 
     Ok(())
+}
+
+fn format_size(bytes: u64) -> String {
+    const KB: u64 = 1024;
+    const MB: u64 = KB * 1024;
+    const GB: u64 = MB * 1024;
+
+    if bytes >= GB {
+        format!("{:.2} GB", bytes as f64 / GB as f64)
+    } else if bytes >= MB {
+        format!("{:.2} MB", bytes as f64 / MB as f64)
+    } else if bytes >= KB {
+        format!("{:.2} KB", bytes as f64 / KB as f64)
+    } else {
+        format!("{} B", bytes)
+    }
 }

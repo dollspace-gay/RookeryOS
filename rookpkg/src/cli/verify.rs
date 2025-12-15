@@ -7,7 +7,7 @@ use anyhow::{bail, Context, Result};
 use colored::Colorize;
 
 use crate::config::Config;
-use crate::signing::{self, HybridSignature, KeyAlgorithm, TrustLevel};
+use crate::signing::{self, verify_file, HybridSignature, KeyAlgorithm, TrustLevel};
 
 /// Verify a package's signature
 pub fn run(package_path: &Path, config: &Config) -> Result<()> {
@@ -49,13 +49,10 @@ pub fn run(package_path: &Path, config: &Config) -> Result<()> {
     println!("  Trust level: {}", trust_status);
     println!();
 
-    // Verify the signature
+    // Verify the signature using verify_file helper
     println!("{}", "Verifying signatures...".dimmed());
 
-    let package_content = fs::read(package_path)
-        .with_context(|| format!("Failed to read package: {}", package_path.display()))?;
-
-    match signing::verify_signature(&public_key, &package_content, &signature) {
+    match verify_file(&public_key, package_path, &signature) {
         Ok(()) => {
             println!();
             println!("{}", "  Ed25519 signature:   ✓ VALID".green());

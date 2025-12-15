@@ -115,6 +115,14 @@ pub struct Source {
 
     /// SHA256 checksum
     pub sha256: String,
+
+    /// Mirror URLs for fallback
+    #[serde(default)]
+    pub mirrors: Vec<String>,
+
+    /// Override filename (derived from URL if not specified)
+    #[serde(default)]
+    pub filename: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -196,15 +204,19 @@ pub struct ConfigFiles {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Scripts {
-    /// Run after installation
+    /// Run before installation (create users, stop services, etc.)
+    #[serde(default, rename = "pre-install")]
+    pub pre_install: String,
+
+    /// Run after installation (configure, start services, etc.)
     #[serde(default, rename = "post-install")]
     pub post_install: String,
 
-    /// Run before removal
+    /// Run before removal (stop services, backup data)
     #[serde(default, rename = "pre-remove")]
     pub pre_remove: String,
 
-    /// Run after removal
+    /// Run after removal (cleanup users, etc.)
     #[serde(default, rename = "post-remove")]
     pub post_remove: String,
 

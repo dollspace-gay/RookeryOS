@@ -7,14 +7,19 @@ use colored::Colorize;
 use crate::config::Config;
 
 mod build;
+mod check;
+mod depends;
 mod info;
+mod inspect;
 mod install;
 mod keygen;
 mod keys;
 mod list;
+mod recover;
 mod remove;
 mod search;
 mod update;
+mod upgrade;
 mod verify;
 
 #[derive(Subcommand)]
@@ -54,6 +59,10 @@ pub enum Commands {
         /// Filter by pattern
         #[arg(short, long)]
         filter: Option<String>,
+
+        /// Show all versions of packages (with --available)
+        #[arg(long)]
+        all_versions: bool,
     },
 
     /// Show package information
@@ -84,6 +93,14 @@ pub enum Commands {
         /// Output directory for built package
         #[arg(short, long)]
         output: Option<std::path::PathBuf>,
+
+        /// Run all phases in sequence without detailed progress
+        #[arg(long)]
+        batch: bool,
+
+        /// Update local repository index (packages.json) with built package
+        #[arg(long)]
+        index: bool,
     },
 
     /// Generate a new signing key
@@ -156,6 +173,30 @@ pub enum Commands {
         #[arg(long)]
         all: bool,
     },
+
+    /// Recover from incomplete transactions
+    Recover {
+        /// Transaction ID to resume (lists pending if not specified)
+        transaction_id: Option<String>,
+    },
+
+    /// Inspect a package archive or spec file
+    Inspect {
+        /// Path to .rookpkg archive or .rook spec file
+        path: std::path::PathBuf,
+
+        /// Show all files in the package
+        #[arg(long)]
+        files: bool,
+
+        /// Show install script contents
+        #[arg(long)]
+        scripts: bool,
+
+        /// Validate spec file can be parsed and build environment created
+        #[arg(long)]
+        validate: bool,
+    },
 }
 
 /// Execute a CLI command
@@ -167,8 +208,8 @@ pub fn execute(command: Commands, config: &Config) -> Result<()> {
         Commands::Remove { packages, cascade, dry_run } => {
             remove::run(&packages, cascade, dry_run, config)
         }
-        Commands::List { available, filter } => {
-            list::run(available, filter.as_deref(), config)
+        Commands::List { available, filter, all_versions } => {
+            list::run(available, filter.as_deref(), all_versions, config)
         }
         Commands::Info { package, deps } => {
             info::run(&package, deps, config)
@@ -176,8 +217,8 @@ pub fn execute(command: Commands, config: &Config) -> Result<()> {
         Commands::Search { query } => {
             search::run(&query, config)
         }
-        Commands::Build { spec, install, output } => {
-            build::run(&spec, install, output.as_deref(), config)
+        Commands::Build { spec, install, output, batch, index } => {
+            build::run(&spec, install, output.as_deref(), batch, index, config)
         }
         Commands::Keygen { name, email, output } => {
             keygen::run(&name, &email, output.as_deref(), config)
@@ -198,35 +239,26 @@ pub fn execute(command: Commands, config: &Config) -> Result<()> {
             update::run(config)
         }
         Commands::Upgrade { dry_run } => {
-            if dry_run {
-                println!("{}", "Dry run - no packages would be upgraded".yellow());
-            } else {
-                println!("{}", "No upgrades available.".green());
-            }
-            Ok(())
+            upgrade::run(dry_run, config)
         }
         Commands::Depends { package, reverse } => {
-            if reverse {
-                println!("Packages that depend on {}:", package.bold());
-            } else {
-                println!("Dependencies of {}:", package.bold());
-            }
-            println!("  (not implemented yet)");
-            Ok(())
+            depends::run(&package, reverse, config)
         }
         Commands::Check { package } => {
-            match package {
-                Some(p) => println!("Would check package: {}", p),
-                None => println!("Would check all installed packages"),
-            }
-            Ok(())
+            check::run(package.as_deref(), config)
         }
         Commands::Clean { all } => {
+            use crate::download::Downloader;
             use crate::repository::RepoManager;
 
             let manager = RepoManager::new(config)?;
 
-            let result = if all {
+            // Show cache directories
+            tracing::debug!("Base cache: {}", manager.cache_dir().display());
+            tracing::debug!("Package cache: {}", manager.package_cache_dir().display());
+
+            // Clean package cache
+            let pkg_result = if all {
                 println!("{}", "Cleaning all cached packages...".cyan());
                 manager.clean_all_packages()?
             } else {
@@ -235,17 +267,80 @@ pub fn execute(command: Commands, config: &Config) -> Result<()> {
             };
 
             println!();
-            if result.any_removed() {
+            if pkg_result.any_removed() {
                 println!(
-                    "  {} Removed {} file(s), freed {}",
+                    "  {} Removed {} package file(s), freed {}",
                     "✓".green(),
-                    result.removed_files,
-                    result.removed_bytes_human()
+                    pkg_result.removed_files,
+                    pkg_result.removed_bytes_human()
                 );
             } else {
-                println!("  Cache is empty or no old packages found.");
+                println!("  Package cache is empty or no old packages found.");
             }
+            // Show total cache size before cleaning
+            println!(
+                "  Total package cache: {}",
+                pkg_result.total_bytes_human()
+            );
+
+            // Clean source download cache
+            println!();
+            if all {
+                println!("{}", "Cleaning source download cache...".cyan());
+            } else {
+                println!("{}", "Cleaning old source downloads (>30 days)...".cyan());
+            }
+
+            let downloader = Downloader::new(config)?;
+            println!("  Cache directory: {}", downloader.cache_dir().display());
+            let days = if all { 0 } else { 30 };
+            let src_bytes = downloader.clean_cache(days)?;
+
+            if src_bytes > 0 {
+                println!(
+                    "  {} Freed {} from source cache",
+                    "✓".green(),
+                    format_bytes(src_bytes)
+                );
+            } else {
+                println!("  Source cache is empty or no old downloads found.");
+            }
+
+            // Show total
+            let total = pkg_result.removed_bytes + src_bytes;
+            if total > 0 {
+                println!();
+                println!(
+                    "{} Total space freed: {}",
+                    "✓".green().bold(),
+                    format_bytes(total)
+                );
+            }
+
             Ok(())
         }
+        Commands::Recover { transaction_id } => {
+            recover::run(transaction_id.as_deref(), config)
+        }
+        Commands::Inspect { path, files, scripts, validate } => {
+            inspect::run(&path, files, scripts, validate, config)
+        }
+    }
+}
+
+/// Format bytes as human-readable size
+fn format_bytes(bytes: u64) -> String {
+    const KB: u64 = 1024;
+    const MB: u64 = KB * 1024;
+    const GB: u64 = MB * 1024;
+
+    if bytes >= GB {
+        format!("{:.2} GB", bytes as f64 / GB as f64)
+    } else if bytes >= MB {
+        format!("{:.2} MB", bytes as f64 / MB as f64)
+    } else if bytes >= KB {
+        format!("{:.2} KB", bytes as f64 / KB as f64)
+    } else {
+        format!("{} B", bytes)
     }
 }

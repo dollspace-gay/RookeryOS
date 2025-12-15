@@ -133,13 +133,16 @@ pub enum FileType {
 /// Installation scripts
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct InstallScripts {
-    /// Run after installation
+    /// Run before installation (create users, stop services, etc.)
+    pub pre_install: String,
+
+    /// Run after installation (configure, start services, etc.)
     pub post_install: String,
 
-    /// Run before removal
+    /// Run before removal (stop services, backup data)
     pub pre_remove: String,
 
-    /// Run after removal
+    /// Run after removal (cleanup users, etc.)
     pub post_remove: String,
 
     /// Run before upgrade
@@ -153,6 +156,7 @@ impl InstallScripts {
     /// Create from a PackageSpec
     pub fn from_spec(spec: &PackageSpec) -> Self {
         Self {
+            pre_install: spec.scripts.pre_install.clone(),
             post_install: spec.scripts.post_install.clone(),
             pre_remove: spec.scripts.pre_remove.clone(),
             post_remove: spec.scripts.post_remove.clone(),
@@ -163,7 +167,8 @@ impl InstallScripts {
 
     /// Check if any scripts are defined
     pub fn has_scripts(&self) -> bool {
-        !self.post_install.is_empty()
+        !self.pre_install.is_empty()
+            || !self.post_install.is_empty()
             || !self.pre_remove.is_empty()
             || !self.post_remove.is_empty()
             || !self.pre_upgrade.is_empty()

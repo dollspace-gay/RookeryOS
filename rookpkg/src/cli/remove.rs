@@ -1,28 +1,209 @@
 //! Remove command implementation
 
-use anyhow::Result;
+use std::path::Path;
+
+use anyhow::{bail, Result};
 use colored::Colorize;
 
 use crate::config::Config;
+use crate::database::Database;
+use crate::transaction::{Operation, TransactionBuilder};
 
-pub fn run(packages: &[String], cascade: bool, dry_run: bool, _config: &Config) -> Result<()> {
+pub fn run(packages: &[String], cascade: bool, dry_run: bool, config: &Config) -> Result<()> {
     if dry_run {
         println!("{}", "Dry run mode - no changes will be made".yellow());
+        println!();
     }
 
-    if cascade {
-        println!("{}", "Cascade mode - will remove dependent packages".yellow());
-    }
+    // Open database
+    let db_path = &config.database.path;
+    let db = if db_path.exists() {
+        Database::open(db_path)?
+    } else {
+        println!("{}", "No packages installed yet.".yellow());
+        return Ok(());
+    };
+
+    // Check which packages are installed
+    let mut to_remove = Vec::new();
+    let mut not_installed = Vec::new();
+    let mut blocked = Vec::new();
 
     for package in packages {
-        println!("  Would remove: {}", package.bold());
+        match db.get_package(package)? {
+            Some(pkg) => {
+                // Check for reverse dependencies
+                let rdeps = db.get_reverse_dependencies(package)?;
+                if !rdeps.is_empty() && !cascade {
+                    blocked.push((package.clone(), rdeps));
+                } else {
+                    to_remove.push(pkg);
+                }
+            }
+            None => {
+                not_installed.push(package.clone());
+            }
+        }
     }
 
-    if !dry_run {
+    // Report not installed packages
+    if !not_installed.is_empty() {
+        println!("{}", "Some packages are not installed:".yellow());
+        for name in &not_installed {
+            println!("  {} {}", "!".yellow(), name);
+        }
         println!();
-        println!("{}", "Removal not yet implemented.".red());
-        println!("This is a placeholder for Phase 1 development.");
     }
+
+    // Report blocked packages
+    if !blocked.is_empty() {
+        println!("{}", "Some packages cannot be removed due to dependencies:".red());
+        for (name, rdeps) in &blocked {
+            println!(
+                "  {} {} is required by: {}",
+                "✗".red(),
+                name.bold(),
+                rdeps.join(", ")
+            );
+        }
+        println!();
+        println!(
+            "Use {} to remove dependent packages too.",
+            "--cascade".bold()
+        );
+        println!();
+    }
+
+    if to_remove.is_empty() {
+        if blocked.is_empty() && not_installed.is_empty() {
+            println!("{}", "Nothing to remove.".yellow());
+        }
+        return Ok(());
+    }
+
+    // Show what will be removed
+    println!("{}", "The following packages will be removed:".cyan());
+    println!();
+
+    let mut total_size: u64 = 0;
+    for pkg in &to_remove {
+        println!(
+            "  {} {}-{}",
+            "✗".red(),
+            pkg.name.bold(),
+            pkg.full_version()
+        );
+        total_size += pkg.size_bytes;
+    }
+
+    // If cascade mode, add dependent packages
+    if cascade {
+        let mut additional = Vec::new();
+        for (name, _) in &blocked {
+            if let Some(pkg) = db.get_package(name)? {
+                additional.push(pkg.clone());
+                // Recursively get dependencies
+                let mut to_check = vec![name.clone()];
+                while let Some(check_name) = to_check.pop() {
+                    let rdeps = db.get_reverse_dependencies(&check_name)?;
+                    for rdep in rdeps {
+                        if !additional.iter().any(|p| p.name == rdep)
+                            && !to_remove.iter().any(|p| p.name == rdep)
+                        {
+                            if let Some(rdep_pkg) = db.get_package(&rdep)? {
+                                println!(
+                                    "  {} {}-{} {}",
+                                    "✗".red(),
+                                    rdep_pkg.name.bold(),
+                                    rdep_pkg.full_version(),
+                                    "(cascade)".dimmed()
+                                );
+                                total_size += rdep_pkg.size_bytes;
+                                additional.push(rdep_pkg);
+                                to_check.push(rdep);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        to_remove.extend(additional);
+    }
+
+    println!();
+    println!(
+        "Space to be freed: {}",
+        format_size(total_size).green()
+    );
+    println!();
+
+    if dry_run {
+        println!("{}", "Dry run complete - no packages removed.".yellow());
+        return Ok(());
+    }
+
+    // Perform removal using TransactionBuilder for cleaner API
+    println!("{}", "Removing packages...".cyan());
+    println!();
+
+    // Build remove operations
+    let root = Path::new("/");
+    let mut builder = TransactionBuilder::new(root);
+
+    for pkg in &to_remove {
+        builder = builder.remove(&pkg.name);
+    }
+
+    // Log operations using Operation::package_name
+    let operations: Vec<Operation> = to_remove
+        .iter()
+        .map(|p| Operation::Remove { package: p.name.clone() })
+        .collect();
+    for op in &operations {
+        tracing::debug!("Queued operation: remove {}", op.package_name());
+    }
+
+    // Execute using Transaction (TransactionBuilder.execute needs db)
+    // Re-open database for transaction
+    let db = Database::open(db_path)?;
+
+    match builder.execute(db) {
+        Ok(()) => {
+            println!(
+                "{} {} package(s) removed successfully",
+                "✓".green().bold(),
+                to_remove.len()
+            );
+        }
+        Err(e) => {
+            println!(
+                "{} Removal failed: {}",
+                "✗".red().bold(),
+                e
+            );
+            bail!("Removal transaction failed: {}", e);
+        }
+    }
+
+    println!();
+    println!("{}", "Removal complete!".green());
 
     Ok(())
+}
+
+/// Format bytes as human-readable size
+fn format_size(bytes: u64) -> String {
+    const KB: u64 = 1024;
+    const MB: u64 = KB * 1024;
+    const GB: u64 = MB * 1024;
+
+    if bytes >= GB {
+        format!("{:.2} GB", bytes as f64 / GB as f64)
+    } else if bytes >= MB {
+        format!("{:.2} MB", bytes as f64 / MB as f64)
+    } else if bytes >= KB {
+        format!("{:.2} KB", bytes as f64 / KB as f64)
+    } else {
+        format!("{} B", bytes)
+    }
 }
