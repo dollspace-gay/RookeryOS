@@ -15,6 +15,7 @@ mod database;
 mod download;
 mod error;
 mod package;
+mod repository;
 mod resolver;
 mod signing;
 mod spec;

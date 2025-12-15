@@ -14,6 +14,7 @@ mod keys;
 mod list;
 mod remove;
 mod search;
+mod update;
 mod verify;
 
 #[derive(Subcommand)]
@@ -194,9 +195,7 @@ pub fn execute(command: Commands, config: &Config) -> Result<()> {
             verify::run(&package, config)
         }
         Commands::Update => {
-            println!("{}", "Updating repository metadata...".cyan());
-            println!("  (no repositories configured yet)");
-            Ok(())
+            update::run(config)
         }
         Commands::Upgrade { dry_run } => {
             if dry_run {
