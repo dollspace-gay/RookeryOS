@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::archive::PackageArchiveReader;
 use crate::database::Database;
-use crate::package::{InstalledPackage, PackageFile};
+use crate::package::{InstalledPackage, InstallReason, PackageFile};
 
 /// A file conflict detected during pre-installation check
 #[derive(Debug, Clone)]
@@ -514,6 +514,7 @@ impl Transaction {
         }
 
         // Add to database
+        // TODO: Track whether this is being installed as a dependency
         let pkg = InstalledPackage {
             name: info.name.clone(),
             version: info.version.clone(),
@@ -522,6 +523,7 @@ impl Transaction {
             size_bytes: info.installed_size,
             checksum: String::new(), // TODO: compute package checksum
             spec: String::new(), // TODO: store original spec
+            install_reason: InstallReason::Explicit,
         };
         let pkg_id = self.db.add_package(&pkg)?;
         self.journal.push(JournalEntry::DbPackageAdded {
@@ -812,7 +814,11 @@ impl Transaction {
             }
         }
 
-        // Add to database
+        // Add to database (upgrades keep the original install reason)
+        // Get the old install reason if upgrading
+        let old_reason = self.db.get_package(&info.name)?
+            .map(|p| p.install_reason)
+            .unwrap_or(InstallReason::Explicit);
         let pkg = InstalledPackage {
             name: info.name.clone(),
             version: info.version.clone(),
@@ -821,6 +827,7 @@ impl Transaction {
             size_bytes: info.installed_size,
             checksum: String::new(),
             spec: String::new(),
+            install_reason: old_reason,
         };
         let pkg_id = self.db.add_package(&pkg)?;
         self.journal.push(JournalEntry::DbPackageAdded {

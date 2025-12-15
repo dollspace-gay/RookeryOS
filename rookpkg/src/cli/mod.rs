@@ -39,6 +39,7 @@ fn require_root(operation: &str, dry_run: bool) -> Result<()> {
     );
 }
 
+mod autoremove;
 mod build;
 mod check;
 mod depends;
@@ -273,6 +274,29 @@ pub enum Commands {
         package: Option<String>,
     },
 
+    /// Remove orphan packages (dependencies no longer needed)
+    Autoremove {
+        /// Don't actually remove, just show what would be removed
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Mark a package as explicitly installed (won't be autoremoved)
+    #[command(name = "mark-explicit")]
+    MarkExplicit {
+        /// Package name(s) to mark
+        #[arg(required = true)]
+        packages: Vec<String>,
+    },
+
+    /// Mark a package as a dependency (can be autoremoved if no longer needed)
+    #[command(name = "mark-dep")]
+    MarkDep {
+        /// Package name(s) to mark
+        #[arg(required = true)]
+        packages: Vec<String>,
+    },
+
     /// Inspect a package archive or spec file
     Inspect {
         /// Path to .rookpkg archive or .rook spec file
@@ -485,6 +509,18 @@ pub fn execute(command: Commands, config: &Config) -> Result<()> {
             } else {
                 hold::list_holds(config)
             }
+        }
+        Commands::Autoremove { dry_run } => {
+            require_root("autoremove", dry_run)?;
+            autoremove::run(dry_run, config)
+        }
+        Commands::MarkExplicit { packages } => {
+            require_root("mark-explicit", false)?;  // modifies system database
+            autoremove::mark_explicit(&packages, config)
+        }
+        Commands::MarkDep { packages } => {
+            require_root("mark-dep", false)?;  // modifies system database
+            autoremove::mark_dependency(&packages, config)
         }
         Commands::Inspect { path, files, scripts, validate } => {
             inspect::run(&path, files, scripts, validate, config)

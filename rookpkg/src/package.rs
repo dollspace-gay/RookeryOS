@@ -1,6 +1,41 @@
 //! Package types and operations
 
+use std::fmt;
+use std::str::FromStr;
+
 use serde::{Deserialize, Serialize};
+
+/// Reason why a package was installed
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum InstallReason {
+    /// Explicitly installed by user
+    #[default]
+    Explicit,
+    /// Installed as a dependency of another package
+    Dependency,
+}
+
+impl fmt::Display for InstallReason {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            InstallReason::Explicit => write!(f, "explicit"),
+            InstallReason::Dependency => write!(f, "dependency"),
+        }
+    }
+}
+
+impl FromStr for InstallReason {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "explicit" => Ok(InstallReason::Explicit),
+            "dependency" | "dep" => Ok(InstallReason::Dependency),
+            _ => Err(format!("Unknown install reason: {}", s)),
+        }
+    }
+}
 
 /// An installed package
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25,6 +60,10 @@ pub struct InstalledPackage {
 
     /// Original spec file content
     pub spec: String,
+
+    /// Why this package was installed
+    #[serde(default)]
+    pub install_reason: InstallReason,
 }
 
 /// An available package from a repository

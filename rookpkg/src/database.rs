@@ -5,7 +5,7 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use rusqlite::{Connection, params};
 
-use crate::package::{InstalledPackage, PackageFile, Dependency, DependencyType};
+use crate::package::{InstalledPackage, InstallReason, PackageFile, Dependency, DependencyType};
 
 /// Package database
 pub struct Database {
@@ -49,7 +49,8 @@ impl Database {
                 install_date INTEGER NOT NULL,
                 size_bytes INTEGER NOT NULL,
                 checksum TEXT NOT NULL,
-                spec_file TEXT NOT NULL
+                spec_file TEXT NOT NULL,
+                install_reason TEXT NOT NULL DEFAULT 'explicit'
             );
 
             -- Installed files (for conflict detection and removal)
@@ -136,8 +137,8 @@ impl Database {
     pub fn add_package(&self, pkg: &InstalledPackage) -> Result<i64> {
         self.conn.execute(
             r#"
-            INSERT INTO packages (name, version, release, install_date, size_bytes, checksum, spec_file)
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+            INSERT INTO packages (name, version, release, install_date, size_bytes, checksum, spec_file, install_reason)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
             "#,
             params![
                 pkg.name,
@@ -147,6 +148,7 @@ impl Database {
                 pkg.size_bytes,
                 pkg.checksum,
                 pkg.spec,
+                pkg.install_reason.to_string(),
             ],
         )?;
 
@@ -166,13 +168,14 @@ impl Database {
     /// Get an installed package by name
     pub fn get_package(&self, name: &str) -> Result<Option<InstalledPackage>> {
         let mut stmt = self.conn.prepare(
-            "SELECT name, version, release, install_date, size_bytes, checksum, spec_file
+            "SELECT name, version, release, install_date, size_bytes, checksum, spec_file, install_reason
              FROM packages WHERE name = ?1"
         )?;
 
         let mut rows = stmt.query(params![name])?;
 
         if let Some(row) = rows.next()? {
+            let reason_str: String = row.get(7)?;
             Ok(Some(InstalledPackage {
                 name: row.get(0)?,
                 version: row.get(1)?,
@@ -181,6 +184,7 @@ impl Database {
                 size_bytes: row.get(4)?,
                 checksum: row.get(5)?,
                 spec: row.get(6)?,
+                install_reason: reason_str.parse().unwrap_or_default(),
             }))
         } else {
             Ok(None)
@@ -190,11 +194,12 @@ impl Database {
     /// List all installed packages
     pub fn list_packages(&self) -> Result<Vec<InstalledPackage>> {
         let mut stmt = self.conn.prepare(
-            "SELECT name, version, release, install_date, size_bytes, checksum, spec_file
+            "SELECT name, version, release, install_date, size_bytes, checksum, spec_file, install_reason
              FROM packages ORDER BY name"
         )?;
 
         let rows = stmt.query_map([], |row| {
+            let reason_str: String = row.get(7)?;
             Ok(InstalledPackage {
                 name: row.get(0)?,
                 version: row.get(1)?,
@@ -203,6 +208,7 @@ impl Database {
                 size_bytes: row.get(4)?,
                 checksum: row.get(5)?,
                 spec: row.get(6)?,
+                install_reason: reason_str.parse().unwrap_or_default(),
             })
         })?;
 
@@ -420,6 +426,118 @@ impl Database {
         rows.collect::<Result<Vec<_>, _>>()
             .context("Failed to list held packages")
     }
+
+    /// Set the install reason for a package
+    pub fn set_install_reason(&self, name: &str, reason: InstallReason) -> Result<bool> {
+        let rows = self.conn.execute(
+            "UPDATE packages SET install_reason = ?2 WHERE name = ?1",
+            params![name, reason.to_string()],
+        )?;
+
+        Ok(rows > 0)
+    }
+
+    /// Get the install reason for a package
+    pub fn get_install_reason(&self, name: &str) -> Result<Option<InstallReason>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT install_reason FROM packages WHERE name = ?1"
+        )?;
+
+        let mut rows = stmt.query(params![name])?;
+
+        if let Some(row) = rows.next()? {
+            let reason_str: String = row.get(0)?;
+            Ok(Some(reason_str.parse().unwrap_or_default()))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// List packages installed as dependencies
+    pub fn list_dependency_packages(&self) -> Result<Vec<InstalledPackage>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT name, version, release, install_date, size_bytes, checksum, spec_file, install_reason
+             FROM packages WHERE install_reason = 'dependency' ORDER BY name"
+        )?;
+
+        let rows = stmt.query_map([], |row| {
+            let reason_str: String = row.get(7)?;
+            Ok(InstalledPackage {
+                name: row.get(0)?,
+                version: row.get(1)?,
+                release: row.get(2)?,
+                install_date: row.get(3)?,
+                size_bytes: row.get(4)?,
+                checksum: row.get(5)?,
+                spec: row.get(6)?,
+                install_reason: reason_str.parse().unwrap_or_default(),
+            })
+        })?;
+
+        rows.collect::<Result<Vec<_>, _>>()
+            .context("Failed to list dependency packages")
+    }
+
+    /// Find orphan packages (dependencies no longer needed by any explicit package)
+    ///
+    /// An orphan is a package that:
+    /// 1. Was installed as a dependency (not explicit)
+    /// 2. Is not a dependency of any explicitly installed package
+    pub fn find_orphans(&self) -> Result<Vec<InstalledPackage>> {
+        // Get all packages installed as dependencies
+        let dep_packages = self.list_dependency_packages()?;
+
+        if dep_packages.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // Get all packages that are still needed
+        let needed = self.get_all_needed_packages()?;
+
+        // Filter to find orphans
+        let orphans: Vec<InstalledPackage> = dep_packages
+            .into_iter()
+            .filter(|pkg| !needed.contains(&pkg.name))
+            .collect();
+
+        Ok(orphans)
+    }
+
+    /// Get all packages that are needed (either explicit or dependency of explicit)
+    fn get_all_needed_packages(&self) -> Result<std::collections::HashSet<String>> {
+        use std::collections::HashSet;
+
+        let mut needed: HashSet<String> = HashSet::new();
+        let mut to_process: Vec<String> = Vec::new();
+
+        // Start with all explicitly installed packages
+        let mut stmt = self.conn.prepare(
+            "SELECT name FROM packages WHERE install_reason = 'explicit'"
+        )?;
+
+        let explicit_rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        for name in explicit_rows {
+            let name = name?;
+            needed.insert(name.clone());
+            to_process.push(name);
+        }
+
+        // Recursively find all dependencies of explicitly installed packages
+        while let Some(pkg_name) = to_process.pop() {
+            let deps = self.get_dependencies(&pkg_name)?;
+            for dep in deps {
+                if !needed.contains(&dep.depends_on) {
+                    // Check if this dependency is actually installed
+                    if self.get_package(&dep.depends_on)?.is_some() {
+                        needed.insert(dep.depends_on.clone());
+                        to_process.push(dep.depends_on);
+                    }
+                }
+            }
+        }
+
+        Ok(needed)
+    }
 }
 
 /// Information about a held package
@@ -457,6 +575,7 @@ mod tests {
             size_bytes: 1024,
             checksum: "abc123".to_string(),
             spec: "test spec".to_string(),
+            install_reason: InstallReason::Explicit,
         };
 
         db.add_package(&pkg).unwrap();
@@ -464,5 +583,67 @@ mod tests {
         let retrieved = db.get_package("test-pkg").unwrap().unwrap();
         assert_eq!(retrieved.name, "test-pkg");
         assert_eq!(retrieved.version, "1.0.0");
+        assert_eq!(retrieved.install_reason, InstallReason::Explicit);
+    }
+
+    #[test]
+    fn test_orphan_detection() {
+        let db = Database::open_in_memory().unwrap();
+
+        // Add an explicit package
+        let explicit_pkg = InstalledPackage {
+            name: "app".to_string(),
+            version: "1.0.0".to_string(),
+            release: 1,
+            install_date: 1234567890,
+            size_bytes: 1024,
+            checksum: "abc123".to_string(),
+            spec: "explicit".to_string(),
+            install_reason: InstallReason::Explicit,
+        };
+        db.add_package(&explicit_pkg).unwrap();
+
+        // Add a dependency that's needed
+        let needed_dep = InstalledPackage {
+            name: "lib-needed".to_string(),
+            version: "1.0.0".to_string(),
+            release: 1,
+            install_date: 1234567890,
+            size_bytes: 512,
+            checksum: "def456".to_string(),
+            spec: "dep".to_string(),
+            install_reason: InstallReason::Dependency,
+        };
+        db.add_package(&needed_dep).unwrap();
+
+        // Record that app depends on lib-needed
+        db.add_dependency(&Dependency {
+            package_id: 1,  // app's ID
+            depends_on: "lib-needed".to_string(),
+            constraint: ">=1.0.0".to_string(),
+            dep_type: DependencyType::Runtime,
+        }).unwrap();
+
+        // Add an orphan dependency (no longer needed)
+        let orphan_dep = InstalledPackage {
+            name: "lib-orphan".to_string(),
+            version: "1.0.0".to_string(),
+            release: 1,
+            install_date: 1234567890,
+            size_bytes: 256,
+            checksum: "ghi789".to_string(),
+            spec: "orphan".to_string(),
+            install_reason: InstallReason::Dependency,
+        };
+        db.add_package(&orphan_dep).unwrap();
+
+        // Find orphans
+        let orphans = db.find_orphans().unwrap();
+        assert_eq!(orphans.len(), 1);
+        assert_eq!(orphans[0].name, "lib-orphan");
+
+        // lib-needed should not be an orphan
+        let orphan_names: Vec<&str> = orphans.iter().map(|p| p.name.as_str()).collect();
+        assert!(!orphan_names.contains(&"lib-needed"));
     }
 }
