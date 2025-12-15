@@ -4304,20 +4304,19 @@ build_llvm() {
 }
 
 # Rust-1.91.0 (Rust compiler and cargo - required for cargo-c and librsvg)
+# NOTE: Unlike BLFS which installs to /opt/rustc, we install to /usr for FHS compliance
+# This follows how major distros (Fedora, Debian, Arch) package Rust
 build_rust() {
     should_skip_package "rust" && { log_info "Skipping Rust"; return 0; }
     log_step "Building Rust-1.91.0..."
 
-    # Create /opt directory if it doesn't exist
-    mkdir -pv /opt
-
-    # Extract to /opt
-    cd /opt
+    # Extract source
+    cd "$BUILD_DIR"
     rm -rf rustc-1.91.0-src
     tar -xf /sources/rustc-1.91.0-src.tar.xz
     cd rustc-1.91.0-src
 
-    # Create bootstrap configuration (BLFS 12.4 rust.html)
+    # Create bootstrap configuration (based on BLFS 12.4 rust.html, modified for /usr prefix)
     cat > bootstrap.toml << "EOF"
 # See bootstrap.toml.example for more possible options,
 # and see src/bootstrap/defaults/bootstrap.dist.toml for a few options
@@ -4344,7 +4343,7 @@ llvm-config = "/usr/bin/llvm-config"
 llvm-config = "/usr/bin/llvm-config"
 
 [build]
-description = "for BLFS 12.4"
+description = "for RookeryOS (BLFS 12.4 based)"
 
 # Omit docs to save time and space (default is to build them).
 docs = false
@@ -4356,7 +4355,8 @@ locked-deps = true
 tools = ["cargo", "clippy", "rustdoc", "rustfmt"]
 
 [install]
-prefix = "/opt/rustc-1.91.0"
+# Install to /usr following FHS like major distros (Fedora, Debian, Arch)
+prefix = "/usr"
 docdir = "share/doc/rustc-1.91.0"
 
 [rust]
@@ -4384,47 +4384,34 @@ EOF
     log_info "Building Rust... (this will take significant time - approximately 9 SBU)"
     ./x.py build
 
-    # Install Rust
-    log_info "Installing Rust..."
+    # Install Rust to /usr
+    log_info "Installing Rust to /usr..."
     ./x.py install
 
     # Clean up bootstrap
     rm -rf build
 
-    # Fix documentation installation, symlink Zsh completion, move Bash completion
-    rm -fv /opt/rustc-1.91.0/share/doc/rustc-1.91.0/*.old
-    install -vm644 README.md /opt/rustc-1.91.0/share/doc/rustc-1.91.0
+    # Fix documentation installation
+    rm -fv /usr/share/doc/rustc-1.91.0/*.old
+    install -vm644 README.md /usr/share/doc/rustc-1.91.0
 
+    # Ensure completions are in standard locations
     install -vdm755 /usr/share/zsh/site-functions
-    ln -sfv /opt/rustc/share/zsh/site-functions/_cargo /usr/share/zsh/site-functions
+    install -vdm755 /usr/share/bash-completion/completions
 
+    # Move bash completion if installed to wrong location
     if [ -f /etc/bash_completion.d/cargo ]; then
         mv -v /etc/bash_completion.d/cargo /usr/share/bash-completion/completions
     fi
-
-    # Create /opt/rustc symlink
-    ln -svfn rustc-1.91.0 /opt/rustc
-
-    # Configure PATH for Rust
-    cat > /etc/profile.d/rustc.sh << "EOF"
-# Begin /etc/profile.d/rustc.sh
-
-# Add Rust to PATH
-export PATH=/opt/rustc/bin:$PATH
-
-# End /etc/profile.d/rustc.sh
-EOF
-
-    # Make cargo available immediately by setting PATH
-    export PATH=/opt/rustc/bin:$PATH
 
     # Unset environment variables
     unset LIBSSH2_SYS_USE_PKG_CONFIG
     unset LIBSQLITE3_SYS_USE_PKG_CONFIG
 
-    # Verify cargo is available
+    # Verify cargo is available (should be in /usr/bin now)
     which cargo || { log_error "Cargo not found in PATH after Rust installation"; return 1; }
     cargo --version || { log_error "Cargo not functional after installation"; return 1; }
+    log_info "Rust installed to /usr/bin (FHS compliant)"
 
     create_checkpoint "rust"
 }
@@ -4697,8 +4684,7 @@ build_cargo_c() {
     should_skip_package "cargo-c" && { log_info "Skipping cargo-c"; return 0; }
     log_step "Building cargo-c-0.10.15..."
 
-    # Ensure Rust is in PATH (may have been skipped due to checkpoint)
-    export PATH=/opt/rustc/bin:$PATH
+    # Rust is installed to /usr/bin, should already be in PATH
 
     cd "$BUILD_DIR" && rm -rf cargo-c-* && tar -xf /sources/cargo-c-0.10.15.tar.gz && cd cargo-c-*
 
