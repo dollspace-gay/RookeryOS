@@ -54,6 +54,40 @@ pub fn run(query: &str, config: &Config) -> Result<()> {
     let mut manager = RepoManager::new(config)?;
     manager.load_caches()?;
 
+    // Search for package groups
+    let group_results = manager.list_groups();
+    let query_lower = query.to_lowercase();
+    let matching_groups: Vec<_> = group_results
+        .iter()
+        .filter(|g| {
+            g.group.name.to_lowercase().contains(&query_lower)
+                || g.group.description.to_lowercase().contains(&query_lower)
+        })
+        .collect();
+
+    if !matching_groups.is_empty() {
+        println!("{}", "Package groups:".bold());
+        for result in &matching_groups {
+            let group = &result.group;
+            let pkg_count = group.packages.len();
+            let optional_count = group.optional.len();
+            println!(
+                "  {} @{} - {} ({} packages{})",
+                "◆".cyan(),
+                group.name.bold(),
+                group.description.dimmed(),
+                pkg_count,
+                if optional_count > 0 {
+                    format!(", {} optional", optional_count)
+                } else {
+                    String::new()
+                }
+            );
+        }
+        println!();
+        found_any = true;
+    }
+
     // Use RepoManager::search for efficient cross-repository search
     let search_results = manager.search(query);
 
@@ -115,9 +149,9 @@ pub fn run(query: &str, config: &Config) -> Result<()> {
             "rookpkg update".bold()
         );
     } else {
-        let total = available_matches.len();
+        let total = available_matches.len() + matching_groups.len();
         println!(
-            "  {} package(s) found matching '{}'",
+            "  {} result(s) found matching '{}'",
             total.to_string().green(),
             query
         );

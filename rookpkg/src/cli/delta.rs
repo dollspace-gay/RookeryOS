@@ -155,6 +155,19 @@ pub fn apply(
 
     // Apply the delta
     let applier = DeltaApplier::new(old_package, delta_file)?;
+
+    // Show delta info before applying
+    let delta_info = applier.info();
+    println!(
+        "  {} Upgrading {} from {}-{} to {}-{}",
+        "→".cyan(),
+        delta_info.name.bold(),
+        delta_info.old_version,
+        delta_info.old_release,
+        delta_info.new_version,
+        delta_info.new_release
+    );
+
     let new_package = applier.apply(output_dir)?;
 
     let new_size = std::fs::metadata(&new_package)
@@ -209,6 +222,22 @@ pub fn info(delta_file: &Path, _config: &Config) -> Result<()> {
         "Savings".cyan(),
         info.savings_percent()
     );
+
+    // Show if delta is worthwhile
+    if info.is_worthwhile() {
+        println!(
+            "  {}: {}",
+            "Recommendation".cyan(),
+            "Use delta (significant savings)".green()
+        );
+    } else {
+        println!(
+            "  {}: {}",
+            "Recommendation".cyan(),
+            "Use full package (minimal savings)".yellow()
+        );
+    }
+
     println!();
     println!("{}", "Metadata".cyan().bold());
     println!("  {}: {:?}", "Algorithm".cyan(), info.algorithm);

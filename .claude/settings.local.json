@@ -67,7 +67,8 @@
       "Bash(git -C \"c:/Users/texas/rookery/RookeryOS\" status)",
       "Bash(cargo build:*)",
       "Bash(git -C \"c:/Users/texas/rookery/RookeryOS\" add rookpkg/src/cli/install.rs rookpkg/src/repository.rs)",
-      "Bash(git -C \"c:/Users/texas/rookery/RookeryOS\" add rookpkg/)"
+      "Bash(git -C \"c:/Users/texas/rookery/RookeryOS\" add rookpkg/)",
+      "Bash(git -C \"c:/Users/texas/rookery/RookeryOS\" add rookpkg/src/cli/delta.rs rookpkg/src/cli/mod.rs rookpkg/src/cli/repo.rs rookpkg/src/cli/search.rs rookpkg/src/cli/hooks.rs rookpkg/src/config.rs rookpkg/src/repository.rs)"
     ],
     "deny": [],
     "ask": []

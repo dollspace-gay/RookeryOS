@@ -31,14 +31,17 @@
 use std::fs::{self, File};
 use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
+use std::thread;
 use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
 use chrono::{DateTime, Utc};
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::config::Config;
+use crate::config::{Config, DownloadConfig};
 use crate::delta::RepoDeltaIndex;
 use crate::signing::{self, HybridSignature, LoadedPublicKey};
 
@@ -448,14 +451,8 @@ impl Repository {
     }
 }
 
-/// Maximum number of download retries per mirror
-const MAX_RETRIES: u32 = 3;
-
-/// Timeout for connecting to a server
-const CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
-
-/// Timeout for the entire download operation (10 minutes for large files)
-const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(600);
+// NOTE: Download configuration (retries, timeouts) is now configured via Config.download
+// See config.rs DownloadConfig struct for the configurable settings.
 
 /// Repository manager handles all configured repositories
 pub struct RepoManager {
@@ -467,16 +464,30 @@ pub struct RepoManager {
     cache_dir: PathBuf,
     /// Package cache directory
     pkg_cache_dir: PathBuf,
+    /// Download configuration
+    download_config: DownloadConfig,
 }
 
 impl RepoManager {
     /// Create a new repository manager from config
     pub fn new(config: &Config) -> Result<Self> {
-        let client = reqwest::blocking::Client::builder()
-            .connect_timeout(CONNECT_TIMEOUT)
-            .timeout(DOWNLOAD_TIMEOUT)
-            .user_agent(format!("rookpkg/{}", env!("CARGO_PKG_VERSION")))
-            .build()?;
+        // Use config values for timeouts
+        let connect_timeout = Duration::from_secs(config.download.connect_timeout_secs);
+        let download_timeout = if config.download.download_timeout_secs == 0 {
+            None
+        } else {
+            Some(Duration::from_secs(config.download.download_timeout_secs))
+        };
+
+        let mut client_builder = reqwest::blocking::Client::builder()
+            .connect_timeout(connect_timeout)
+            .user_agent(format!("rookpkg/{}", env!("CARGO_PKG_VERSION")));
+
+        if let Some(timeout) = download_timeout {
+            client_builder = client_builder.timeout(timeout);
+        }
+
+        let client = client_builder.build()?;
 
         let cache_dir = config.paths.cache_dir.clone();
         let pkg_cache_dir = cache_dir.join("packages");
@@ -502,6 +513,7 @@ impl RepoManager {
             client,
             cache_dir,
             pkg_cache_dir,
+            download_config: config.download.clone(),
         })
     }
 
@@ -1069,15 +1081,29 @@ impl RepoManager {
 
     /// Download with retry logic
     fn download_with_retries(&self, url: &str, dest: &Path) -> Result<()> {
+        self.download_with_retries_progress(url, dest, None)
+    }
+
+    /// Download with retry logic and optional progress bar
+    fn download_with_retries_progress(
+        &self,
+        url: &str,
+        dest: &Path,
+        progress: Option<&ProgressBar>,
+    ) -> Result<()> {
+        let max_retries = self.download_config.retries;
         let mut last_error: Option<anyhow::Error> = None;
 
-        for attempt in 1..=MAX_RETRIES {
+        for attempt in 1..=max_retries {
             if attempt > 1 {
-                tracing::info!("Retry attempt {} of {}", attempt, MAX_RETRIES);
-                std::thread::sleep(Duration::from_secs(2_u64.pow(attempt - 1)));
+                tracing::info!("Retry attempt {} of {}", attempt, max_retries);
+                if let Some(pb) = progress {
+                    pb.set_message(format!("Retry {}/{}", attempt, max_retries));
+                }
+                thread::sleep(Duration::from_secs(2_u64.pow(attempt - 1)));
             }
 
-            match self.download_single(url, dest) {
+            match self.download_single_progress(url, dest, progress) {
                 Ok(()) => return Ok(()),
                 Err(e) => {
                     tracing::warn!("Attempt {} failed: {}", attempt, e);
@@ -1087,12 +1113,17 @@ impl RepoManager {
         }
 
         Err(last_error.unwrap_or_else(|| {
-            anyhow::anyhow!("Download failed after {} retries", MAX_RETRIES)
+            anyhow::anyhow!("Download failed after {} retries", max_retries)
         }))
     }
 
-    /// Perform a single download attempt
-    fn download_single(&self, url: &str, dest: &Path) -> Result<()> {
+    /// Perform a single download attempt with optional progress bar
+    fn download_single_progress(
+        &self,
+        url: &str,
+        dest: &Path,
+        progress: Option<&ProgressBar>,
+    ) -> Result<()> {
         let response = self
             .client
             .get(url)
@@ -1104,6 +1135,12 @@ impl RepoManager {
         }
 
         let total_size = response.content_length();
+
+        // Set up progress bar if provided
+        if let (Some(pb), Some(total)) = (progress, total_size) {
+            pb.set_length(total);
+            pb.set_position(0);
+        }
 
         // Create temporary file for download
         let temp_path = dest.with_extension("part");
@@ -1129,11 +1166,18 @@ impl RepoManager {
 
             downloaded += bytes_read as u64;
 
-            // Log progress for large files (every 10MB)
-            if let Some(total) = total_size {
-                if total > 10_000_000 && downloaded % 10_000_000 < 8192 {
-                    let percent = (downloaded as f64 / total as f64 * 100.0) as u32;
-                    tracing::debug!("Progress: {}% ({}/{})", percent, downloaded, total);
+            // Update progress bar
+            if let Some(pb) = progress {
+                pb.set_position(downloaded);
+            }
+
+            // Log progress for large files (every 10MB) when no progress bar
+            if progress.is_none() {
+                if let Some(total) = total_size {
+                    if total > 10_000_000 && downloaded % 10_000_000 < 8192 {
+                        let percent = (downloaded as f64 / total as f64 * 100.0) as u32;
+                        tracing::debug!("Progress: {}% ({}/{})", percent, downloaded, total);
+                    }
                 }
             }
         }
@@ -1150,19 +1194,221 @@ impl RepoManager {
             )
         })?;
 
+        // Mark progress bar as finished
+        if let Some(pb) = progress {
+            pb.finish_with_message("Done");
+        }
+
         Ok(())
     }
 
-    /// Download multiple packages
+    /// Download multiple packages (sequential fallback)
+    ///
+    /// For parallel downloads with progress, use `download_packages_parallel`.
     pub fn download_packages(&self, packages: &[(PackageEntry, String)]) -> Result<Vec<PathBuf>> {
-        let mut paths = Vec::with_capacity(packages.len());
-
-        for (package, repo_name) in packages {
-            let path = self.download_package(package, repo_name)?;
-            paths.push(path);
+        // If only one package or parallel disabled, download sequentially
+        if packages.len() <= 1 || self.download_config.max_concurrent_downloads <= 1 {
+            let mut paths = Vec::with_capacity(packages.len());
+            for (package, repo_name) in packages {
+                let path = self.download_package(package, repo_name)?;
+                paths.push(path);
+            }
+            return Ok(paths);
         }
 
-        Ok(paths)
+        // Use parallel downloads
+        self.download_packages_parallel(packages)
+    }
+
+    /// Download multiple packages in parallel with progress bars
+    ///
+    /// Downloads up to `max_concurrent_downloads` packages simultaneously.
+    /// Shows a multi-progress bar UI if `show_progress` is enabled in config.
+    pub fn download_packages_parallel(
+        &self,
+        packages: &[(PackageEntry, String)],
+    ) -> Result<Vec<PathBuf>> {
+        if packages.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let max_concurrent = self.download_config.max_concurrent_downloads.min(16) as usize;
+        let show_progress = self.download_config.show_progress;
+
+        // Build list of download tasks with their URLs and cache paths
+        let tasks: Vec<_> = packages
+            .iter()
+            .filter_map(|(package, repo_name)| {
+                let repo = self.repos.iter().find(|r| &r.name == repo_name)?;
+                let pkg_filename = Path::new(&package.filename)
+                    .file_name()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or_else(|| {
+                        format!(
+                            "{}-{}-{}.rookpkg",
+                            package.name, package.version, package.release
+                        )
+                    });
+                let cache_path = self.pkg_cache_dir.join(&pkg_filename);
+
+                // Check if already cached with correct checksum
+                if cache_path.exists() {
+                    if verify_sha256(&cache_path, &package.sha256).unwrap_or(false) {
+                        tracing::info!("Using cached package: {}", pkg_filename);
+                        return Some((cache_path, package.clone(), repo_name.clone(), None));
+                    }
+                    // Wrong checksum, will re-download
+                    fs::remove_file(&cache_path).ok();
+                }
+
+                let url = repo.package_url(package);
+                Some((cache_path, package.clone(), repo_name.clone(), Some(url)))
+            })
+            .collect();
+
+        // Separate cached from needing download
+        let mut results: Vec<(usize, PathBuf)> = Vec::with_capacity(tasks.len());
+        let to_download: Vec<_> = tasks
+            .into_iter()
+            .enumerate()
+            .filter_map(|(idx, (path, pkg, repo_name, url))| {
+                if url.is_none() {
+                    // Already cached
+                    results.push((idx, path));
+                    None
+                } else {
+                    Some((idx, path, pkg, repo_name, url.unwrap()))
+                }
+            })
+            .collect();
+
+        if to_download.is_empty() {
+            // All packages were cached
+            results.sort_by_key(|(idx, _)| *idx);
+            return Ok(results.into_iter().map(|(_, path)| path).collect());
+        }
+
+        // Set up multi-progress bar
+        let multi_progress = if show_progress {
+            Some(MultiProgress::new())
+        } else {
+            None
+        };
+
+        // Create progress style
+        let progress_style = ProgressStyle::with_template(
+            "{spinner:.green} [{bar:30.cyan/blue}] {bytes}/{total_bytes} {wide_msg}",
+        )
+        .unwrap_or_else(|_| ProgressStyle::default_bar())
+        .progress_chars("#>-");
+
+        // Shared state for collecting results
+        let results_mutex = Arc::new(Mutex::new(results));
+        let errors_mutex: Arc<Mutex<Vec<(usize, String)>>> = Arc::new(Mutex::new(Vec::new()));
+
+        // Download in batches of max_concurrent
+        for batch in to_download.chunks(max_concurrent) {
+            let mut handles = Vec::with_capacity(batch.len());
+
+            for (idx, cache_path, package, _repo_name, url) in batch.iter().cloned() {
+                let client = self.client.clone();
+                let retries = self.download_config.retries;
+                let results = Arc::clone(&results_mutex);
+                let errors = Arc::clone(&errors_mutex);
+                let package_name = package.name.clone();
+                let expected_sha256 = package.sha256.clone();
+
+                // Create progress bar for this download
+                let progress_bar = multi_progress.as_ref().map(|mp| {
+                    let pb = mp.add(ProgressBar::new(package.size));
+                    pb.set_style(progress_style.clone());
+                    pb.set_message(format!("{}-{}", package.name, package.version));
+                    pb
+                });
+
+                let handle = thread::spawn(move || {
+                    let result = download_file_with_retries(
+                        &client,
+                        &url,
+                        &cache_path,
+                        retries,
+                        progress_bar.as_ref(),
+                    );
+
+                    match result {
+                        Ok(()) => {
+                            // Verify checksum
+                            match verify_sha256(&cache_path, &expected_sha256) {
+                                Ok(true) => {
+                                    if let Some(pb) = progress_bar {
+                                        pb.finish_with_message(format!("{} OK", package_name));
+                                    }
+                                    results.lock().unwrap().push((idx, cache_path));
+                                }
+                                Ok(false) => {
+                                    if let Some(pb) = progress_bar {
+                                        pb.finish_with_message(format!("{} CHECKSUM FAIL", package_name));
+                                    }
+                                    fs::remove_file(&cache_path).ok();
+                                    errors.lock().unwrap().push((
+                                        idx,
+                                        format!("Checksum mismatch for {}", package_name),
+                                    ));
+                                }
+                                Err(e) => {
+                                    if let Some(pb) = progress_bar {
+                                        pb.finish_with_message(format!("{} ERROR", package_name));
+                                    }
+                                    fs::remove_file(&cache_path).ok();
+                                    errors.lock().unwrap().push((
+                                        idx,
+                                        format!("Checksum verify error for {}: {}", package_name, e),
+                                    ));
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            if let Some(pb) = progress_bar {
+                                pb.finish_with_message(format!("{} FAILED", package_name));
+                            }
+                            errors.lock().unwrap().push((
+                                idx,
+                                format!("Download failed for {}: {}", package_name, e),
+                            ));
+                        }
+                    }
+                });
+
+                handles.push(handle);
+            }
+
+            // Wait for this batch to complete
+            for handle in handles {
+                handle.join().ok();
+            }
+        }
+
+        // Check for errors
+        let errors = errors_mutex.lock().unwrap();
+        if !errors.is_empty() {
+            let error_msgs: Vec<_> = errors.iter().map(|(_, msg)| msg.as_str()).collect();
+            bail!("Download errors:\n  {}", error_msgs.join("\n  "));
+        }
+        drop(errors);
+
+        // Sort results by original index to maintain order
+        let mut final_results = results_mutex.lock().unwrap().clone();
+        final_results.sort_by_key(|(idx, _)| *idx);
+
+        if final_results.len() != packages.len() {
+            bail!(
+                "Download incomplete: expected {} packages, got {}",
+                packages.len(),
+                final_results.len()
+            );
+        }
+
+        Ok(final_results.into_iter().map(|(_, path)| path).collect())
     }
 
     /// Get the base cache directory
@@ -1356,6 +1602,110 @@ fn compute_sha256(path: &Path) -> Result<String> {
 
     let hash = hasher.finalize();
     Ok(hex::encode(hash))
+}
+
+/// Download a file with retries (standalone function for thread spawning)
+///
+/// This function can be called from a separate thread without borrowing self.
+fn download_file_with_retries(
+    client: &reqwest::blocking::Client,
+    url: &str,
+    dest: &Path,
+    max_retries: u32,
+    progress: Option<&ProgressBar>,
+) -> Result<()> {
+    let mut last_error: Option<anyhow::Error> = None;
+
+    for attempt in 1..=max_retries {
+        if attempt > 1 {
+            tracing::info!("Retry attempt {} of {} for {}", attempt, max_retries, url);
+            if let Some(pb) = progress {
+                pb.set_message(format!("Retry {}/{}", attempt, max_retries));
+            }
+            thread::sleep(Duration::from_secs(2_u64.pow(attempt - 1)));
+        }
+
+        match download_file_single(client, url, dest, progress) {
+            Ok(()) => return Ok(()),
+            Err(e) => {
+                tracing::warn!("Attempt {} failed: {}", attempt, e);
+                last_error = Some(e);
+            }
+        }
+    }
+
+    Err(last_error.unwrap_or_else(|| {
+        anyhow::anyhow!("Download failed after {} retries", max_retries)
+    }))
+}
+
+/// Perform a single download attempt (standalone function for thread spawning)
+fn download_file_single(
+    client: &reqwest::blocking::Client,
+    url: &str,
+    dest: &Path,
+    progress: Option<&ProgressBar>,
+) -> Result<()> {
+    let response = client
+        .get(url)
+        .send()
+        .with_context(|| format!("Failed to connect to: {}", url))?;
+
+    if !response.status().is_success() {
+        bail!("HTTP error {}: {}", response.status(), url);
+    }
+
+    let total_size = response.content_length();
+
+    // Set up progress bar if provided
+    if let (Some(pb), Some(total)) = (progress, total_size) {
+        pb.set_length(total);
+        pb.set_position(0);
+    }
+
+    // Create temporary file for download
+    let temp_path = dest.with_extension("part");
+    let mut file = File::create(&temp_path)
+        .with_context(|| format!("Failed to create temp file: {}", temp_path.display()))?;
+
+    // Download with progress
+    let mut downloaded: u64 = 0;
+    let mut buffer = [0u8; 8192];
+    let mut reader = BufReader::new(response);
+
+    loop {
+        let bytes_read = reader
+            .read(&mut buffer)
+            .context("Failed to read from network")?;
+
+        if bytes_read == 0 {
+            break;
+        }
+
+        file.write_all(&buffer[..bytes_read])
+            .context("Failed to write to file")?;
+
+        downloaded += bytes_read as u64;
+
+        // Update progress bar
+        if let Some(pb) = progress {
+            pb.set_position(downloaded);
+        }
+    }
+
+    file.flush().context("Failed to flush file")?;
+    drop(file);
+
+    // Move temp file to final destination
+    fs::rename(&temp_path, dest).with_context(|| {
+        format!(
+            "Failed to rename {} to {}",
+            temp_path.display(),
+            dest.display()
+        )
+    })?;
+
+    Ok(())
 }
 
 impl UpdateResult {

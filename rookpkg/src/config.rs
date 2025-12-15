@@ -31,6 +31,10 @@ pub struct Config {
     /// Hooks configuration
     #[serde(default)]
     pub hooks: HooksConfig,
+
+    /// Download configuration
+    #[serde(default)]
+    pub download: DownloadConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -223,6 +227,58 @@ impl Default for HooksConfig {
     }
 }
 
+/// Download configuration for parallel package downloads
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DownloadConfig {
+    /// Maximum number of concurrent downloads (1-16)
+    #[serde(default = "default_concurrent_downloads")]
+    pub max_concurrent_downloads: u8,
+
+    /// Connection timeout in seconds
+    #[serde(default = "default_connect_timeout")]
+    pub connect_timeout_secs: u64,
+
+    /// Download timeout in seconds (0 = no timeout)
+    #[serde(default = "default_download_timeout")]
+    pub download_timeout_secs: u64,
+
+    /// Number of retries for failed downloads
+    #[serde(default = "default_retries")]
+    pub retries: u32,
+
+    /// Whether to show download progress
+    #[serde(default = "default_true")]
+    pub show_progress: bool,
+}
+
+fn default_concurrent_downloads() -> u8 {
+    4
+}
+
+fn default_connect_timeout() -> u64 {
+    30
+}
+
+fn default_download_timeout() -> u64 {
+    600 // 10 minutes
+}
+
+fn default_retries() -> u32 {
+    3
+}
+
+impl Default for DownloadConfig {
+    fn default() -> Self {
+        Self {
+            max_concurrent_downloads: default_concurrent_downloads(),
+            connect_timeout_secs: default_connect_timeout(),
+            download_timeout_secs: default_download_timeout(),
+            retries: default_retries(),
+            show_progress: true,
+        }
+    }
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -232,6 +288,7 @@ impl Default for Config {
             build: BuildConfig::default(),
             paths: PathsConfig::default(),
             hooks: HooksConfig::default(),
+            download: DownloadConfig::default(),
         }
     }
 }

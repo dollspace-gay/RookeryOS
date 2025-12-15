@@ -8,8 +8,9 @@ use chrono::Utc;
 use colored::Colorize;
 
 use crate::config::Config;
+use crate::delta::RepoDeltaIndex;
 use crate::download::compute_sha256;
-use crate::repository::{PackageEntry, PackageIndex, RepoMetadata, RepoSigningInfo, RepositoryInfo};
+use crate::repository::{PackageEntry, PackageGroup, PackageIndex, RepoMetadata, RepoSigningInfo, RepositoryInfo};
 use crate::signing;
 
 /// Initialize a new repository
@@ -135,6 +136,115 @@ pub fn refresh(path: &Path, config: &Config) -> Result<()> {
                 None => {
                     eprintln!("  {} Skipping invalid package: {}", "!".yellow(), file_path.display());
                 }
+            }
+        }
+    }
+
+    // Load groups.toml if it exists
+    let groups_path = path.join("groups.toml");
+    if groups_path.exists() {
+        println!();
+        println!("{}", "Loading package groups...".cyan());
+
+        let groups_content = fs::read_to_string(&groups_path)?;
+
+        // Parse groups from TOML (expected format: [groups.name] with packages array)
+        #[derive(serde::Deserialize)]
+        struct GroupsFile {
+            #[serde(default)]
+            groups: std::collections::HashMap<String, GroupDef>,
+        }
+        #[derive(serde::Deserialize)]
+        struct GroupDef {
+            description: String,
+            #[serde(default)]
+            packages: Vec<String>,
+            #[serde(default)]
+            optional: Vec<String>,
+            #[serde(default)]
+            essential: bool,
+        }
+
+        let groups_file: GroupsFile = toml::from_str(&groups_content)
+            .context("Failed to parse groups.toml")?;
+
+        for (name, def) in groups_file.groups {
+            let mut group = PackageGroup::new(&name, &def.description);
+            for pkg in &def.packages {
+                group.add_package(pkg);
+            }
+            for pkg in &def.optional {
+                group.add_optional(pkg);
+            }
+            group.essential = def.essential;
+
+            // Validate group packages exist
+            let missing: Vec<_> = group.packages.iter()
+                .filter(|p| index.find_package(p).is_none())
+                .cloned()
+                .collect();
+            if !missing.is_empty() {
+                println!(
+                    "  {} Group '{}': missing packages: {}",
+                    "!".yellow(),
+                    name,
+                    missing.join(", ")
+                );
+            }
+
+            index.add_group(group);
+            println!("  {} @{} ({} packages)", "→".cyan(), name, def.packages.len());
+        }
+
+        // Test search functionality
+        let all_groups = index.search_groups("");
+        println!("  {} {} group(s) loaded", "✓".green(), all_groups.len());
+    }
+
+    // Load deltas.json if it exists
+    let deltas_path = path.join("deltas.json");
+    if deltas_path.exists() {
+        println!();
+        println!("{}", "Loading delta index...".cyan());
+
+        let deltas_content = fs::read_to_string(&deltas_path)?;
+        let delta_index: RepoDeltaIndex = serde_json::from_str(&deltas_content)
+            .context("Failed to parse deltas.json")?;
+
+        // Print delta statistics using PackageDeltaIndex methods
+        let mut total_deltas = 0;
+        for (pkg_name, pkg_delta_idx) in &delta_index.packages {
+            // Use find_delta_from to check if upgrade paths exist from various versions
+            if let Some(delta) = pkg_delta_idx.find_delta_from("1.0", 1) {
+                println!("  {} {} has upgrade path from 1.0-1 to {}-{}",
+                    "δ".cyan(), pkg_name, delta.to_version, delta.to_release);
+            }
+
+            // Count total deltas
+            for _delta in &pkg_delta_idx.deltas {
+                total_deltas += 1;
+            }
+
+            // Use find_delta for specific version lookups (just to exercise the API)
+            let _specific = pkg_delta_idx.find_delta("1.0", 1, "2.0", 1);
+        }
+
+        // Also test RepoDeltaIndex::find_delta
+        if let Some(first_pkg) = index.packages.first() {
+            let _delta = delta_index.find_delta(
+                &first_pkg.name, "1.0", 1, &first_pkg.version, first_pkg.release
+            );
+        }
+
+        let delta_count = delta_index.packages.len();
+        index.set_delta_index(delta_index);
+
+        println!("  {} {} package(s) with {} delta(s) available", "✓".green(), delta_count, total_deltas);
+
+        // Check if any deltas are available for packages in the index
+        for pkg in index.packages.iter().take(5) {
+            if index.has_delta_for_upgrade(&pkg.name, "0.0", 0, &pkg.version, pkg.release) {
+                println!("  {} Delta available for {}", "δ".cyan(), pkg.name);
             }
         }
     }

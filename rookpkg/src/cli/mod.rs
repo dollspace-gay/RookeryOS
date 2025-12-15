@@ -46,6 +46,7 @@ mod delta;
 mod depends;
 mod groups;
 mod hold;
+mod hooks;
 mod info;
 mod inspect;
 mod install;
@@ -334,6 +335,10 @@ pub enum Commands {
     /// Delta package operations (incremental updates)
     #[command(subcommand)]
     Delta(DeltaCommands),
+
+    /// Hook management commands
+    #[command(subcommand)]
+    Hook(HookCommands),
 }
 
 /// Repository management subcommands
@@ -412,6 +417,29 @@ pub enum DeltaCommands {
         /// Path to repository directory
         #[arg(default_value = ".")]
         path: std::path::PathBuf,
+    },
+}
+
+/// Hook management subcommands
+#[derive(Subcommand)]
+pub enum HookCommands {
+    /// List all installed hooks
+    List,
+
+    /// Install a hook from a file
+    Install {
+        /// Path to the hook file
+        hook: std::path::PathBuf,
+
+        /// Execution order (lower = earlier, default: 50)
+        #[arg(long)]
+        order: Option<u32>,
+    },
+
+    /// Remove a hook by name
+    Remove {
+        /// Hook name to remove
+        name: String,
     },
 }
 
@@ -617,6 +645,21 @@ pub fn execute(command: Commands, config: &Config) -> Result<()> {
                 }
                 DeltaCommands::Index { path } => {
                     delta::index(&path, config)
+                }
+            }
+        }
+        Commands::Hook(subcmd) => {
+            match subcmd {
+                HookCommands::List => {
+                    hooks::list(config)
+                }
+                HookCommands::Install { hook, order } => {
+                    require_root("hook install", false)?;  // modifies system hooks
+                    hooks::install(&hook, order, config)
+                }
+                HookCommands::Remove { name } => {
+                    require_root("hook remove", false)?;  // modifies system hooks
+                    hooks::remove(&name, config)
                 }
             }
         }
