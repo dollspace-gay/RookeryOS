@@ -608,6 +608,10 @@ echo "Hello from hook"
         }
 
         let mut manager = HookManager::new(temp.path());
+
+        // Verify hooks_dir() returns the correct path
+        assert_eq!(manager.hooks_dir(), hooks_dir);
+
         let hooks = manager.discover_hooks().unwrap();
 
         assert_eq!(hooks.len(), 2);

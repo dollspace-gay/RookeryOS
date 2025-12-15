@@ -94,11 +94,134 @@ EOF
 mkdir -p $ROOKPKG_DESTDIR/var/lib/rookpkg
 mkdir -p $ROOKPKG_DESTDIR/var/cache/rookpkg/sources
 mkdir -p $ROOKPKG_DESTDIR/var/cache/rookpkg/packages
+
+# Install system hooks
+mkdir -p $ROOKPKG_DESTDIR/etc/rookpkg/hooks.d
+
+# Hook: ldconfig - regenerate library cache
+cat > $ROOKPKG_DESTDIR/etc/rookpkg/hooks.d/10-ldconfig.hook << 'HOOK'
+#!/bin/bash
+# EVENTS: post-transaction
+# Regenerate dynamic linker cache after installing/removing libraries.
+set -e
+if [ -x /sbin/ldconfig ]; then
+    case "$ROOKPKG_PACKAGES" in
+        *glibc*|*lib*|*gcc*) /sbin/ldconfig ;;
+    esac
+fi
+exit 0
+HOOK
+chmod 755 $ROOKPKG_DESTDIR/etc/rookpkg/hooks.d/10-ldconfig.hook
+
+# Hook: update-desktop-database
+cat > $ROOKPKG_DESTDIR/etc/rookpkg/hooks.d/20-update-desktop-database.hook << 'HOOK'
+#!/bin/bash
+# EVENTS: post-transaction
+# Update desktop application database.
+set -e
+if [ -x /usr/bin/update-desktop-database ] && [ -d /usr/share/applications ]; then
+    /usr/bin/update-desktop-database -q /usr/share/applications 2>/dev/null || true
+fi
+exit 0
+HOOK
+chmod 755 $ROOKPKG_DESTDIR/etc/rookpkg/hooks.d/20-update-desktop-database.hook
+
+# Hook: update-mime-database
+cat > $ROOKPKG_DESTDIR/etc/rookpkg/hooks.d/20-update-mime-database.hook << 'HOOK'
+#!/bin/bash
+# EVENTS: post-transaction
+# Update MIME database.
+set -e
+if [ -x /usr/bin/update-mime-database ] && [ -d /usr/share/mime ]; then
+    /usr/bin/update-mime-database /usr/share/mime 2>/dev/null || true
+fi
+exit 0
+HOOK
+chmod 755 $ROOKPKG_DESTDIR/etc/rookpkg/hooks.d/20-update-mime-database.hook
+
+# Hook: update-icon-cache
+cat > $ROOKPKG_DESTDIR/etc/rookpkg/hooks.d/30-update-icon-cache.hook << 'HOOK'
+#!/bin/bash
+# EVENTS: post-transaction
+# Update icon theme caches.
+set -e
+if [ -x /usr/bin/gtk-update-icon-cache ]; then
+    for dir in /usr/share/icons/*/; do
+        [ -f "${dir}index.theme" ] && /usr/bin/gtk-update-icon-cache -q -f "$dir" 2>/dev/null || true
+    done
+fi
+exit 0
+HOOK
+chmod 755 $ROOKPKG_DESTDIR/etc/rookpkg/hooks.d/30-update-icon-cache.hook
+
+# Hook: glib-compile-schemas
+cat > $ROOKPKG_DESTDIR/etc/rookpkg/hooks.d/40-glib-compile-schemas.hook << 'HOOK'
+#!/bin/bash
+# EVENTS: post-transaction
+# Compile GSettings schemas.
+set -e
+if [ -x /usr/bin/glib-compile-schemas ] && [ -d /usr/share/glib-2.0/schemas ]; then
+    /usr/bin/glib-compile-schemas /usr/share/glib-2.0/schemas 2>/dev/null || true
+fi
+exit 0
+HOOK
+chmod 755 $ROOKPKG_DESTDIR/etc/rookpkg/hooks.d/40-glib-compile-schemas.hook
+
+# Hook: systemd-daemon-reload
+cat > $ROOKPKG_DESTDIR/etc/rookpkg/hooks.d/50-systemd-daemon-reload.hook << 'HOOK'
+#!/bin/bash
+# EVENTS: post-transaction
+# Reload systemd after unit file changes.
+set -e
+if [ -x /usr/bin/systemctl ] && [ -d /run/systemd/system ]; then
+    /usr/bin/systemctl daemon-reload 2>/dev/null || true
+fi
+exit 0
+HOOK
+chmod 755 $ROOKPKG_DESTDIR/etc/rookpkg/hooks.d/50-systemd-daemon-reload.hook
+
+# Hook: update-ca-certificates
+cat > $ROOKPKG_DESTDIR/etc/rookpkg/hooks.d/60-update-ca-certificates.hook << 'HOOK'
+#!/bin/bash
+# EVENTS: post-transaction
+# Update CA certificates.
+set -e
+if [ -x /usr/sbin/update-ca-certificates ]; then
+    case "$ROOKPKG_PACKAGES" in
+        *ca-certificates*|*openssl*|*nss*) /usr/sbin/update-ca-certificates --fresh 2>/dev/null || true ;;
+    esac
+fi
+exit 0
+HOOK
+chmod 755 $ROOKPKG_DESTDIR/etc/rookpkg/hooks.d/60-update-ca-certificates.hook
+
+# Hook: update-font-cache
+cat > $ROOKPKG_DESTDIR/etc/rookpkg/hooks.d/70-update-font-cache.hook << 'HOOK'
+#!/bin/bash
+# EVENTS: post-transaction
+# Update font cache.
+set -e
+if [ -x /usr/bin/fc-cache ]; then
+    case "$ROOKPKG_PACKAGES" in
+        *font*|*ttf*|*otf*|*dejavu*|*noto*|*liberation*) /usr/bin/fc-cache -s 2>/dev/null || true ;;
+    esac
+fi
+exit 0
+HOOK
+chmod 755 $ROOKPKG_DESTDIR/etc/rookpkg/hooks.d/70-update-font-cache.hook
 """
 
 [files]
 "usr/bin/rookpkg" = { mode = 755 }
 "etc/rookpkg/config.toml" = { mode = 644 }
+"etc/rookpkg/hooks.d/10-ldconfig.hook" = { mode = 755 }
+"etc/rookpkg/hooks.d/20-update-desktop-database.hook" = { mode = 755 }
+"etc/rookpkg/hooks.d/20-update-mime-database.hook" = { mode = 755 }
+"etc/rookpkg/hooks.d/30-update-icon-cache.hook" = { mode = 755 }
+"etc/rookpkg/hooks.d/40-glib-compile-schemas.hook" = { mode = 755 }
+"etc/rookpkg/hooks.d/50-systemd-daemon-reload.hook" = { mode = 755 }
+"etc/rookpkg/hooks.d/60-update-ca-certificates.hook" = { mode = 755 }
+"etc/rookpkg/hooks.d/70-update-font-cache.hook" = { mode = 755 }
 
 [config_files]
 # Config files that should be preserved on upgrade
@@ -129,7 +252,7 @@ echo "rookpkg upgraded successfully!"
 
 [[changelog]]
 version = "0.1.0"
-date = "2024-12-15"
+date = "2025-12-15"
 author = "Friendly Society of Corvids <corvids@rookeryos.dev>"
 changes = [
     "Initial release",

@@ -465,6 +465,18 @@ fn print_hook_results(phase: &str, results: &[HookResult]) {
                     result.name,
                     result.exit_code
                 );
+                // Show stderr if available
+                if !result.stderr.is_empty() {
+                    for line in result.stderr.lines().take(3) {
+                        println!("      {}", line.dimmed());
+                    }
+                }
+                // Show stdout if stderr is empty but stdout has content
+                else if !result.stdout.is_empty() {
+                    for line in result.stdout.lines().take(3) {
+                        println!("      {}", line.dimmed());
+                    }
+                }
             }
         }
     }
