@@ -12,6 +12,7 @@ mod build;
 mod cli;
 mod config;
 mod database;
+mod delta;
 mod download;
 mod error;
 mod hooks;

@@ -39,6 +39,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::config::Config;
+use crate::delta::RepoDeltaIndex;
 use crate::signing::{self, HybridSignature, LoadedPublicKey};
 
 /// Repository metadata from repo.toml
@@ -234,6 +235,9 @@ pub struct PackageIndex {
     /// Package groups defined in this repository
     #[serde(default)]
     pub groups: Vec<PackageGroup>,
+    /// Delta package index (for incremental updates)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delta_index: Option<RepoDeltaIndex>,
 }
 
 impl PackageIndex {
@@ -246,6 +250,7 @@ impl PackageIndex {
             count: 0,
             packages: Vec::new(),
             groups: Vec::new(),
+            delta_index: None,
         }
     }
 
@@ -299,6 +304,38 @@ impl PackageIndex {
                     || g.description.to_lowercase().contains(&query_lower)
             })
             .collect()
+    }
+
+    /// Set the delta index for this repository
+    pub fn set_delta_index(&mut self, delta_index: RepoDeltaIndex) {
+        self.delta_index = Some(delta_index);
+        self.generated = Utc::now();
+    }
+
+    /// Find a delta for upgrading a package from one version to another
+    pub fn find_delta(
+        &self,
+        package_name: &str,
+        from_version: &str,
+        from_release: u32,
+        to_version: &str,
+        to_release: u32,
+    ) -> Option<&crate::delta::DeltaEntry> {
+        self.delta_index.as_ref().and_then(|idx| {
+            idx.find_delta(package_name, from_version, from_release, to_version, to_release)
+        })
+    }
+
+    /// Check if a delta is available for a package upgrade
+    pub fn has_delta_for_upgrade(
+        &self,
+        package_name: &str,
+        from_version: &str,
+        from_release: u32,
+        to_version: &str,
+        to_release: u32,
+    ) -> bool {
+        self.find_delta(package_name, from_version, from_release, to_version, to_release).is_some()
     }
 }
 

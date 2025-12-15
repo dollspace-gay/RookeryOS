@@ -11,6 +11,7 @@ use crate::build::{PackageBuilder, PhaseResult};
 use crate::cli::inspect::validate_built_archive;
 use crate::config::Config;
 use crate::database::Database;
+use crate::delta::DeltaBuilder;
 use crate::download::compute_sha256;
 use crate::repository::{PackageEntry, PackageIndex};
 use crate::signing::{self, sign_file};
@@ -23,6 +24,7 @@ pub fn run(
     output: Option<&Path>,
     batch: bool,
     update_index: bool,
+    delta_from: Option<&Path>,
     config: &Config,
 ) -> Result<()> {
     // CRITICAL: Check for signing key FIRST
@@ -245,6 +247,76 @@ pub fn run(
         sig_path.display()
     );
 
+    // Generate delta package if requested
+    let delta_path = if let Some(old_package) = delta_from {
+        println!("{}", "Generating delta package...".cyan());
+
+        if !old_package.exists() {
+            eprintln!(
+                "  {} Old package not found: {}",
+                "!".yellow(),
+                old_package.display()
+            );
+            None
+        } else {
+            match DeltaBuilder::new(old_package, &package_path) {
+                Ok(delta_builder) => {
+                    match delta_builder.build(output_dir) {
+                        Ok(delta_file) => {
+                            // Calculate savings
+                            let delta_size = std::fs::metadata(&delta_file)
+                                .map(|m| m.len())
+                                .unwrap_or(0);
+                            let new_size = std::fs::metadata(&package_path)
+                                .map(|m| m.len())
+                                .unwrap_or(0);
+                            let savings = if new_size > 0 {
+                                100.0 - (delta_size as f64 / new_size as f64 * 100.0)
+                            } else {
+                                0.0
+                            };
+
+                            println!(
+                                "  {} Delta created: {}",
+                                "✓".green(),
+                                delta_file.display()
+                            );
+                            println!(
+                                "  {} Size: {} ({:.1}% savings vs full package)",
+                                "→".cyan(),
+                                format_size(delta_size),
+                                savings
+                            );
+
+                            // Sign the delta file
+                            let delta_signature = sign_file(&signing_key, &delta_file)?;
+                            let delta_sig_path = delta_file.with_extension("rookdelta.sig");
+                            let delta_sig_json = serde_json::to_string_pretty(&delta_signature)?;
+                            std::fs::write(&delta_sig_path, &delta_sig_json)?;
+                            println!(
+                                "  {} Delta signature: {}",
+                                "✓".green(),
+                                delta_sig_path.display()
+                            );
+
+                            Some(delta_file)
+                        }
+                        Err(e) => {
+                            eprintln!("  {} Delta generation failed: {}", "!".yellow(), e);
+                            None
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("  {} Failed to initialize delta builder: {}", "!".yellow(), e);
+                    None
+                }
+            }
+        }
+    } else {
+        None
+    };
+
     // Clean up build directory
     println!("{}", "Cleaning up...".cyan());
     build_env.clean()?;
@@ -255,6 +327,9 @@ pub fn run(
     println!();
     println!("  {}: {}", "Package".bold(), package_path.display());
     println!("  {}: {}", "Signature".bold(), sig_path.display());
+    if let Some(ref delta) = delta_path {
+        println!("  {}: {}", "Delta".bold(), delta.display());
+    }
     println!(
         "  {}: {}",
         "Size".bold(),

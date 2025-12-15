@@ -42,6 +42,7 @@ fn require_root(operation: &str, dry_run: bool) -> Result<()> {
 mod autoremove;
 mod build;
 mod check;
+mod delta;
 mod depends;
 mod groups;
 mod hold;
@@ -146,6 +147,10 @@ pub enum Commands {
         /// Update local repository index (packages.json) with built package
         #[arg(long)]
         index: bool,
+
+        /// Generate delta from a previous package version
+        #[arg(long)]
+        delta_from: Option<std::path::PathBuf>,
     },
 
     /// Generate a new signing key
@@ -325,6 +330,10 @@ pub enum Commands {
     /// Repository management commands
     #[command(subcommand)]
     Repo(RepoCommands),
+
+    /// Delta package operations (incremental updates)
+    #[command(subcommand)]
+    Delta(DeltaCommands),
 }
 
 /// Repository management subcommands
@@ -359,6 +368,53 @@ pub enum RepoCommands {
     },
 }
 
+/// Delta package subcommands
+#[derive(Subcommand)]
+pub enum DeltaCommands {
+    /// Build a delta package between two versions
+    Build {
+        /// Path to old package (.rookpkg)
+        #[arg(long)]
+        old: std::path::PathBuf,
+
+        /// Path to new package (.rookpkg)
+        #[arg(long)]
+        new: std::path::PathBuf,
+
+        /// Output directory for delta file
+        #[arg(short, long, default_value = ".")]
+        output: std::path::PathBuf,
+    },
+
+    /// Apply a delta to upgrade a package
+    Apply {
+        /// Path to old package (.rookpkg)
+        #[arg(long)]
+        old: std::path::PathBuf,
+
+        /// Path to delta file (.rookdelta)
+        #[arg(long)]
+        delta: std::path::PathBuf,
+
+        /// Output directory for new package
+        #[arg(short, long, default_value = ".")]
+        output: std::path::PathBuf,
+    },
+
+    /// Show information about a delta package
+    Info {
+        /// Path to delta file (.rookdelta)
+        delta: std::path::PathBuf,
+    },
+
+    /// Generate delta index for a repository
+    Index {
+        /// Path to repository directory
+        #[arg(default_value = ".")]
+        path: std::path::PathBuf,
+    },
+}
+
 /// Execute a CLI command
 pub fn execute(command: Commands, config: &Config) -> Result<()> {
     match command {
@@ -380,8 +436,8 @@ pub fn execute(command: Commands, config: &Config) -> Result<()> {
         Commands::Search { query } => {
             search::run(&query, config)
         }
-        Commands::Build { spec, install, output, batch, index } => {
-            build::run(&spec, install, output.as_deref(), batch, index, config)
+        Commands::Build { spec, install, output, batch, index, delta_from } => {
+            build::run(&spec, install, output.as_deref(), batch, index, delta_from.as_deref(), config)
         }
         Commands::Keygen { name, email, output } => {
             keygen::run(&name, &email, output.as_deref(), config)
@@ -545,6 +601,22 @@ pub fn execute(command: Commands, config: &Config) -> Result<()> {
                 }
                 RepoCommands::Sign { path } => {
                     repo::sign(&path, config)
+                }
+            }
+        }
+        Commands::Delta(subcmd) => {
+            match subcmd {
+                DeltaCommands::Build { old, new, output } => {
+                    delta::build(&old, &new, &output, config)
+                }
+                DeltaCommands::Apply { old, delta: delta_file, output } => {
+                    delta::apply(&old, &delta_file, &output, config)
+                }
+                DeltaCommands::Info { delta: delta_file } => {
+                    delta::info(&delta_file, config)
+                }
+                DeltaCommands::Index { path } => {
+                    delta::index(&path, config)
                 }
             }
         }
