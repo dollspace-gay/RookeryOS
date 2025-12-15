@@ -68,14 +68,30 @@ EOF
 
     # =========================================================================
     # systemd-networkd configuration (replaces SysV ifconfig)
+    # Environment-aware: QEMU uses static IP, WSL skips networkd, others use DHCP
     # =========================================================================
     log_step "Configuring network (systemd-networkd)..."
     mkdir -p $ROOKERY/etc/systemd/network
+    mkdir -p $ROOKERY/etc/systemd/system/systemd-networkd.service.d
 
-    # Static IP configuration for QEMU default network
-    cat > $ROOKERY/etc/systemd/network/10-eth-static.network << "EOF"
+    # -------------------------------------------------------------------------
+    # 1. WSL Configuration - Disable networkd entirely (WSL manages networking)
+    # -------------------------------------------------------------------------
+    # Create a drop-in that prevents networkd from running in WSL
+    cat > $ROOKERY/etc/systemd/system/systemd-networkd.service.d/wsl.conf << "EOF"
+[Unit]
+# Don't run systemd-networkd in WSL - it conflicts with WSL's networking
+ConditionVirtualization=!wsl
+EOF
+
+    # -------------------------------------------------------------------------
+    # 2. QEMU Configuration - Static IP (10.0.2.15/24 is QEMU's default)
+    # Uses ConditionVirtualization to only match QEMU/KVM
+    # -------------------------------------------------------------------------
+    cat > $ROOKERY/etc/systemd/network/10-qemu-static.network << "EOF"
 [Match]
 Name=eth0 enp* ens* en*
+Virtualization=qemu kvm
 
 [Network]
 Address=10.0.2.15/24
@@ -84,16 +100,90 @@ DNS=10.0.2.3
 DNS=8.8.8.8
 EOF
 
-    # Create resolv.conf for chroot environment
-    # systemd-resolved will manage this at runtime
+    # -------------------------------------------------------------------------
+    # 3. Generic DHCP Configuration - For bare metal, VMs, containers
+    # Lower priority (20-) so QEMU config takes precedence
+    # Excludes WSL (networkd won't even run there)
+    # -------------------------------------------------------------------------
+    cat > $ROOKERY/etc/systemd/network/20-dhcp.network << "EOF"
+[Match]
+Name=eth* enp* ens* en*
+# This catches everything else - VMs, containers, bare metal
+
+[Network]
+DHCP=yes
+# Fallback DNS if DHCP doesn't provide any
+DNS=8.8.8.8
+DNS=1.1.1.1
+
+[DHCPv4]
+UseDNS=yes
+UseRoutes=yes
+EOF
+
+    # -------------------------------------------------------------------------
+    # 4. resolv.conf - symlink to systemd-resolved (except WSL)
+    # -------------------------------------------------------------------------
+    # Create a script that sets up resolv.conf appropriately at boot
+    mkdir -p $ROOKERY/usr/lib/systemd/system
+    cat > $ROOKERY/usr/lib/systemd/system/rookery-network-setup.service << "EOF"
+[Unit]
+Description=Rookery OS Network Setup
+DefaultDependencies=no
+Before=network-pre.target
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/rookery-network-setup.sh
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    mkdir -p $ROOKERY/usr/libexec
+    cat > $ROOKERY/usr/libexec/rookery-network-setup.sh << 'SCRIPT'
+#!/bin/bash
+# Rookery OS Network Setup - Environment-aware resolv.conf configuration
+
+# Detect if we're running in WSL
+if [ -f /proc/sys/fs/binfmt_misc/WSLInterop ] || grep -qi microsoft /proc/version 2>/dev/null; then
+    # WSL: Use static resolv.conf (WSL manages DNS)
+    rm -f /etc/resolv.conf
+    cat > /etc/resolv.conf << EOF
+# WSL environment - static DNS configuration
+# WSL handles DNS at the hypervisor level
+nameserver 8.8.8.8
+nameserver 1.1.1.1
+EOF
+    echo "Rookery: Configured static DNS for WSL environment"
+else
+    # Non-WSL: Use systemd-resolved
+    rm -f /etc/resolv.conf
+    ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+    echo "Rookery: Configured systemd-resolved for non-WSL environment"
+fi
+SCRIPT
+    chmod 755 $ROOKERY/usr/libexec/rookery-network-setup.sh
+
+    # Enable the setup service
+    mkdir -p $ROOKERY/etc/systemd/system/multi-user.target.wants
+    ln -sf /usr/lib/systemd/system/rookery-network-setup.service \
+        $ROOKERY/etc/systemd/system/multi-user.target.wants/rookery-network-setup.service
+
+    # Temporary resolv.conf for chroot/build environment
     cat > $ROOKERY/etc/resolv.conf << "EOF"
 # Temporary resolv.conf for chroot environment
-# systemd-resolved will manage this at runtime
+# rookery-network-setup.service will configure this at runtime
 nameserver 10.0.2.3
 nameserver 8.8.8.8
 EOF
 
-    log_info "Network configured (systemd-networkd, static IP 10.0.2.15/24)"
+    log_info "Network configured (environment-aware):"
+    log_info "  - WSL: networkd disabled, static DNS"
+    log_info "  - QEMU: static IP 10.0.2.15/24"
+    log_info "  - Other: DHCP with fallback DNS"
 
     # =========================================================================
     # /etc/fstab
@@ -159,6 +249,13 @@ EOF
         $ROOKERY/etc/systemd/system/multi-user.target.wants/systemd-resolved.service 2>/dev/null || true
 
     log_info "Enabled: systemd-networkd, systemd-resolved"
+
+    # Disable avahi-daemon by default (causes networking issues in WSL)
+    # Users can enable it manually if needed: systemctl enable --now avahi-daemon
+    mkdir -p $ROOKERY/etc/systemd/system
+    ln -sf /dev/null $ROOKERY/etc/systemd/system/avahi-daemon.service 2>/dev/null || true
+    ln -sf /dev/null $ROOKERY/etc/systemd/system/avahi-daemon.socket 2>/dev/null || true
+    log_info "Disabled: avahi-daemon (can interfere with WSL networking)"
 
     # =========================================================================
     # Serial console for QEMU -nographic mode
@@ -469,7 +566,7 @@ EOF
     log_info "Timezone: $TIMEZONE"
     log_info "Init system: systemd"
     log_info "Default target: multi-user.target"
-    log_info "Network: systemd-networkd (Static IP 10.0.2.15/24)"
+    log_info "Network: environment-aware (QEMU=static, WSL=disabled, other=DHCP)"
     log_info "Logging: systemd-journald (persistent)"
     log_info "Serial console: ttyS0 (for QEMU -nographic)"
     log_info "Root password: rookery (CHANGE AFTER FIRST LOGIN!)"

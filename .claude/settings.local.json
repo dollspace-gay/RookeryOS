@@ -51,7 +51,17 @@
       "Bash(wsl -d RookeryOS bash -c \"grep -l pathappend /etc/profile /etc/profile.d/* 2>/dev/null | head -5\")",
       "Bash(wsl -d RookeryOS bash -c \"grep -n ''pathappend'' /etc/profile 2>/dev/null | head -10\")",
       "Bash(wsl -d RookeryOS bash:*)",
-      "Bash(wsl -d RookeryOS -u root bash -c \"chown root:root /etc/sudo.conf /usr/bin/sudo && chmod 4755 /usr/bin/sudo\")"
+      "Bash(wsl -d RookeryOS -u root bash -c \"chown root:root /etc/sudo.conf /usr/bin/sudo && chmod 4755 /usr/bin/sudo\")",
+      "Bash(cargo check:*)",
+      "Bash(wsl -d RookeryOS -u root bash -c 'rm /etc/resolv.conf && ln -s /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf && cat /etc/resolv.conf')",
+      "Bash(wsl:*)",
+      "Bash(ipconfig:*)",
+      "Bash(timeout /t 3)",
+      "Bash(cmd.exe:*)",
+      "Bash(wsl.exe -d RookeryOS --exec sh -c \"PATH=/opt/rustc/bin:/usr/bin:/bin cargo check --manifest-path=/mnt/c/Users/texas/rookery/RookeryOS/rookpkg/Cargo.toml\")",
+      "Bash(powershell.exe -Command \"wsl -d RookeryOS -- sh -c ''PATH=/opt/rustc/bin:/usr/bin:/bin cargo check --manifest-path=/mnt/c/Users/texas/rookery/RookeryOS/rookpkg/Cargo.toml''\")",
+      "Bash(powershell.exe:*)",
+      "Bash(del \"c:\\Users\\texas\\rookery\\RookeryOS\\rookpkg\\build.sh\")"
     ],
     "deny": [],
     "ask": []
