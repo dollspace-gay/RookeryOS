@@ -26,9 +26,13 @@ mod verify;
 pub enum Commands {
     /// Install a package
     Install {
-        /// Package name(s) to install
+        /// Package name(s) to install, or path(s) to local .rookpkg files with --local
         #[arg(required = true)]
         packages: Vec<String>,
+
+        /// Install from local .rookpkg file(s) instead of repository
+        #[arg(long)]
+        local: bool,
 
         /// Don't actually install, just show what would happen
         #[arg(long)]
@@ -202,8 +206,8 @@ pub enum Commands {
 /// Execute a CLI command
 pub fn execute(command: Commands, config: &Config) -> Result<()> {
     match command {
-        Commands::Install { packages, dry_run } => {
-            install::run(&packages, dry_run, config)
+        Commands::Install { packages, local, dry_run } => {
+            install::run(&packages, local, dry_run, config)
         }
         Commands::Remove { packages, cascade, dry_run } => {
             remove::run(&packages, cascade, dry_run, config)

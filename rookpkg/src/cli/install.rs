@@ -1,7 +1,7 @@
 //! Install command implementation
 
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Result};
 use colored::Colorize;
@@ -9,6 +9,7 @@ use pubgrub::range::Range;
 use pubgrub::solver::resolve;
 use pubgrub::version::SemanticVersion;
 
+use crate::archive::PackageArchiveReader;
 use crate::config::Config;
 use crate::database::Database;
 use crate::repository::{PackageEntry, RepoManager, SignatureStatus, VerifiedPackage};
@@ -16,10 +17,15 @@ use crate::resolver::{parse_constraint, Package, RookeryDependencyProvider};
 use crate::signing::TrustLevel;
 use crate::transaction::TransactionBuilder;
 
-pub fn run(packages: &[String], dry_run: bool, config: &Config) -> Result<()> {
+pub fn run(packages: &[String], local: bool, dry_run: bool, config: &Config) -> Result<()> {
     if dry_run {
         println!("{}", "Dry run mode - no changes will be made".yellow());
         println!();
+    }
+
+    // Handle local package installation
+    if local {
+        return run_local(packages, dry_run, config);
     }
 
     println!("{}", "Loading repository data...".cyan());
@@ -392,4 +398,118 @@ fn parse_dep_string(dep: &str) -> (&str, String) {
     }
     // No operator found - name only, any version
     (dep.trim(), "*".to_string())
+}
+
+/// Install local .rookpkg files
+fn run_local(packages: &[String], dry_run: bool, config: &Config) -> Result<()> {
+    println!("{}", "Installing local package(s)...".cyan());
+    println!();
+
+    // Verify all files exist and are valid packages
+    let mut to_install: Vec<(PathBuf, crate::archive::PackageInfo)> = Vec::new();
+
+    for pkg_path in packages {
+        let path = PathBuf::from(pkg_path);
+        if !path.exists() {
+            bail!("Package file not found: {}", pkg_path);
+        }
+
+        // Open and read package info
+        let reader = PackageArchiveReader::open(&path)?;
+        let info = reader.read_info()?;
+
+        println!(
+            "  {} {}-{}-{} ({})",
+            "→".cyan(),
+            info.name.bold(),
+            info.version,
+            info.release,
+            format_size(std::fs::metadata(&path)?.len())
+        );
+
+        to_install.push((path, info));
+    }
+
+    println!();
+
+    if to_install.is_empty() {
+        println!("{}", "Nothing to install.".yellow());
+        return Ok(());
+    }
+
+    if dry_run {
+        println!("{}", "Dry run complete - no packages installed.".yellow());
+        return Ok(());
+    }
+
+    // Open database
+    let db_path = &config.database.path;
+    let db = Database::open(db_path)?;
+
+    // Check for already installed packages
+    let mut already_installed = Vec::new();
+    for (_, info) in &to_install {
+        if let Ok(Some(existing)) = db.get_package(&info.name) {
+            already_installed.push((info.name.clone(), existing.version.clone()));
+        }
+    }
+
+    // Filter out already installed packages
+    let packages_to_install: Vec<_> = to_install
+        .into_iter()
+        .filter(|(_, info)| !already_installed.iter().any(|(n, _)| n == &info.name))
+        .collect();
+
+    if !already_installed.is_empty() {
+        println!("{}", "Some packages are already installed:".yellow());
+        for (name, version) in &already_installed {
+            println!("  {} {} ({})", "!".yellow(), name.bold(), version);
+        }
+        println!();
+        println!("Use {} to update existing packages.", "rookpkg upgrade".bold());
+        println!();
+    }
+
+    if packages_to_install.is_empty() {
+        println!("{}", "Nothing new to install.".yellow());
+        return Ok(());
+    }
+
+    // Install using transaction
+    println!("{}", "Installing packages...".cyan());
+    println!();
+
+    let root = Path::new("/");
+    let mut builder = TransactionBuilder::new(root);
+
+    for (path, info) in &packages_to_install {
+        let version = format!("{}-{}", info.version, info.release);
+        builder = builder.install(&info.name, &version, path);
+    }
+
+    // Re-open database for transaction execution
+    let db = Database::open(db_path)?;
+
+    match builder.execute(db) {
+        Ok(()) => {
+            println!(
+                "{} {} package(s) installed successfully",
+                "✓".green().bold(),
+                packages_to_install.len()
+            );
+        }
+        Err(e) => {
+            println!(
+                "{} Installation failed: {}",
+                "✗".red().bold(),
+                e
+            );
+            bail!("Installation transaction failed: {}", e);
+        }
+    }
+
+    println!();
+    println!("{}", "Installation complete!".green());
+
+    Ok(())
 }
