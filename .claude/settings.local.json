@@ -61,7 +61,10 @@
       "Bash(wsl.exe -d RookeryOS --exec sh -c \"PATH=/opt/rustc/bin:/usr/bin:/bin cargo check --manifest-path=/mnt/c/Users/texas/rookery/RookeryOS/rookpkg/Cargo.toml\")",
       "Bash(powershell.exe -Command \"wsl -d RookeryOS -- sh -c ''PATH=/opt/rustc/bin:/usr/bin:/bin cargo check --manifest-path=/mnt/c/Users/texas/rookery/RookeryOS/rookpkg/Cargo.toml''\")",
       "Bash(powershell.exe:*)",
-      "Bash(del \"c:\\Users\\texas\\rookery\\RookeryOS\\rookpkg\\build.sh\")"
+      "Bash(del \"c:\\Users\\texas\\rookery\\RookeryOS\\rookpkg\\build.sh\")",
+      "Bash(git -C \"c:/Users/texas/rookery/RookeryOS\" status --short)",
+      "Bash(git -C \"c:/Users/texas/rookery/RookeryOS\" diff --stat)",
+      "Bash(git -C \"c:/Users/texas/rookery/RookeryOS\" status)"
     ],
     "deny": [],
     "ask": []

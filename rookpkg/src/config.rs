@@ -72,7 +72,10 @@ fn default_true() -> bool {
 }
 
 fn default_algorithms() -> Vec<String> {
-    vec!["ed25519".to_string()]
+    vec![
+        "hybrid-ed25519-ml-dsa-65".to_string(),
+        "ed25519".to_string(),
+    ]
 }
 
 impl Default for SigningConfig {

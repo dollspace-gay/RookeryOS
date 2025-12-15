@@ -10,9 +10,11 @@ mod build;
 mod info;
 mod install;
 mod keygen;
+mod keys;
 mod list;
 mod remove;
 mod search;
+mod verify;
 
 #[derive(Subcommand)]
 pub enum Commands {
@@ -180,21 +182,16 @@ pub fn execute(command: Commands, config: &Config) -> Result<()> {
             keygen::run(&name, &email, output.as_deref(), config)
         }
         Commands::Keylist => {
-            println!("{}", "Trusted signing keys:".bold());
-            println!("  (none configured yet)");
-            Ok(())
+            keys::list_keys(config)
         }
         Commands::KeyTrust { key } => {
-            println!("Would trust key: {}", key);
-            Ok(())
+            keys::trust_key(&key, config)
         }
         Commands::KeyUntrust { fingerprint } => {
-            println!("Would untrust key: {}", fingerprint);
-            Ok(())
+            keys::untrust_key(&fingerprint, config)
         }
         Commands::Verify { package } => {
-            println!("Would verify: {}", package.display());
-            Ok(())
+            verify::run(&package, config)
         }
         Commands::Update => {
             println!("{}", "Updating repository metadata...".cyan());
