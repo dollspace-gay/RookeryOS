@@ -3,7 +3,7 @@
 //! Ensures package installations, removals, and upgrades are atomic.
 //! Uses a journal-based approach to allow rollback on failure.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -13,6 +13,57 @@ use serde::{Deserialize, Serialize};
 use crate::archive::PackageArchiveReader;
 use crate::database::Database;
 use crate::package::{InstalledPackage, PackageFile};
+
+/// A file conflict detected during pre-installation check
+#[derive(Debug, Clone)]
+pub struct FileConflict {
+    /// Path of the conflicting file
+    pub path: String,
+    /// Package trying to install this file
+    pub installing_package: String,
+    /// What owns or would own this file
+    pub conflict_with: ConflictType,
+}
+
+/// Type of file conflict
+#[derive(Debug, Clone)]
+pub enum ConflictType {
+    /// Another installed package owns this file
+    InstalledPackage(String),
+    /// Another package in the same transaction will install this file
+    TransactionPackage(String),
+    /// File exists on filesystem but isn't owned by any package
+    UnownedFile,
+}
+
+impl std::fmt::Display for FileConflict {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.conflict_with {
+            ConflictType::InstalledPackage(owner) => {
+                write!(f, "{}: owned by package '{}' (installing: {})",
+                    self.path, owner, self.installing_package)
+            }
+            ConflictType::TransactionPackage(other) => {
+                write!(f, "{}: would be installed by both '{}' and '{}'",
+                    self.path, self.installing_package, other)
+            }
+            ConflictType::UnownedFile => {
+                write!(f, "{}: unowned file exists on filesystem (installing: {})",
+                    self.path, self.installing_package)
+            }
+        }
+    }
+}
+
+impl std::fmt::Display for ConflictType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ConflictType::InstalledPackage(pkg) => write!(f, "installed package '{}'", pkg),
+            ConflictType::TransactionPackage(pkg) => write!(f, "transaction package '{}'", pkg),
+            ConflictType::UnownedFile => write!(f, "unowned file"),
+        }
+    }
+}
 
 /// Transaction state
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -212,6 +263,110 @@ impl Transaction {
             archive_path: archive_path.to_path_buf(),
         });
         self
+    }
+
+    /// Check for file conflicts before executing the transaction
+    ///
+    /// This performs a pre-flight check to detect conflicts:
+    /// - Files owned by other installed packages
+    /// - Files that would be installed by multiple packages in this transaction
+    /// - Optionally, files that exist on the filesystem but aren't owned by any package
+    ///
+    /// Returns a list of conflicts found, or an empty Vec if no conflicts.
+    pub fn check_conflicts(&self, check_unowned: bool) -> Result<Vec<FileConflict>> {
+        let mut conflicts = Vec::new();
+
+        // Track files that will be installed by packages in this transaction
+        // Maps file path -> package name that will install it
+        let mut transaction_files: HashMap<String, String> = HashMap::new();
+
+        // Collect packages being removed (their files won't conflict)
+        let packages_being_removed: HashSet<String> = self.operations.iter()
+            .filter_map(|op| match op {
+                Operation::Remove { package } => Some(package.clone()),
+                Operation::Upgrade { package, .. } => Some(package.clone()),
+                _ => None,
+            })
+            .collect();
+
+        // Check each install/upgrade operation
+        for op in &self.operations {
+            let (package_name, archive_path) = match op {
+                Operation::Install { package, archive_path, .. } => (package, archive_path),
+                Operation::Upgrade { package, archive_path, .. } => (package, archive_path),
+                Operation::Remove { .. } => continue,
+            };
+
+            // Read the package's file list
+            let reader = match PackageArchiveReader::open(archive_path) {
+                Ok(r) => r,
+                Err(e) => {
+                    tracing::warn!("Could not read archive {} for conflict check: {}",
+                        archive_path.display(), e);
+                    continue;
+                }
+            };
+
+            let files = match reader.read_files() {
+                Ok(f) => f,
+                Err(e) => {
+                    tracing::warn!("Could not read files from {}: {}",
+                        archive_path.display(), e);
+                    continue;
+                }
+            };
+
+            for file_entry in files {
+                let path = &file_entry.path;
+
+                // Check for conflict with another package in this transaction
+                if let Some(other_package) = transaction_files.get(path) {
+                    if other_package != package_name {
+                        conflicts.push(FileConflict {
+                            path: path.clone(),
+                            installing_package: package_name.clone(),
+                            conflict_with: ConflictType::TransactionPackage(other_package.clone()),
+                        });
+                    }
+                    // Same package installing same file twice is weird but not a conflict
+                    continue;
+                }
+
+                // Check for conflict with installed packages (except those being removed)
+                if let Ok(Some(owner)) = self.db.file_owner(path) {
+                    if owner != *package_name && !packages_being_removed.contains(&owner) {
+                        conflicts.push(FileConflict {
+                            path: path.clone(),
+                            installing_package: package_name.clone(),
+                            conflict_with: ConflictType::InstalledPackage(owner),
+                        });
+                        continue;
+                    }
+                }
+
+                // Check for unowned files on the filesystem
+                if check_unowned {
+                    let full_path = self.root.join(path.trim_start_matches('/'));
+                    if full_path.exists() {
+                        // File exists - check if it's owned by any package
+                        if let Ok(None) = self.db.file_owner(path) {
+                            // No package owns this file
+                            conflicts.push(FileConflict {
+                                path: path.clone(),
+                                installing_package: package_name.clone(),
+                                conflict_with: ConflictType::UnownedFile,
+                            });
+                            continue;
+                        }
+                    }
+                }
+
+                // Record this file for intra-transaction conflict detection
+                transaction_files.insert(path.clone(), package_name.clone());
+            }
+        }
+
+        Ok(conflicts)
     }
 
     /// Execute the transaction
@@ -990,11 +1145,16 @@ impl Transaction {
 }
 
 /// Transaction builder for convenient transaction creation
+///
+/// Note: For pre-flight conflict checking, use `Transaction` directly
+/// and call `check_conflicts()` before `execute()`.
+#[allow(dead_code)]
 pub struct TransactionBuilder {
     root: PathBuf,
     operations: Vec<Operation>,
 }
 
+#[allow(dead_code)]
 impl TransactionBuilder {
     /// Create a new transaction builder
     pub fn new(root: &Path) -> Self {

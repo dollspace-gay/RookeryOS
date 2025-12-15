@@ -15,7 +15,7 @@ use crate::database::Database;
 use crate::repository::{PackageEntry, RepoManager, SignatureStatus, VerifiedPackage};
 use crate::resolver::{parse_constraint, Package, RookeryDependencyProvider};
 use crate::signing::TrustLevel;
-use crate::transaction::TransactionBuilder;
+use crate::transaction::{ConflictType, Transaction};
 
 pub fn run(packages: &[String], local: bool, dry_run: bool, config: &Config) -> Result<()> {
     if dry_run {
@@ -317,19 +317,59 @@ pub fn run(packages: &[String], local: bool, dry_run: bool, config: &Config) -> 
         return Ok(());
     }
 
-    // Use TransactionBuilder for cleaner API
+    // Build transaction
     let root = Path::new("/");
-    let mut builder = TransactionBuilder::new(root);
+
+    // Re-open database for transaction
+    let db = Database::open(db_path)?;
+    let mut tx = Transaction::new(root, db)?;
 
     for verified in &packages_to_install {
         let version = format!("{}-{}", verified.package.version, verified.package.release);
-        builder = builder.install(&verified.package.name, &version, &verified.path);
+        tx.install(&verified.package.name, &version, &verified.path);
     }
 
-    // Re-open database for transaction execution
-    let db = Database::open(db_path)?;
+    // Check for file conflicts before executing
+    println!("{}", "Checking for file conflicts...".cyan());
+    let conflicts = tx.check_conflicts(false)?;  // Don't check unowned files by default
 
-    match builder.execute(db) {
+    if !conflicts.is_empty() {
+        println!();
+        println!("{}", "File conflicts detected:".red().bold());
+        println!();
+
+        for conflict in &conflicts {
+            let conflict_desc = match &conflict.conflict_with {
+                ConflictType::InstalledPackage(pkg) => {
+                    format!("owned by '{}'", pkg.cyan())
+                }
+                ConflictType::TransactionPackage(pkg) => {
+                    format!("also installed by '{}'", pkg.cyan())
+                }
+                ConflictType::UnownedFile => {
+                    "unowned file on filesystem".to_string()
+                }
+            };
+            println!(
+                "  {} {} ({})",
+                "✗".red(),
+                conflict.path.bold(),
+                conflict_desc
+            );
+        }
+
+        println!();
+        bail!(
+            "Cannot install: {} file conflict(s) detected. \
+            Remove conflicting package(s) first.",
+            conflicts.len()
+        );
+    }
+
+    println!("  {} No conflicts found", "✓".green());
+    println!();
+
+    match tx.execute() {
         Ok(()) => {
             println!(
                 "{} {} package(s) installed successfully",
@@ -480,17 +520,57 @@ fn run_local(packages: &[String], dry_run: bool, config: &Config) -> Result<()> 
     println!();
 
     let root = Path::new("/");
-    let mut builder = TransactionBuilder::new(root);
+
+    // Re-open database for transaction
+    let db = Database::open(db_path)?;
+    let mut tx = Transaction::new(root, db)?;
 
     for (path, info) in &packages_to_install {
         let version = format!("{}-{}", info.version, info.release);
-        builder = builder.install(&info.name, &version, path);
+        tx.install(&info.name, &version, path);
     }
 
-    // Re-open database for transaction execution
-    let db = Database::open(db_path)?;
+    // Check for file conflicts before executing
+    println!("{}", "Checking for file conflicts...".cyan());
+    let conflicts = tx.check_conflicts(false)?;
 
-    match builder.execute(db) {
+    if !conflicts.is_empty() {
+        println!();
+        println!("{}", "File conflicts detected:".red().bold());
+        println!();
+
+        for conflict in &conflicts {
+            let conflict_desc = match &conflict.conflict_with {
+                ConflictType::InstalledPackage(pkg) => {
+                    format!("owned by '{}'", pkg.cyan())
+                }
+                ConflictType::TransactionPackage(pkg) => {
+                    format!("also installed by '{}'", pkg.cyan())
+                }
+                ConflictType::UnownedFile => {
+                    "unowned file on filesystem".to_string()
+                }
+            };
+            println!(
+                "  {} {} ({})",
+                "✗".red(),
+                conflict.path.bold(),
+                conflict_desc
+            );
+        }
+
+        println!();
+        bail!(
+            "Cannot install: {} file conflict(s) detected. \
+            Remove conflicting package(s) first.",
+            conflicts.len()
+        );
+    }
+
+    println!("  {} No conflicts found", "✓".green());
+    println!();
+
+    match tx.execute() {
         Ok(()) => {
             println!(
                 "{} {} package(s) installed successfully",
