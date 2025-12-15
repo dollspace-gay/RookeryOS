@@ -374,6 +374,18 @@ pub fn run(
             index_path.display(),
             pkg_index.count
         );
+
+        // Sign the index file
+        let sig_path = index_path.with_extension("json.sig");
+        let index_sig = signing::sign_file(&signing_key, &index_path)?;
+        let sig_json = serde_json::to_string_pretty(&index_sig)?;
+        std::fs::write(&sig_path, &sig_json)?;
+
+        println!(
+            "  {} Signed index: {}",
+            "✓".green(),
+            sig_path.display()
+        );
     }
 
     Ok(())

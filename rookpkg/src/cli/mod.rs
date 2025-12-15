@@ -17,6 +17,7 @@ mod keys;
 mod list;
 mod recover;
 mod remove;
+mod repo;
 mod search;
 mod update;
 mod upgrade;
@@ -227,6 +228,42 @@ pub enum Commands {
         #[arg(long)]
         validate: bool,
     },
+
+    /// Repository management commands
+    #[command(subcommand)]
+    Repo(RepoCommands),
+}
+
+/// Repository management subcommands
+#[derive(Subcommand)]
+pub enum RepoCommands {
+    /// Initialize a new repository
+    Init {
+        /// Path to repository directory
+        path: std::path::PathBuf,
+
+        /// Repository name
+        #[arg(long)]
+        name: String,
+
+        /// Repository description
+        #[arg(long, default_value = "A rookpkg package repository")]
+        description: String,
+    },
+
+    /// Refresh the package index by scanning packages directory
+    Refresh {
+        /// Path to repository directory (default: current directory)
+        #[arg(default_value = ".")]
+        path: std::path::PathBuf,
+    },
+
+    /// Sign or re-sign the repository index
+    Sign {
+        /// Path to repository directory (default: current directory)
+        #[arg(default_value = ".")]
+        path: std::path::PathBuf,
+    },
 }
 
 /// Execute a CLI command
@@ -366,6 +403,19 @@ pub fn execute(command: Commands, config: &Config) -> Result<()> {
         }
         Commands::Inspect { path, files, scripts, validate } => {
             inspect::run(&path, files, scripts, validate, config)
+        }
+        Commands::Repo(subcmd) => {
+            match subcmd {
+                RepoCommands::Init { path, name, description } => {
+                    repo::init(&path, &name, &description, config)
+                }
+                RepoCommands::Refresh { path } => {
+                    repo::refresh(&path, config)
+                }
+                RepoCommands::Sign { path } => {
+                    repo::sign(&path, config)
+                }
+            }
         }
     }
 }
