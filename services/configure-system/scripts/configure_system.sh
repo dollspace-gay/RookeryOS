@@ -260,6 +260,28 @@ set bell-style none
 EOF
 
     # =========================================================================
+    # Path helper functions (BLFS)
+    # =========================================================================
+    log_step "Creating path helper functions..."
+
+    cat > $ROOKERY/etc/profile.d/00-pathfuncs.sh << 'EOF'
+# Path manipulation functions from BLFS
+pathappend() {
+    if [ -d "$1" ] && [[ ":$PATH:" != *":$1:"* ]]; then
+        PATH="${PATH:+$PATH:}$1"
+    fi
+}
+
+pathprepend() {
+    if [ -d "$1" ] && [[ ":$PATH:" != *":$1:"* ]]; then
+        PATH="$1${PATH:+:$PATH}"
+    fi
+}
+
+export -f pathappend pathprepend
+EOF
+
+    # =========================================================================
     # Valid shells
     # =========================================================================
     log_step "Configuring valid shells..."
@@ -376,10 +398,65 @@ EOF
     # Fix major trees recursively
     chown -R root:root $ROOKERY/usr $ROOKERY/etc $ROOKERY/var 2>/dev/null || true
 
-    # Fix any remaining UID 1000 files
-    find $ROOKERY -uid 1000 -exec chown root:root {} \; 2>/dev/null || true
+    # Fix any remaining UID 1000 files (except rookery's home)
+    find $ROOKERY -uid 1000 -not -path "$ROOKERY/home/rookery/*" -not -path "$ROOKERY/home/rookery" -exec chown root:root {} \; 2>/dev/null || true
+
+    # Ensure rookery's home is properly owned
+    chown -R 1000:1000 $ROOKERY/home/rookery 2>/dev/null || true
 
     log_info "Ownership fixed for system directories"
+
+    # =========================================================================
+    # WSL Configuration (for Windows Subsystem for Linux compatibility)
+    # =========================================================================
+    log_step "Adding WSL configuration files..."
+
+    cat > $ROOKERY/etc/wsl.conf << 'EOF'
+[boot]
+systemd=true
+
+[user]
+default = rookery
+EOF
+
+    cat > $ROOKERY/etc/wsl-distribution.conf << 'EOF'
+[oobe]
+command = /usr/libexec/wsl/oobe.sh
+defaultUid = 1000
+defaultName = RookeryOS
+
+[shortcut]
+enabled = true
+EOF
+
+    mkdir -p $ROOKERY/usr/libexec/wsl
+    cat > $ROOKERY/usr/libexec/wsl/oobe.sh << 'EOF'
+#!/bin/bash
+# RookeryOS WSL Out-of-Box Experience
+# This script runs on first launch to set up the user environment
+
+echo "Welcome to RookeryOS!"
+echo "====================="
+echo ""
+
+# Check if rookery user already exists
+if id "rookery" &>/dev/null; then
+    echo "User 'rookery' is ready."
+    echo "Default password is 'rookery' - please change it with: passwd"
+else
+    echo "Setting up user 'rookery'..."
+    useradd -m -G wheel,audio,video -s /bin/bash rookery
+    echo "rookery:rookery" | chpasswd
+    echo "User 'rookery' created with password 'rookery'"
+    echo "Please change your password with: passwd"
+fi
+
+echo ""
+echo "Enjoy RookeryOS!"
+EOF
+    chmod 755 $ROOKERY/usr/libexec/wsl/oobe.sh
+
+    log_info "WSL configuration files added"
 
     # =========================================================================
     # Summary
