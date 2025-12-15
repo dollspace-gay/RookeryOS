@@ -75,8 +75,27 @@ pub fn run(dry_run: bool, config: &Config) -> Result<()> {
 
     // Find upgradeable packages
     let mut upgrades: Vec<UpgradeCandidate> = Vec::new();
+    let mut held_packages: Vec<(String, String)> = Vec::new();
 
     for pkg in &installed {
+        // Check if package is held
+        if db.is_package_held(&pkg.name)? {
+            if let Some(result) = manager.find_package(&pkg.name) {
+                let available = &result.package;
+                // Only report if there's actually an upgrade available
+                let needs_upgrade = if available.version != pkg.version {
+                    available.version > pkg.version
+                } else {
+                    available.release > pkg.release
+                };
+                if needs_upgrade {
+                    let available_full = format!("{}-{}", available.version, available.release);
+                    held_packages.push((pkg.name.clone(), available_full));
+                }
+            }
+            continue;  // Skip held packages
+        }
+
         if let Some(result) = manager.find_package(&pkg.name) {
             let available = &result.package;
 
@@ -102,6 +121,25 @@ pub fn run(dry_run: bool, config: &Config) -> Result<()> {
     }
 
     println!();
+
+    // Show held packages that have updates available
+    if !held_packages.is_empty() {
+        println!("{}", "Held packages (skipped):".yellow());
+        for (name, available) in &held_packages {
+            println!(
+                "  {} {} ({} available)",
+                "⏸".yellow(),
+                name.bold(),
+                available.dimmed()
+            );
+        }
+        println!();
+        println!(
+            "Use {} to release holds.",
+            "rookpkg unhold <package>".bold()
+        );
+        println!();
+    }
 
     if upgrades.is_empty() {
         println!("{}", "All packages are up to date.".green());

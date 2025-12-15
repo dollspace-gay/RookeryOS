@@ -42,6 +42,7 @@ fn require_root(operation: &str, dry_run: bool) -> Result<()> {
 mod build;
 mod check;
 mod depends;
+mod hold;
 mod info;
 mod inspect;
 mod install;
@@ -71,6 +72,10 @@ pub enum Commands {
         /// Don't actually install, just show what would happen
         #[arg(long)]
         dry_run: bool,
+
+        /// Download packages to cache but don't install them
+        #[arg(long)]
+        download_only: bool,
     },
 
     /// Remove a package
@@ -244,6 +249,30 @@ pub enum Commands {
         transaction_id: Option<String>,
     },
 
+    /// Hold a package (prevent automatic upgrades)
+    Hold {
+        /// Package name(s) to hold
+        #[arg(required = true)]
+        packages: Vec<String>,
+
+        /// Reason for holding the package
+        #[arg(long)]
+        reason: Option<String>,
+    },
+
+    /// Unhold a package (allow automatic upgrades again)
+    Unhold {
+        /// Package name(s) to unhold
+        #[arg(required = true)]
+        packages: Vec<String>,
+    },
+
+    /// List held packages (or show details for a specific package)
+    Holds {
+        /// Package name to show detailed hold info for (optional)
+        package: Option<String>,
+    },
+
     /// Inspect a package archive or spec file
     Inspect {
         /// Path to .rookpkg archive or .rook spec file
@@ -302,9 +331,10 @@ pub enum RepoCommands {
 /// Execute a CLI command
 pub fn execute(command: Commands, config: &Config) -> Result<()> {
     match command {
-        Commands::Install { packages, local, dry_run } => {
-            require_root("install", dry_run)?;
-            install::run(&packages, local, dry_run, config)
+        Commands::Install { packages, local, dry_run, download_only } => {
+            // download_only doesn't need root since it only caches packages
+            require_root("install", dry_run || download_only)?;
+            install::run(&packages, local, dry_run, download_only, config)
         }
         Commands::Remove { packages, cascade, dry_run } => {
             require_root("remove", dry_run)?;
@@ -440,6 +470,21 @@ pub fn execute(command: Commands, config: &Config) -> Result<()> {
         Commands::Recover { transaction_id } => {
             require_root("recover", false)?;  // recover modifies system state
             recover::run(transaction_id.as_deref(), config)
+        }
+        Commands::Hold { packages, reason } => {
+            require_root("hold", false)?;  // modifies system database
+            hold::hold(&packages, reason.as_deref(), config)
+        }
+        Commands::Unhold { packages } => {
+            require_root("unhold", false)?;  // modifies system database
+            hold::unhold(&packages, config)
+        }
+        Commands::Holds { package } => {
+            if let Some(name) = package {
+                hold::show_hold(&name, config)
+            } else {
+                hold::list_holds(config)
+            }
         }
         Commands::Inspect { path, files, scripts, validate } => {
             inspect::run(&path, files, scripts, validate, config)

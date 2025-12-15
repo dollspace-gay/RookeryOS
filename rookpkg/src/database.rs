@@ -111,6 +111,15 @@ impl Database {
                 revoked_by TEXT NOT NULL
             );
 
+            -- Held (pinned) packages - prevent automatic upgrades
+            CREATE TABLE IF NOT EXISTS held_packages (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL UNIQUE,
+                held_version TEXT,  -- NULL means hold all versions, otherwise hold at specific version
+                held_date INTEGER NOT NULL,
+                reason TEXT NOT NULL DEFAULT ''
+            );
+
             -- Create indices
             CREATE INDEX IF NOT EXISTS idx_files_path ON files(path);
             CREATE INDEX IF NOT EXISTS idx_files_package ON files(package_id);
@@ -330,6 +339,100 @@ impl Database {
         rows.collect::<Result<Vec<_>, _>>()
             .context("Failed to get reverse dependencies")
     }
+
+    /// Hold a package (prevent automatic upgrades)
+    ///
+    /// If `version` is Some, holds at that specific version.
+    /// If `version` is None, holds at any version (no upgrades at all).
+    pub fn hold_package(&self, name: &str, version: Option<&str>, reason: &str) -> Result<()> {
+        let now = chrono::Utc::now().timestamp();
+
+        self.conn.execute(
+            r#"
+            INSERT INTO held_packages (name, held_version, held_date, reason)
+            VALUES (?1, ?2, ?3, ?4)
+            ON CONFLICT(name) DO UPDATE SET
+                held_version = excluded.held_version,
+                held_date = excluded.held_date,
+                reason = excluded.reason
+            "#,
+            params![name, version, now, reason],
+        )?;
+
+        Ok(())
+    }
+
+    /// Unhold a package (allow automatic upgrades again)
+    pub fn unhold_package(&self, name: &str) -> Result<bool> {
+        let rows = self.conn.execute(
+            "DELETE FROM held_packages WHERE name = ?1",
+            params![name],
+        )?;
+
+        Ok(rows > 0)
+    }
+
+    /// Check if a package is held
+    pub fn is_package_held(&self, name: &str) -> Result<bool> {
+        let mut stmt = self.conn.prepare(
+            "SELECT 1 FROM held_packages WHERE name = ?1"
+        )?;
+
+        let mut rows = stmt.query(params![name])?;
+        Ok(rows.next()?.is_some())
+    }
+
+    /// Get hold info for a package (if held)
+    pub fn get_hold_info(&self, name: &str) -> Result<Option<HoldInfo>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT name, held_version, held_date, reason FROM held_packages WHERE name = ?1"
+        )?;
+
+        let mut rows = stmt.query(params![name])?;
+
+        if let Some(row) = rows.next()? {
+            Ok(Some(HoldInfo {
+                name: row.get(0)?,
+                version: row.get(1)?,
+                held_date: row.get(2)?,
+                reason: row.get(3)?,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// List all held packages
+    pub fn list_held_packages(&self) -> Result<Vec<HoldInfo>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT name, held_version, held_date, reason FROM held_packages ORDER BY name"
+        )?;
+
+        let rows = stmt.query_map([], |row| {
+            Ok(HoldInfo {
+                name: row.get(0)?,
+                version: row.get(1)?,
+                held_date: row.get(2)?,
+                reason: row.get(3)?,
+            })
+        })?;
+
+        rows.collect::<Result<Vec<_>, _>>()
+            .context("Failed to list held packages")
+    }
+}
+
+/// Information about a held package
+#[derive(Debug, Clone)]
+pub struct HoldInfo {
+    /// Package name
+    pub name: String,
+    /// Version held at (None means hold at any version)
+    pub version: Option<String>,
+    /// When the hold was created (Unix timestamp)
+    pub held_date: i64,
+    /// Reason for the hold
+    pub reason: String,
 }
 
 #[cfg(test)]

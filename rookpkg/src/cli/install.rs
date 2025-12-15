@@ -17,14 +17,22 @@ use crate::resolver::{parse_constraint, Package, RookeryDependencyProvider};
 use crate::signing::TrustLevel;
 use crate::transaction::{ConflictType, Transaction};
 
-pub fn run(packages: &[String], local: bool, dry_run: bool, config: &Config) -> Result<()> {
+pub fn run(packages: &[String], local: bool, dry_run: bool, download_only: bool, config: &Config) -> Result<()> {
     if dry_run {
         println!("{}", "Dry run mode - no changes will be made".yellow());
         println!();
     }
 
+    if download_only {
+        println!("{}", "Download-only mode - packages will be cached but not installed".yellow());
+        println!();
+    }
+
     // Handle local package installation
     if local {
+        if download_only {
+            println!("{}", "Note: --download-only has no effect with --local (files are already local)".yellow());
+        }
         return run_local(packages, dry_run, config);
     }
 
@@ -279,6 +287,28 @@ pub fn run(packages: &[String], local: bool, dry_run: bool, config: &Config) -> 
     }
 
     println!();
+
+    // Download-only mode: exit after downloading and verifying
+    if download_only {
+        println!(
+            "{} {} package(s) downloaded to cache",
+            "✓".green().bold(),
+            verified_packages.len()
+        );
+        println!();
+        println!("Cached packages:");
+        for verified in &verified_packages {
+            println!(
+                "  {} {}",
+                "→".cyan(),
+                verified.path.display()
+            );
+        }
+        println!();
+        println!("To install these packages later, run:");
+        println!("  {} {}", "rookpkg install".bold(), packages.join(" "));
+        return Ok(());
+    }
 
     // Install packages using transaction
     println!("{}", "Installing packages...".cyan());

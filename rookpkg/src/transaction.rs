@@ -67,6 +67,7 @@ impl std::fmt::Display for ConflictType {
 
 /// Transaction state
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum TransactionState {
     /// Transaction has been created but not started
     Pending,
