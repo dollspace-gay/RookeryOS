@@ -7,7 +7,7 @@ use anyhow::{bail, Context, Result};
 use colored::Colorize;
 
 use crate::config::Config;
-use crate::signing::{self, TrustLevel};
+use crate::signing::{self, KeyCertification, TrustLevel};
 
 /// List all trusted signing keys
 pub fn list_keys(config: &Config) -> Result<()> {
@@ -233,4 +233,132 @@ fn remove_key_by_fingerprint(dir: &Path, fingerprint: &str) -> Result<bool> {
         }
     }
     Ok(false)
+}
+
+/// Sign (certify) a packager key with the master key
+///
+/// This creates a certification that proves the packager key is authorized
+/// by the project master key.
+pub fn sign_key(
+    key_to_sign: &str,
+    master_key_path: &str,
+    purpose: Option<&str>,
+    output: Option<&Path>,
+    config: &Config,
+) -> Result<()> {
+    let key_path = Path::new(key_to_sign);
+    let master_path = Path::new(master_key_path);
+
+    // Load the key to be signed
+    if !key_path.exists() {
+        bail!("Key to sign not found: {}", key_to_sign);
+    }
+
+    let public_key = signing::load_public_key(key_path)
+        .with_context(|| format!("Failed to load public key: {}", key_path.display()))?;
+
+    println!("{}", "Key to certify:".bold());
+    println!("  Fingerprint: {}", public_key.fingerprint.cyan());
+    println!("  Name: {} <{}>", public_key.name, public_key.email);
+    println!("  Algorithm: {}", public_key.algorithm);
+    println!();
+
+    // Load the master signing key
+    if !master_path.exists() {
+        bail!("Master key not found: {}", master_key_path);
+    }
+
+    let master_key = signing::load_signing_key_from_path(master_path)
+        .with_context(|| format!("Failed to load master key: {}", master_path.display()))?;
+
+    println!("{}", "Certifying with:".bold());
+    println!("  Fingerprint: {}", master_key.fingerprint.cyan());
+    println!("  Name: {} <{}>", master_key.name, master_key.email);
+    println!();
+
+    // Create the certification
+    let purpose = purpose.unwrap_or("packager");
+    let certification = signing::certify_key(&master_key, &public_key, purpose, None)?;
+
+    // Determine output path
+    let cert_path = if let Some(out) = output {
+        out.to_path_buf()
+    } else {
+        // Default: put next to the public key
+        let cert_dir = config.signing.packager_keys_dir.join("certs");
+        fs::create_dir_all(&cert_dir)?;
+        let safe_fingerprint = public_key.fingerprint.replace([':', '/'], "-");
+        cert_dir.join(format!("{}.cert", safe_fingerprint))
+    };
+
+    // Save the certification
+    signing::save_certification(&certification, &cert_path)?;
+
+    println!(
+        "{} Key certified successfully!",
+        "✓".green().bold()
+    );
+    println!();
+    println!("Certification saved to: {}", cert_path.display().to_string().cyan());
+    println!();
+    println!("{}", "Details:".bold());
+    println!("  Certified key: {}", certification.certified_key);
+    println!("  Certifier: {}", certification.certifier_name);
+    println!("  Purpose: {}", certification.purpose);
+    println!("  Timestamp: {}", certification.signature.timestamp);
+
+    Ok(())
+}
+
+/// List certifications for a key
+pub fn list_certifications(key_fingerprint: Option<&str>, config: &Config) -> Result<()> {
+    println!("{}", "Key certifications:".bold());
+    println!();
+
+    let cert_dir = config.signing.packager_keys_dir.join("certs");
+    if !cert_dir.exists() {
+        println!("  {}", "(no certifications found)".dimmed());
+        return Ok(());
+    }
+
+    let mut found = false;
+    for entry in fs::read_dir(&cert_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.extension().map(|e| e == "cert").unwrap_or(false) {
+            if let Ok(cert) = signing::load_certification(&path) {
+                // Filter by fingerprint if provided
+                if let Some(fp) = key_fingerprint {
+                    if !cert.certified_key.contains(fp) && !cert.certifier_key.contains(fp) {
+                        continue;
+                    }
+                }
+
+                found = true;
+                print_certification_info(&cert);
+            }
+        }
+    }
+
+    if !found {
+        if let Some(fp) = key_fingerprint {
+            println!("  No certifications found for key: {}", fp);
+        } else {
+            println!("  {}", "(no certifications found)".dimmed());
+        }
+    }
+
+    Ok(())
+}
+
+/// Print information about a certification
+fn print_certification_info(cert: &KeyCertification) {
+    println!("  {} [{}]", cert.certified_key.bold(), cert.purpose.cyan());
+    println!("    Certified by: {}", cert.certifier_name);
+    println!("    Certifier key: {}", cert.certifier_key.dimmed());
+    println!("    Timestamp: {}", cert.signature.timestamp);
+    if !cert.expires.is_empty() {
+        println!("    Expires: {}", cert.expires);
+    }
+    println!();
 }

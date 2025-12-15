@@ -111,6 +111,27 @@ fn find_public_key(fingerprint: &str, config: &Config) -> Result<signing::Loaded
     // Search packager keys
     if let Some(key) = search_keys_in_dir(&config.signing.packager_keys_dir, fingerprint)? {
         let mut key = key;
+
+        // Check if this packager key has a valid certification from a master key
+        let cert_dir = config.signing.packager_keys_dir.join("certs");
+        if let Ok(Some(cert)) = signing::find_certification_for_key(&key.fingerprint, &cert_dir) {
+            // Try to find the certifying master key
+            if let Some(master_key) = search_keys_in_dir(&config.signing.master_keys_dir, &cert.certifier_key)? {
+                // Verify the certification
+                if signing::verify_certification(&cert, &key, &master_key).is_ok() {
+                    tracing::debug!(
+                        "Key {} certified by master key {} for purpose '{}'",
+                        key.fingerprint,
+                        cert.certifier_key,
+                        cert.purpose
+                    );
+                    key.trust_level = TrustLevel::Full;
+                    return Ok(key);
+                }
+            }
+        }
+
+        // No valid certification - marginal trust only
         key.trust_level = TrustLevel::Marginal;
         return Ok(key);
     }

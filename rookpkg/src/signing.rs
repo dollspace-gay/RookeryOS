@@ -62,6 +62,23 @@ pub struct HybridSignature {
     pub timestamp: String,
 }
 
+/// A key certification - a signature on a public key by another key (typically master key)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KeyCertification {
+    /// Fingerprint of the key being certified
+    pub certified_key: String,
+    /// Fingerprint of the certifying key (master key)
+    pub certifier_key: String,
+    /// Name of the certifier
+    pub certifier_name: String,
+    /// Certification purpose (e.g., "packager", "repository")
+    pub purpose: String,
+    /// Expiration timestamp (ISO 8601), or empty for no expiration
+    pub expires: String,
+    /// The hybrid signature over the certification data
+    pub signature: HybridSignature,
+}
+
 /// A loaded signing key pair with metadata
 pub struct LoadedSigningKey {
     /// Ed25519 signing key
@@ -645,6 +662,136 @@ pub fn verify_file(
 /// Get the fingerprint of a loaded signing key
 pub fn get_fingerprint(key: &LoadedSigningKey) -> &str {
     &key.fingerprint
+}
+
+/// Certify (sign) a public key with a master key
+///
+/// This creates a certification that attests the public key is authorized
+/// for a specific purpose (e.g., "packager").
+pub fn certify_key(
+    master_key: &LoadedSigningKey,
+    public_key: &LoadedPublicKey,
+    purpose: &str,
+    expires: Option<&str>,
+) -> Result<KeyCertification> {
+    // Create the certification data to sign
+    // Format: certified_key|certifier_key|purpose|expires
+    let expires_str = expires.unwrap_or("");
+    let cert_data = format!(
+        "ROOKERY-KEY-CERTIFICATION-V1|{}|{}|{}|{}",
+        public_key.fingerprint,
+        master_key.fingerprint,
+        purpose,
+        expires_str
+    );
+
+    // Sign the certification data
+    let signature = sign_message(master_key, cert_data.as_bytes())?;
+
+    Ok(KeyCertification {
+        certified_key: public_key.fingerprint.clone(),
+        certifier_key: master_key.fingerprint.clone(),
+        certifier_name: format!("{} <{}>", master_key.name, master_key.email),
+        purpose: purpose.to_string(),
+        expires: expires_str.to_string(),
+        signature,
+    })
+}
+
+/// Verify a key certification
+pub fn verify_certification(
+    certification: &KeyCertification,
+    certified_key: &LoadedPublicKey,
+    certifier_key: &LoadedPublicKey,
+) -> Result<()> {
+    // Check fingerprints match
+    if certification.certified_key != certified_key.fingerprint {
+        bail!(
+            "Certification is for key {} but got {}",
+            certification.certified_key,
+            certified_key.fingerprint
+        );
+    }
+
+    if certification.certifier_key != certifier_key.fingerprint {
+        bail!(
+            "Certification is from key {} but verifying with {}",
+            certification.certifier_key,
+            certifier_key.fingerprint
+        );
+    }
+
+    // Check expiration
+    if !certification.expires.is_empty() {
+        if let Ok(expires) = chrono::DateTime::parse_from_rfc3339(&certification.expires) {
+            if expires < chrono::Utc::now() {
+                bail!("Key certification has expired ({})", certification.expires);
+            }
+        }
+    }
+
+    // Recreate the certification data
+    let cert_data = format!(
+        "ROOKERY-KEY-CERTIFICATION-V1|{}|{}|{}|{}",
+        certification.certified_key,
+        certification.certifier_key,
+        certification.purpose,
+        certification.expires
+    );
+
+    // Verify the signature
+    verify_signature(certifier_key, cert_data.as_bytes(), &certification.signature)
+        .context("Key certification signature verification failed")?;
+
+    tracing::debug!(
+        "Key {} certified by {} for purpose '{}'",
+        certification.certified_key,
+        certification.certifier_key,
+        certification.purpose
+    );
+
+    Ok(())
+}
+
+/// Save a key certification to a file
+pub fn save_certification(certification: &KeyCertification, path: &Path) -> Result<()> {
+    let content = serde_json::to_string_pretty(certification)?;
+    fs::write(path, content)?;
+    Ok(())
+}
+
+/// Load a key certification from a file
+pub fn load_certification(path: &Path) -> Result<KeyCertification> {
+    let content = fs::read_to_string(path)?;
+    let certification: KeyCertification = serde_json::from_str(&content)?;
+    Ok(certification)
+}
+
+/// Find certification for a key in a directory
+pub fn find_certification_for_key(
+    key_fingerprint: &str,
+    cert_dir: &Path,
+) -> Result<Option<KeyCertification>> {
+    if !cert_dir.exists() {
+        return Ok(None);
+    }
+
+    for entry in fs::read_dir(cert_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.extension().map(|e| e == "cert").unwrap_or(false) {
+            if let Ok(cert) = load_certification(&path) {
+                if cert.certified_key == key_fingerprint
+                    || cert.certified_key.ends_with(key_fingerprint)
+                    || key_fingerprint.ends_with(&cert.certified_key)
+                {
+                    return Ok(Some(cert));
+                }
+            }
+        }
+    }
+
+    Ok(None)
 }
 
 #[cfg(test)]

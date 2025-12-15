@@ -139,6 +139,32 @@ pub enum Commands {
         fingerprint: String,
     },
 
+    /// Sign (certify) a packager key with a master key
+    #[command(name = "keysign")]
+    KeySign {
+        /// Path to public key file to certify
+        key: std::path::PathBuf,
+
+        /// Path to master signing key (secret key)
+        #[arg(long)]
+        master: std::path::PathBuf,
+
+        /// Certification purpose (default: "packager")
+        #[arg(long)]
+        purpose: Option<String>,
+
+        /// Output path for certification file
+        #[arg(short, long)]
+        output: Option<std::path::PathBuf>,
+    },
+
+    /// List key certifications
+    #[command(name = "keycerts")]
+    KeyCerts {
+        /// Filter by key fingerprint (optional)
+        fingerprint: Option<String>,
+    },
+
     /// Verify a package signature
     Verify {
         /// Path to package file
@@ -235,6 +261,18 @@ pub fn execute(command: Commands, config: &Config) -> Result<()> {
         }
         Commands::KeyUntrust { fingerprint } => {
             keys::untrust_key(&fingerprint, config)
+        }
+        Commands::KeySign { key, master, purpose, output } => {
+            keys::sign_key(
+                key.to_str().unwrap_or(""),
+                master.to_str().unwrap_or(""),
+                purpose.as_deref(),
+                output.as_deref(),
+                config,
+            )
+        }
+        Commands::KeyCerts { fingerprint } => {
+            keys::list_certifications(fingerprint.as_deref(), config)
         }
         Commands::Verify { package } => {
             verify::run(&package, config)
