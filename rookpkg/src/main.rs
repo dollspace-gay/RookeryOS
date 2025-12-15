@@ -7,14 +7,18 @@ use anyhow::Result;
 use clap::Parser;
 use tracing_subscriber::EnvFilter;
 
+mod archive;
+mod build;
 mod cli;
 mod config;
 mod database;
+mod download;
 mod error;
 mod package;
 mod resolver;
 mod signing;
 mod spec;
+mod transaction;
 
 use cli::Commands;
 

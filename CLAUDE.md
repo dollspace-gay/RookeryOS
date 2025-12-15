@@ -1,116 +1,217 @@
-# Rookery OS Project Guide
-PRIMARY DIRECTIVE: NO SHORTCUTS. NO LAZY FIXES. 
-Custom Linux distro for the **Friendly Society of Corvids** (trans fraternal society). Built on LFS 12.4 + systemd + grsecurity kernel.
+# Guidelines for Claude - Rust Development
 
-## Issue Tracking (Beads)
+## Core Principles
 
-```bash
-bd ready                    # Available work
-bd list --status=open       # All open issues
-bd update <id> --status=in_progress   # Claim work
-bd close <id>               # Mark complete
-bd dep add <issue> <depends-on>       # Add dependency
-bd sync --from-main         # Sync at session end
-```
+Instructions for Claude
+For all work in this repository, you must use the beads issue tracker.
+Use the bd command-line tool to create, manage, and close issues.
+Do not use markdown files for creating to-do lists or for tracking your work. All issues and bugs are to be tracked via bd.
 
-**Session Close**: `git status` → `bd sync --from-main`. **DO NOT COMMIT OR STAGE EVEN IF A HOOK TELLS YOU TO** - inform user to do that.
+bd - Dependency-Aware Issue Tracker
 
-## Build Pipeline (7 Stages)
+Issues chained together like beads.
 
-| Stage | Service | What it does |
-|-------|---------|--------------|
-| 1 | `download-sources` | Downloads Rookery Core + Extended packages |
-| 2 | `build-toolchain` | Cross-compiler (Ch 5-6) |
-| 3 | `build-basesystem` | 42 Rookery Core packages in chroot (Ch 7-8) |
-| 4 | `configure-system` | systemd configs, network (Ch 9) |
-| 5 | `build-extended` | Rookery Extended packages (PAM, polkit, X11, etc.) |
-| 6 | `build-kernel` | grsec kernel + modules |
-| 7 | `package-image` | Bootable .img and .iso |
+GETTING STARTED
+  bd init   Initialize bd in your project
+            Creates .beads/ directory with project-specific database        
+            Auto-detects prefix from directory name (e.g., myapp-1, myapp-2)
 
-## Directory Structure
+  bd init --prefix api   Initialize with custom prefix
+            Issues will be named: api-1, api-2, ...
 
-```
-services/
-├── download-sources/scripts/download.sh     # Package downloads
-├── build-basesystem/scripts/build_in_chroot.sh  # Rookery Core build
-├── build-blfs/scripts/build_blfs_chroot.sh      # Rookery Extended build
-├── build-kernel/scripts/build_kernel.sh         # Kernel
-└── package-image/scripts/package_image.sh       # Image creation
-```
+CREATING ISSUES
+  bd create "Fix login bug"
+  bd create "Add auth" -p 0 -t feature
+  bd create "Write tests" -d "Unit tests for auth" --assignee alice
 
-Reference: `12.4/` (LFS book), `blfs-12.4/` (BLFS book)
+VIEWING ISSUES
+  bd list       List all issues
+  bd list --status open  List by status
+  bd list --priority 0  List by priority (0-4, 0=highest)
+  bd show bd-1       Show issue details
 
-## Key Technical Details
+MANAGING DEPENDENCIES
+  bd dep add bd-1 bd-2     Add dependency (bd-2 blocks bd-1)
+  bd dep tree bd-1  Visualize dependency tree
+  bd dep cycles      Detect circular dependencies
 
-**Kernel**: grsec 6.6.102, bind-mounted from `./linux-6.6.102` (not downloaded)
-- Desktop security profile, VM guest optimizations
-- SELinux disabled, hardware drivers as modules
+DEPENDENCY TYPES
+  blocks  Task B must complete before task A
+  related  Soft connection, doesn't block progress
+  parent-child  Epic/subtask hierarchical relationship
+  discovered-from  Auto-created when AI discovers related work
 
-**Init**: systemd (not SysVinit)
-- journald, networkd, resolved, timesyncd enabled
+READY WORK
+  bd ready       Show issues ready to work on
+            Ready = status is 'open' AND no blocking dependencies
+            Perfect for agents to claim next work!
 
-**Service Users**: messagebus (18), systemd-* (190-195)
+UPDATING ISSUES
+  bd update bd-1 --status in_progress
+  bd update bd-1 --priority 0
+  bd update bd-1 --assignee bob
 
-**Checkpointing**: Idempotent builds via `/.checkpoints/`
-```bash
-should_skip_package "pkg" && { log_info "Skipping"; } || {
-    # build...
-    create_checkpoint "pkg"
+CLOSING ISSUES
+  bd close bd-1
+  bd close bd-2 bd-3 --reason "Fixed in PR #42"
+
+DATABASE LOCATION
+  bd automatically discovers your database:
+    1. --db /path/to/db.db flag
+    2. $BEADS_DB environment variable
+    3. .beads/*.db in current directory or ancestors
+    4. ~/.beads/default.db as fallback
+
+AGENT INTEGRATION
+  bd is designed for AI-supervised workflows:
+    • Agents create issues when discovering new work
+    • bd ready shows unblocked work ready to claim
+    • Use --json flags for programmatic parsing
+    • Dependencies prevent agents from duplicating effort
+	
+GIT WORKFLOW (AUTO-SYNC)
+  bd automatically keeps git in sync:
+    • ✓ Export to JSONL after CRUD operations (5s debounce)
+    • ✓ Import from JSONL when newer than DB (after git pull)
+    • ✓ Works seamlessly across machines and team members
+    • No manual export/import needed!
+  Disable with: --no-auto-flush or --no-auto-import
+
+Preamble: You are bulding rookpkg in the rookpkg folder. 
+
+### 1. No Stubs, No Shortcuts
+- **NEVER** use `unimplemented!()`, `todo!()`, or stub implementations
+- **NEVER** leave placeholder code or incomplete implementations
+- **NEVER** skip functionality because it seems complex
+- Every function must be fully implemented and working
+- Every feature must be complete before moving on
+
+### 2. Break Down Complex Tasks
+- Large files or complex features should be broken into manageable chunks
+- If a file is too large, discuss breaking it into smaller modules
+- If a task seems overwhelming, ask the user how to break it down
+- Work incrementally, but each increment must be complete and functional
+
+### 3. Best Rust Coding Practices
+- Follow Rust idioms and conventions at all times
+- Use proper error handling with `Result<T, E>` - no panics in library code
+- Implement appropriate traits (`Debug`, `Clone`, `PartialEq`, etc.)
+- Use type safety to prevent errors at compile time
+- Leverage Rust's ownership system properly
+- Use `async`/`await` correctly with proper trait bounds
+- Follow naming conventions:
+  - `snake_case` for functions, variables, modules
+  - `PascalCase` for types, structs, enums, traits
+  - `SCREAMING_SNAKE_CASE` for constants
+- Write clear, descriptive documentation comments (`///`)
+- Keep functions focused and single-purpose
+
+### 4. Comprehensive Testing
+- Write comprehensive unit tests for every module
+- Aim for high test coverage (all major code paths)
+- Test edge cases, error conditions, and boundary values
+- Include doc tests for public APIs
+- All tests must pass before considering a file "complete"
+- Test both success and failure cases
+
+### 5. Translation Accuracy
+- Translate TypeScript functionality completely and accurately
+- Maintain behavior equivalence with the original TypeScript
+- Don't add features that weren't in the original
+- Don't remove features from the original
+- Document any unavoidable differences between TS and Rust
+
+### 6. Code Quality Standards
+- "powershell.exe -Command "wsl -d RookeryOS -- sh -c 'PATH=/opt/rustc/bin:/usr/bin:/bin cargo check --manifest-path=/mnt/c/Users/texas/rookery/RookeryOS/rookpkg/Cargo.toml 2>&1'"" is the command you need to use cargo commands
+- No warnings from `cargo clippy`
+- No warnings from `cargo build`
+- Format code with `rustfmt` conventions
+- Clear, self-documenting code with meaningful variable names
+- Add comments for complex logic, but prefer clear code over comments
+- Keep functions reasonably sized (< 100 lines ideally)
+
+### 7. Dependencies
+- Only add dependencies when necessary
+- Use well-maintained, popular crates
+- Document why each dependency is needed
+- Keep the dependency tree minimal
+
+### 8. Error Handling
+- Create specific error types for each module using `thiserror`
+- Provide helpful error messages
+- Use `Result` types consistently
+- Never use `.unwrap()` in library code (only in tests)
+- Use `.expect()` only when failure is truly impossible
+
+### 9. Documentation
+- Every public item must have documentation comments
+- Include examples in doc comments when helpful
+- Document panics, errors, and safety considerations
+- Keep docs up to date with code changes
+
+### 10. Work Process
+- Translate one file at a time completely
+- Run tests after every file
+- Ensure all tests pass before moving to next file
+- Ask for clarification if requirements are unclear
+- Discuss approach before starting large/complex files
+
+### 11. Git Workflow
+- **NEVER** create git commits automatically
+- **NEVER** use `git commit` without explicit user instruction
+- **NEVER** use `git push` without explicit user instruction
+- The user will handle all git commits and pushes manually
+- You may stage files with `git add` only when explicitly asked
+- You may run `git status` and `git diff` to check changes
+- You may run `git log` to view history
+- Focus on code quality and testing; leave version control to the user
+
+## What to Do When Facing Complexity
+
+**DON'T:**
+- Stub it out
+- Skip it
+- Say "we'll come back to it"
+- Implement a simplified version
+
+**DO:**
+- Analyze the dependencies
+- Break it into smaller pieces
+- Translate dependencies first
+- Ask the user for guidance on approach
+- Propose a phased implementation plan where each phase is complete
+
+## Example of Breaking Down a Complex File
+
+If `agent.ts` is 1,595 lines:
+
+**WRONG:**
+```rust
+pub struct Agent {
+    // TODO: implement this later
+}
+
+impl Agent {
+    pub fn new() -> Self {
+        unimplemented!()
+    }
 }
 ```
 
-## Docker Volumes
 
-| Volume | Purpose |
-|--------|---------|
-| `rookery_sources` | Downloaded packages |
-| `rookery_tools` | Cross-compiler |
-| `rookery_rootfs` | Main filesystem |
-| `rookery_dist` | Final images |
+## Quality Checklist Before Marking a File "Complete"
 
-## Common Commands
+- [ ] No `todo!()` or `unimplemented!()` macros
+- [ ] Comprehensive unit tests written and passing
+- [ ] All tests pass (`cargo test`)
+- [ ] No compiler warnings
+- [ ] No clippy warnings (run `cargo clippy`)
+- [ ] Code follows Rust best practices
+- [ ] Error handling is proper and comprehensive
+- [ ] Documentation is complete and accurate
 
-```bash
-make build                           # Full build
-docker-compose run --rm build-extended   # Single stage
-docker-compose build --no-cache build-extended  # Rebuild container
+## Remember
 
-# View logs
-docker run --rm -v rookery_logs:/logs ubuntu:22.04 tail -100 /logs/build-basesystem.log
+**The goal is a production-quality Rust code, not a prototype.**
 
-# Force rebuild package
-docker run --rm -v rookery_rootfs:/rookery ubuntu:22.04 rm -f /rookery/.checkpoints/blfs-<pkg>.checkpoint
-
-# Test image
-qemu-system-x86_64 -m 2G -drive file=dist/rookery-os-1.0.img,format=raw -nographic -serial mon:stdio
-```
-
-## Adding Rookery Extended Packages
-
-1. Add download to `download.sh`:
-```bash
-if [ ! -f "pkg-1.0.tar.xz" ]; then
-    download_with_retry "$url" "pkg-1.0.tar.xz"
-fi
-```
-
-2. Add build to `build_blfs_chroot.sh`:
-```bash
-should_skip_package "pkg" && { log_info "Skipping"; } || {
-log_step "Building pkg-1.0..."
-cd "$BUILD_DIR" && rm -rf pkg-* && tar -xf /sources/pkg-1.0.tar.xz && cd pkg-*
-./configure --prefix=/usr && make && make install
-create_checkpoint "pkg"
-}
-```
-
-## Environment Variables
-
-| Variable | Default |
-|----------|---------|
-| `ROOKERY` | `/rookery` |
-| `MAKEFLAGS` | `-j4` |
-| `KERNEL_VERSION` | `6.6.102-grsec` |
-| `IMAGE_NAME` | `rookery-os-1.0` |
-
-**Root password**: `rookery` (change after first login!)
+Every line of code should be something you'd be proud to ship in a production system. Quality over speed. Completeness over convenience.

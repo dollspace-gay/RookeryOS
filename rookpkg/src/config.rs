@@ -23,6 +23,10 @@ pub struct Config {
     /// Build configuration
     #[serde(default)]
     pub build: BuildConfig,
+
+    /// Path configuration
+    #[serde(default)]
+    pub paths: PathsConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -142,6 +146,37 @@ impl Default for BuildConfig {
     }
 }
 
+/// Path configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PathsConfig {
+    /// Root directory for rookpkg data
+    pub root_dir: PathBuf,
+
+    /// Cache directory for downloads
+    pub cache_dir: PathBuf,
+
+    /// Build directory for package building
+    pub build_dir: PathBuf,
+
+    /// Directory for installed package data
+    pub pkg_dir: PathBuf,
+
+    /// Directory for spec files
+    pub specs_dir: PathBuf,
+}
+
+impl Default for PathsConfig {
+    fn default() -> Self {
+        Self {
+            root_dir: PathBuf::from("/var/lib/rookpkg"),
+            cache_dir: PathBuf::from("/var/cache/rookpkg"),
+            build_dir: PathBuf::from("/var/lib/rookpkg/build"),
+            pkg_dir: PathBuf::from("/var/lib/rookpkg/packages"),
+            specs_dir: PathBuf::from("/var/lib/rookpkg/specs"),
+        }
+    }
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -149,6 +184,7 @@ impl Default for Config {
             signing: SigningConfig::default(),
             repositories: vec![],
             build: BuildConfig::default(),
+            paths: PathsConfig::default(),
         }
     }
 }
