@@ -222,12 +222,29 @@ pub fn execute(command: Commands, config: &Config) -> Result<()> {
             Ok(())
         }
         Commands::Clean { all } => {
-            if all {
+            use crate::repository::RepoManager;
+
+            let manager = RepoManager::new(config)?;
+
+            let result = if all {
                 println!("{}", "Cleaning all cached packages...".cyan());
+                manager.clean_all_packages()?
             } else {
-                println!("{}", "Cleaning old cached packages...".cyan());
+                println!("{}", "Cleaning old cached packages (>30 days)...".cyan());
+                manager.clean_package_cache(30)?
+            };
+
+            println!();
+            if result.any_removed() {
+                println!(
+                    "  {} Removed {} file(s), freed {}",
+                    "✓".green(),
+                    result.removed_files,
+                    result.removed_bytes_human()
+                );
+            } else {
+                println!("  Cache is empty or no old packages found.");
             }
-            println!("  Cache is empty.");
             Ok(())
         }
     }

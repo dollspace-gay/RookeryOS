@@ -28,12 +28,15 @@
 //! priority = 1
 //! ```
 
-use std::fs;
+use std::fs::{self, File};
+use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::config::Config;
 use crate::signing::{self, HybridSignature, LoadedPublicKey};
@@ -327,6 +330,15 @@ impl Repository {
     }
 }
 
+/// Maximum number of download retries per mirror
+const MAX_RETRIES: u32 = 3;
+
+/// Timeout for connecting to a server
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Timeout for the entire download operation (10 minutes for large files)
+const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(600);
+
 /// Repository manager handles all configured repositories
 pub struct RepoManager {
     /// Configured repositories
@@ -335,16 +347,22 @@ pub struct RepoManager {
     client: reqwest::blocking::Client,
     /// Cache base directory
     cache_dir: PathBuf,
+    /// Package cache directory
+    pkg_cache_dir: PathBuf,
 }
 
 impl RepoManager {
     /// Create a new repository manager from config
     pub fn new(config: &Config) -> Result<Self> {
         let client = reqwest::blocking::Client::builder()
-            .timeout(std::time::Duration::from_secs(30))
+            .connect_timeout(CONNECT_TIMEOUT)
+            .timeout(DOWNLOAD_TIMEOUT)
+            .user_agent(format!("rookpkg/{}", env!("CARGO_PKG_VERSION")))
             .build()?;
 
         let cache_dir = config.paths.cache_dir.clone();
+        let pkg_cache_dir = cache_dir.join("packages");
+        fs::create_dir_all(&pkg_cache_dir).ok();
 
         let mut repos = Vec::new();
         for repo_config in &config.repositories {
@@ -365,6 +383,7 @@ impl RepoManager {
             repos,
             client,
             cache_dir,
+            pkg_cache_dir,
         })
     }
 
@@ -595,6 +614,325 @@ impl RepoManager {
         }
         Ok(())
     }
+
+    /// Download a package from a repository with mirror fallback
+    ///
+    /// Returns the path to the downloaded package file.
+    /// If the package is already cached with correct checksum, returns the cached path.
+    pub fn download_package(&self, package: &PackageEntry, repo_name: &str) -> Result<PathBuf> {
+        let repo = self
+            .repos
+            .iter()
+            .find(|r| r.name == repo_name)
+            .ok_or_else(|| anyhow::anyhow!("Repository not found: {}", repo_name))?;
+
+        // Determine the local cache path for this package
+        let pkg_filename = Path::new(&package.filename)
+            .file_name()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| format!("{}-{}-{}.rookpkg", package.name, package.version, package.release));
+
+        let cache_path = self.pkg_cache_dir.join(&pkg_filename);
+
+        // Check if package is already cached with correct checksum
+        if cache_path.exists() {
+            match verify_sha256(&cache_path, &package.sha256) {
+                Ok(true) => {
+                    tracing::info!("Using cached package: {}", pkg_filename);
+                    return Ok(cache_path);
+                }
+                Ok(false) => {
+                    tracing::warn!("Cached package has wrong checksum, re-downloading: {}", pkg_filename);
+                    fs::remove_file(&cache_path).ok();
+                }
+                Err(e) => {
+                    tracing::warn!("Error checking cached package: {}, re-downloading", e);
+                    fs::remove_file(&cache_path).ok();
+                }
+            }
+        }
+
+        // Build list of URLs to try (primary + mirrors)
+        let mut urls = vec![repo.package_url(package)];
+
+        // Add mirror URLs if available
+        if let Some(ref metadata) = repo.metadata {
+            for mirror in &metadata.mirrors {
+                if mirror.enabled {
+                    let mirror_url = format!(
+                        "{}/{}",
+                        mirror.url.trim_end_matches('/'),
+                        package.filename
+                    );
+                    urls.push(mirror_url);
+                }
+            }
+        }
+
+        // Sort mirrors by priority (lower = higher priority)
+        // Primary URL stays first, mirrors sorted after
+        if urls.len() > 1 {
+            let primary = urls.remove(0);
+            if let Some(ref metadata) = repo.metadata {
+                urls.sort_by(|a, b| {
+                    let a_priority = metadata
+                        .mirrors
+                        .iter()
+                        .find(|m| a.starts_with(&m.url))
+                        .map(|m| m.priority)
+                        .unwrap_or(u32::MAX);
+                    let b_priority = metadata
+                        .mirrors
+                        .iter()
+                        .find(|m| b.starts_with(&m.url))
+                        .map(|m| m.priority)
+                        .unwrap_or(u32::MAX);
+                    a_priority.cmp(&b_priority)
+                });
+            }
+            urls.insert(0, primary);
+        }
+
+        // Try each URL until one succeeds
+        let mut last_error: Option<anyhow::Error> = None;
+
+        for url in &urls {
+            tracing::info!("Downloading package from: {}", url);
+
+            match self.download_with_retries(url, &cache_path) {
+                Ok(()) => {
+                    // Verify checksum
+                    match verify_sha256(&cache_path, &package.sha256) {
+                        Ok(true) => {
+                            tracing::info!("Package download verified: {}", pkg_filename);
+                            return Ok(cache_path);
+                        }
+                        Ok(false) => {
+                            let err = anyhow::anyhow!(
+                                "Checksum mismatch for {} (expected: {}, got different hash)",
+                                pkg_filename,
+                                package.sha256
+                            );
+                            tracing::error!("{}", err);
+                            fs::remove_file(&cache_path).ok();
+                            last_error = Some(err);
+                        }
+                        Err(e) => {
+                            tracing::error!("Failed to verify checksum: {}", e);
+                            fs::remove_file(&cache_path).ok();
+                            last_error = Some(e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("Download failed from {}: {}", url, e);
+                    last_error = Some(e);
+                }
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| anyhow::anyhow!("No URLs available for package download")))
+    }
+
+    /// Download with retry logic
+    fn download_with_retries(&self, url: &str, dest: &Path) -> Result<()> {
+        let mut last_error: Option<anyhow::Error> = None;
+
+        for attempt in 1..=MAX_RETRIES {
+            if attempt > 1 {
+                tracing::info!("Retry attempt {} of {}", attempt, MAX_RETRIES);
+                std::thread::sleep(Duration::from_secs(2_u64.pow(attempt - 1)));
+            }
+
+            match self.download_single(url, dest) {
+                Ok(()) => return Ok(()),
+                Err(e) => {
+                    tracing::warn!("Attempt {} failed: {}", attempt, e);
+                    last_error = Some(e);
+                }
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| {
+            anyhow::anyhow!("Download failed after {} retries", MAX_RETRIES)
+        }))
+    }
+
+    /// Perform a single download attempt
+    fn download_single(&self, url: &str, dest: &Path) -> Result<()> {
+        let response = self
+            .client
+            .get(url)
+            .send()
+            .with_context(|| format!("Failed to connect to: {}", url))?;
+
+        if !response.status().is_success() {
+            bail!("HTTP error {}: {}", response.status(), url);
+        }
+
+        let total_size = response.content_length();
+
+        // Create temporary file for download
+        let temp_path = dest.with_extension("part");
+        let mut file = File::create(&temp_path)
+            .with_context(|| format!("Failed to create temp file: {}", temp_path.display()))?;
+
+        // Download with progress
+        let mut downloaded: u64 = 0;
+        let mut buffer = [0u8; 8192];
+        let mut reader = BufReader::new(response);
+
+        loop {
+            let bytes_read = reader
+                .read(&mut buffer)
+                .context("Failed to read from network")?;
+
+            if bytes_read == 0 {
+                break;
+            }
+
+            file.write_all(&buffer[..bytes_read])
+                .context("Failed to write to file")?;
+
+            downloaded += bytes_read as u64;
+
+            // Log progress for large files (every 10MB)
+            if let Some(total) = total_size {
+                if total > 10_000_000 && downloaded % 10_000_000 < 8192 {
+                    let percent = (downloaded as f64 / total as f64 * 100.0) as u32;
+                    tracing::debug!("Progress: {}% ({}/{})", percent, downloaded, total);
+                }
+            }
+        }
+
+        file.flush().context("Failed to flush file")?;
+        drop(file);
+
+        // Move temp file to final destination
+        fs::rename(&temp_path, dest).with_context(|| {
+            format!(
+                "Failed to rename {} to {}",
+                temp_path.display(),
+                dest.display()
+            )
+        })?;
+
+        Ok(())
+    }
+
+    /// Download multiple packages
+    pub fn download_packages(&self, packages: &[(PackageEntry, String)]) -> Result<Vec<PathBuf>> {
+        let mut paths = Vec::with_capacity(packages.len());
+
+        for (package, repo_name) in packages {
+            let path = self.download_package(package, repo_name)?;
+            paths.push(path);
+        }
+
+        Ok(paths)
+    }
+
+    /// Get the package cache directory
+    pub fn package_cache_dir(&self) -> &Path {
+        &self.pkg_cache_dir
+    }
+
+    /// Clean old packages from the cache
+    ///
+    /// Removes packages older than `max_age_days` days.
+    /// Returns the number of files removed.
+    pub fn clean_package_cache(&self, max_age_days: u64) -> Result<CleanResult> {
+        let mut result = CleanResult::default();
+        let max_age = Duration::from_secs(max_age_days * 24 * 60 * 60);
+
+        if !self.pkg_cache_dir.exists() {
+            return Ok(result);
+        }
+
+        for entry in fs::read_dir(&self.pkg_cache_dir)? {
+            let entry = entry?;
+            let metadata = entry.metadata()?;
+
+            if metadata.is_file() {
+                result.total_files += 1;
+                result.total_bytes += metadata.len();
+
+                if let Ok(modified) = metadata.modified() {
+                    if let Ok(age) = modified.elapsed() {
+                        if age > max_age {
+                            let size = metadata.len();
+                            if fs::remove_file(entry.path()).is_ok() {
+                                tracing::info!("Removed old cached package: {:?}", entry.file_name());
+                                result.removed_files += 1;
+                                result.removed_bytes += size;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(result)
+    }
+
+    /// Clean all packages from the cache
+    pub fn clean_all_packages(&self) -> Result<CleanResult> {
+        let mut result = CleanResult::default();
+
+        if !self.pkg_cache_dir.exists() {
+            return Ok(result);
+        }
+
+        for entry in fs::read_dir(&self.pkg_cache_dir)? {
+            let entry = entry?;
+            let metadata = entry.metadata()?;
+
+            if metadata.is_file() {
+                result.total_files += 1;
+                result.total_bytes += metadata.len();
+
+                let size = metadata.len();
+                if fs::remove_file(entry.path()).is_ok() {
+                    result.removed_files += 1;
+                    result.removed_bytes += size;
+                }
+            }
+        }
+
+        Ok(result)
+    }
+
+    /// Check if a package is cached
+    pub fn is_package_cached(&self, package: &PackageEntry) -> bool {
+        let pkg_filename = Path::new(&package.filename)
+            .file_name()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| format!("{}-{}-{}.rookpkg", package.name, package.version, package.release));
+
+        let cache_path = self.pkg_cache_dir.join(&pkg_filename);
+
+        if cache_path.exists() {
+            verify_sha256(&cache_path, &package.sha256).unwrap_or(false)
+        } else {
+            false
+        }
+    }
+
+    /// Get the cached path for a package (if it exists and is valid)
+    pub fn get_cached_package(&self, package: &PackageEntry) -> Option<PathBuf> {
+        let pkg_filename = Path::new(&package.filename)
+            .file_name()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| format!("{}-{}-{}.rookpkg", package.name, package.version, package.release));
+
+        let cache_path = self.pkg_cache_dir.join(&pkg_filename);
+
+        if cache_path.exists() && verify_sha256(&cache_path, &package.sha256).unwrap_or(false) {
+            Some(cache_path)
+        } else {
+            None
+        }
+    }
 }
 
 /// Result of a repository update operation
@@ -606,6 +944,80 @@ pub struct UpdateResult {
     pub unchanged: Vec<String>,
     /// Repositories that failed to update
     pub failed: Vec<(String, String)>,
+}
+
+/// Result of a cache clean operation
+#[derive(Debug, Default)]
+pub struct CleanResult {
+    /// Total files in cache before cleaning
+    pub total_files: usize,
+    /// Total bytes in cache before cleaning
+    pub total_bytes: u64,
+    /// Files removed
+    pub removed_files: usize,
+    /// Bytes freed
+    pub removed_bytes: u64,
+}
+
+impl CleanResult {
+    /// Check if any files were removed
+    pub fn any_removed(&self) -> bool {
+        self.removed_files > 0
+    }
+
+    /// Format the removed bytes as a human-readable string
+    pub fn removed_bytes_human(&self) -> String {
+        format_bytes(self.removed_bytes)
+    }
+
+    /// Format the total bytes as a human-readable string
+    pub fn total_bytes_human(&self) -> String {
+        format_bytes(self.total_bytes)
+    }
+}
+
+/// Format bytes as a human-readable string
+fn format_bytes(bytes: u64) -> String {
+    const KB: u64 = 1024;
+    const MB: u64 = KB * 1024;
+    const GB: u64 = MB * 1024;
+
+    if bytes >= GB {
+        format!("{:.2} GB", bytes as f64 / GB as f64)
+    } else if bytes >= MB {
+        format!("{:.2} MB", bytes as f64 / MB as f64)
+    } else if bytes >= KB {
+        format!("{:.2} KB", bytes as f64 / KB as f64)
+    } else {
+        format!("{} B", bytes)
+    }
+}
+
+/// Verify the SHA256 checksum of a file
+fn verify_sha256(path: &Path, expected: &str) -> Result<bool> {
+    let actual = compute_sha256(path)?;
+    Ok(actual.eq_ignore_ascii_case(expected))
+}
+
+/// Compute the SHA256 checksum of a file
+fn compute_sha256(path: &Path) -> Result<String> {
+    let file = File::open(path)
+        .with_context(|| format!("Failed to open file for checksum: {}", path.display()))?;
+
+    let mut reader = BufReader::with_capacity(1024 * 1024, file);
+    let mut hasher = Sha256::new();
+    let mut buffer = [0u8; 8192];
+
+    loop {
+        let bytes_read = reader.read(&mut buffer)?;
+        if bytes_read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..bytes_read]);
+    }
+
+    let hash = hasher.finalize();
+    Ok(hex::encode(hash))
 }
 
 impl UpdateResult {
