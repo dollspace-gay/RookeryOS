@@ -1,10 +1,43 @@
 //! Command-line interface for rookpkg
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::Subcommand;
 use colored::Colorize;
 
 use crate::config::Config;
+
+/// Check if the current user is root (UID 0)
+fn is_root() -> bool {
+    // On Unix systems, check effective UID
+    #[cfg(unix)]
+    {
+        unsafe { libc::geteuid() == 0 }
+    }
+    // On non-Unix (shouldn't happen for rookpkg, but handle gracefully)
+    #[cfg(not(unix))]
+    {
+        true // Assume root on non-Unix for now
+    }
+}
+
+/// Require root privileges for system-modifying operations
+///
+/// If `dry_run` is true, root is not required (we're just showing what would happen).
+fn require_root(operation: &str, dry_run: bool) -> Result<()> {
+    if dry_run || is_root() {
+        return Ok(());
+    }
+
+    bail!(
+        "{} requires root privileges.\n\n\
+        Run with sudo:\n  \
+        {} rookpkg {}\n\n\
+        Or use --dry-run to preview without making changes.",
+        operation.cyan().bold(),
+        "sudo".green(),
+        operation
+    );
+}
 
 mod build;
 mod check;
@@ -270,9 +303,11 @@ pub enum RepoCommands {
 pub fn execute(command: Commands, config: &Config) -> Result<()> {
     match command {
         Commands::Install { packages, local, dry_run } => {
+            require_root("install", dry_run)?;
             install::run(&packages, local, dry_run, config)
         }
         Commands::Remove { packages, cascade, dry_run } => {
+            require_root("remove", dry_run)?;
             remove::run(&packages, cascade, dry_run, config)
         }
         Commands::List { available, filter, all_versions } => {
@@ -294,9 +329,11 @@ pub fn execute(command: Commands, config: &Config) -> Result<()> {
             keys::list_keys(config)
         }
         Commands::KeyTrust { key } => {
+            require_root("keytrust", false)?;  // modifies system keyring
             keys::trust_key(&key, config)
         }
         Commands::KeyUntrust { fingerprint } => {
+            require_root("keyuntrust", false)?;  // modifies system keyring
             keys::untrust_key(&fingerprint, config)
         }
         Commands::KeySign { key, master, purpose, output } => {
@@ -318,6 +355,7 @@ pub fn execute(command: Commands, config: &Config) -> Result<()> {
             update::run(config)
         }
         Commands::Upgrade { dry_run } => {
+            require_root("upgrade", dry_run)?;
             upgrade::run(dry_run, config)
         }
         Commands::Depends { package, reverse } => {
@@ -327,6 +365,7 @@ pub fn execute(command: Commands, config: &Config) -> Result<()> {
             check::run(package.as_deref(), config)
         }
         Commands::Clean { all } => {
+            require_root("clean", false)?;  // clean always modifies system cache
             use crate::download::Downloader;
             use crate::repository::RepoManager;
 
@@ -399,6 +438,7 @@ pub fn execute(command: Commands, config: &Config) -> Result<()> {
             Ok(())
         }
         Commands::Recover { transaction_id } => {
+            require_root("recover", false)?;  // recover modifies system state
             recover::run(transaction_id.as_deref(), config)
         }
         Commands::Inspect { path, files, scripts, validate } => {

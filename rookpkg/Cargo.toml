@@ -70,6 +70,10 @@ directories = "5"
 # Terminal colors
 colored = "2"
 
+# Unix system calls (for root check)
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 # Temporary files/directories
 tempfile = "3"
 

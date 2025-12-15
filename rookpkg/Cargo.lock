@@ -1494,6 +1494,7 @@ dependencies = [
  "ed25519-dalek",
  "hex",
  "indicatif",
+ "libc",
  "ml-dsa",
  "predicates",
  "pubgrub",
