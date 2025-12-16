@@ -9826,6 +9826,8 @@ User=
 [General]
 HaltCommand=/usr/bin/systemctl poweroff
 RebootCommand=/usr/bin/systemctl reboot
+# Disable virtual keyboard on login screen (set to qtvirtualkeyboard to enable)
+InputMethod=
 
 [Theme]
 Current=breeze
