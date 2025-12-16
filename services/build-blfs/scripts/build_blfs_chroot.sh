@@ -6841,7 +6841,8 @@ fi
 
 ./configure --prefix=/usr --disable-oss
 make
-make docdir=/usr/share/doc/libcanberra-0.30 install
+# Use -j1 for install to avoid race condition during libtool relinking
+make -j1 docdir=/usr/share/doc/libcanberra-0.30 install
 
 cd "$BUILD_DIR"
 rm -rf libcanberra-*
