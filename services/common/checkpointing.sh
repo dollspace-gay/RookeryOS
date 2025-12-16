@@ -28,8 +28,14 @@ get_source_hash() {
     local package_name="$1"
     local sources_dir="${2:-/sources}"
 
-    # Find tarball matching pattern (handles version numbers)
-    local tarball=$(find "$sources_dir" -maxdepth 1 -name "${package_name}-*.tar.*" -o -name "${package_name}-*.tgz" 2>/dev/null | head -1)
+    # Find tarball matching pattern (handles version numbers and various naming conventions)
+    # Patterns: package-version.tar.*, packageX.Y.Z.tar.*, package-version-src.tar.*
+    local tarball=$(find "$sources_dir" -maxdepth 1 \( \
+        -name "${package_name}-*.tar.*" -o \
+        -name "${package_name}-*.tgz" -o \
+        -name "${package_name}[0-9]*.tar.*" -o \
+        -name "${package_name}[0-9]*.tgz" \
+    \) 2>/dev/null | head -1)
 
     if [ -z "$tarball" ]; then
         echo "NOTFOUND"

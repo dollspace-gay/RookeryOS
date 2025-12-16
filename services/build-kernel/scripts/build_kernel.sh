@@ -50,8 +50,8 @@ main() {
     # Initialize checkpoint system
     init_checkpointing
 
-    # Check if kernel already built
-    if should_skip_package "linux-grsec" "$SOURCES_DIR"; then
+    # Check if kernel already built (use global checkpoint - no source tarball)
+    if should_skip_global_checkpoint "linux-grsec"; then
         log_info "Grsec kernel $KERNEL_VERSION already built - skipping"
         exit 0
     fi
@@ -455,8 +455,8 @@ EOF
     log_info "Kernel size: $(du -h $ROOKERY/boot/vmlinuz-$ACTUAL_VERSION | cut -f1)"
     log_info "Modules size: $(du -sh $ROOKERY/lib/modules/$ACTUAL_VERSION 2>/dev/null | cut -f1 || echo 'N/A')"
 
-    # Create checkpoint
-    create_checkpoint "linux-grsec" "$SOURCES_DIR" "kernel"
+    # Create global checkpoint (no source tarball to hash)
+    create_global_checkpoint "linux-grsec" "kernel" "$KERNEL_VERSION"
     log_info "Kernel checkpoint created"
 
     exit 0
